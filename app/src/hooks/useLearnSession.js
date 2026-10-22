@@ -81,6 +81,15 @@ export function triggerOrderChoicePayload(resolveOrder) {
   return { kind: "trigger-order", resolveOrder: ok ? [...resolveOrder] : null };
 }
 
+/**
+ * The /api/learn/choose payload for the colour of "protection from the color of your choice" (CR 608.2d — announced as it resolves):
+ * the picked colour (a WUBRG letter, or "C" for colourless where the grant offers it), with the `kind` echo the server checks (WI-5).
+ * Anything else posts null, which the server asks again. Pure, so it is tested without React.
+ */
+export function protectionColorChoicePayload(color) {
+  return { kind: "protection-color", color: typeof color === "string" && /^[WUBRGC]$/.test(color) ? color : null };
+}
+
 export default function useLearnSession() {
   const [state, setState] = useState(INITIAL_STATE);
   const inFlightRef = useRef(false);
@@ -1157,6 +1166,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** PROTECTION COLOR (CR 608.2d) — the colour of your "protection from the color of your choice" grant, chosen as it resolves. */
+  const applyProtectionColorChoice = useCallback(
+    (color) => submitPendingChoice("protection-color", protectionColorChoicePayload(color)),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1830,6 +1845,7 @@ export default function useLearnSession() {
     applyAuraEntryHostChoice, // CR 303.4f — what your entering Aura enchants
     applyTriggerTargetChoice, // CR 603.3d — the targets of your own triggered ability
     applyTriggerOrderChoice, // CR 603.3b — the order of your own simultaneous triggered abilities
+    applyProtectionColorChoice, // CR 608.2d — the colour of your "protection from the color of your choice"
     applyCommanderReturnChoice,
     mulligan,
     reset,

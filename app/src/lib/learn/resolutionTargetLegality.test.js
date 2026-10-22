@@ -35,7 +35,7 @@ import { checkAttackTriggers } from "./triggers.js";
 import { classifyCard } from "./coverage.js";
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
-import { runEffectProgram } from "./effects/runProgram.js";
+import { runEffectProgram, resolveProtectionColorChoice } from "./effects/runProgram.js";
 import { RESOLVER_KEYS } from "./resolverKeys.js";
 import { permanentIsCreature, permanentPower, permanentProtectionColors } from "./layers.js";
 
@@ -192,10 +192,14 @@ describe("protection from the source's colour gained in response (CR 702.16b) �
   });
 
   it("protection from a colour the spell is NOT (green) leaves Swords' target legal — it resolves", () => {
-    // Two green creatures on the AI's side outvote the Lions, so Mother of Runes picks green.
-    let s = cast(swordsBoard([P("elf1", "ai", LLANOWAR_ELVES), P("elf2", "ai", LLANOWAR_ELVES)]), "ai", "swords", ["bears"]);
+    // Since 2026-10-20 the automatic pick reads the white Swords on the stack and takes white (protectionChoice), whatever the
+    // board shows; the colour is its controller's choice as the ability resolves (CR 608.2d), so the user seat — a person here —
+    // chooses green.
+    let s = cast({ ...swordsBoard([P("elf1", "ai", LLANOWAR_ELVES), P("elf2", "ai", LLANOWAR_ELVES)]), humanSeats: ["user"] }, "ai", "swords", ["bears"]);
     s = activate(s, "user", "mother", ["bears"]);
     s = resolveTop(s);
+    expect(s.pendingChoice?.kind).toBe("protection-color");
+    s = resolveProtectionColorChoice(s, "G");
     expect([...permanentProtectionColors(s, "bears")]).toEqual(["G"]);
     s = resolveTop(s);
     expect(perm(s, "bears")).toBe(null);

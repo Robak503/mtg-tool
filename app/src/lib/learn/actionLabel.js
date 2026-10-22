@@ -11,6 +11,9 @@ import { SEAT_LABELS, seatPossessive } from "./seatLabels.js";
 // permanent sacrificed, the card discarded, exiled from the graveyard, returned to hand or revealed.
 const ADDITIONAL_COST_NAMES = ["payLifeName", "payManaName", "sacName", "discardName", "exileGyName", "returnName", "revealName"];
 
+// The colour letters a "protection from the color of your choice" answer carries (WUBRG, and C for colorless), in words.
+const PROTECTION_COLOR_WORDS = { W: "white", U: "blue", B: "black", R: "red", G: "green", C: "colorless" };
+
 /**
  * The clauses that set one cast apart from a plain cast of the same card, in reading order: the chosen mode(s), X, the kicker
  * (teamwork names the creatures it taps, shelf D16), an alternative cost (bestow, emerge, flashback, escape with the three
@@ -177,6 +180,8 @@ function kindLabel(o, seat) {
     case "free-cast-decline": return "Decline the free cast";
     case "cascade-decline": return "Decline the cascade cast";
     case "cast-from-among-done": return "Done casting from among the exiled cards";
+    // A game-log record, not a dispatcher action: the colour a person chose for "protection from the color of your choice".
+    case "protection-color-choice": return `Choose protection from ${PROTECTION_COLOR_WORDS[o.color] ?? "a color"}${o.sourceName ? ` (${o.sourceName})` : ""}`;
     default: return null;
   }
 }

@@ -3,12 +3,13 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, permanentColors } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permanentColors — the protection-color pick's layer-aware tally (applyGrantProtection) // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect, dealSimultaneousDamage } from "../../spellEffects.js"; // the shared deal path: a bite of a planeswalker (applyDamageEffect) and the fights, bites and self-fights (dealSimultaneousDamage) — call-time binding, cycle-safe (removal.js precedent)
 import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { autoPickCreatureType, autoPickProtectionColor } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) + PROTECTION-COLOR (vein #3, Mother/Giver) — the shared auto-choice policies; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
+import { autoPickCreatureType } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) — the shared auto-choice policy; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
+import { protectionColorPick, protectionGrantPermanentIds } from "../../protectionChoice.js"; // PROTECTION-COLOR (vein #3, Mother/Giver) — the one automatic pick the resolution, the AI's save preview and a person's suggestion share (call-time bindings: it reads spellEffects and shared.js, both already imported here)
 import { NON_CHOSEN_TARGET_TYPES } from "../../targetTypes.js"; // MASS-TAP — targetTypes.js is a zero-import leaf (cycle-safe)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // BECOME-CREATURE-TYPE's `replaces` filter — the closed creature-type vocabulary, a zero-import leaf (cycle-safe)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
@@ -1056,12 +1057,13 @@ export function applyGrantProtection(state, atom, ctx) {
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };
-  // OF-YOUR-CHOICE (Mother/Giver, vein #3): the color resolves AT RESOLUTION via the shared
-  // deterministic policy (the autoPickCreatureType convention — board-shaped, never payoff-tuned). The policy tallies
-  // each opponent permanent's CURRENT colors (permanentColors, CR 613.1e): choicePolicy imports nothing, so the
-  // layer-aware read is handed in here.
+  // OF-YOUR-CHOICE (Mother/Giver, vein #3): the color is chosen AT RESOLUTION by the controller (CR 608.2d). A person's
+  // answer rides the atom as `chosenColor` (the protection-color pause — runProgram.resolveProtectionColorChoice); every
+  // other seat takes the shared automatic pick (protectionChoice.protectionColorPick): the colour of the opponents' spells
+  // and abilities on the stack that target or damage the protected permanent, else the board read over each opponent
+  // permanent's CURRENT colors (permanentColors, CR 613.1e).
   const colors = atom.colorChoice
-    ? [autoPickProtectionColor(next, ctx.controller, { orColorless: !!atom.orColorless, colorsOfPermanent: (p) => permanentColors(next, p.id) })]
+    ? [atom.chosenColor ?? protectionColorPick(next, ctx.controller, protectionGrantPermanentIds(next, atom, ctx), { orColorless: !!atom.orColorless })]
     : (atom.colors || []);
   for (const target of targets) {
     if (!findPermanent(next, target.id)) continue;   // target gone → clean no-op, never a fabricated grant

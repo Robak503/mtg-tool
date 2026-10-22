@@ -25,7 +25,8 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
-import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f)
+import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice, setPendingProtectionColorChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f) // + the protection-color pause (CR 608.2d)
+import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d — a person announces the colour of "protection from the color of your choice" as it resolves (call-time binding)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
@@ -228,6 +229,10 @@ function enqueueReflexiveTrigger(state, stackObject, params, reflexiveAtoms) {
  */
 function resolveAtomAsking(state, atom, ctx) {
   if (!state.humanSeats?.length) return resolveAtom(state, atom, ctx);
+  // "Protection from the color of your choice" for a person's seat (CR 608.2d — the colour is announced as the effect applies):
+  // pause before the atom runs, on the protection-color question; resolveProtectionColorChoice runs it with the answer.
+  const colorQuestion = state.pendingChoice ? null : protectionColorQuestion(state, atom, ctx);
+  if (colorQuestion) return setPendingProtectionColorChoice(state, { ...colorQuestion, sourceName: ctx?.cardName ?? null, step: { atom, ctx } });
   const { state: after, question } = withAuraEntryAsk(null, () => resolveAtom(state, atom, ctx));
   if (!question || after == null) return after;
   return setPendingAuraEntryHostChoice(state, { ...question, sourceName: ctx?.cardName ?? null, step: { atom, ctx } });
@@ -1667,6 +1672,31 @@ export function resolveAuraEntryHostChoice(state, hostId, { replaySettle = null 
     return question ? askAgain(question) : after;
   }
   return next;
+}
+
+/**
+ * PROTECTION COLOR (CR 608.2d, 702.16) — settle the person's choice of the colour for "protection from the color of your choice":
+ * the paused grant (`step.atom`, `step.ctx`) runs with `chosenColor` = the answer, then the program resumes after it. The colour
+ * must be one of the pause's candidates (the five colours, and colourless when the grant offers it); anything else decides nothing
+ * and returns the state unchanged, so the question is asked again. There is no decline: the grant gives protection from a colour.
+ * A controller who has left the game since gets no grant (the program resumes without it).
+ */
+export function resolveProtectionColorChoice(state, color) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "protection-color") return state;
+  // A pause with no colour on offer (never raised so — protectionColorQuestion always offers the five) grants nothing and resumes.
+  if (!(pc.candidates || []).length) return resumeAfterChoice(clearPendingChoice(state), pc);
+  if (!(pc.candidates || []).some((c) => c.id === color)) return state;
+  const next = clearPendingChoice(state);
+  const step = pc.step || {};
+  if (!step.atom || !next.players?.[pc.controller]) return resumeAfterChoice(next, pc);
+  const logLenBefore = next.log?.length ?? 0;
+  const after = resolveAtom(next, { ...step.atom, chosenColor: color }, step.ctx || {});
+  if (after == null) return markPendingArbiter(next, { source: { name: pc.sourceName ?? null }, payload: { params: pc.resume || {} } }, `protection-color: atom "${step.atom?.op}" had no resolver`);
+  // A pause the grant raised itself (none does today) carries the program on — the aura-entry-host settle's guard.
+  if (after.pendingChoice) return after.pendingChoice.resume || pc.resume === undefined ? after : { ...after, pendingChoice: { ...after.pendingChoice, resume: pc.resume } };
+  const sacrificed = realSacrificeIn((after.log || []).slice(logLenBefore), step.ctx?.controller) || step.atom.ifSacrificed === true;
+  return resumeAfterChoice(after, pc, { prevSacrificed: sacrificed });
 }
 
 /**

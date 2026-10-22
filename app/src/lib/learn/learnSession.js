@@ -113,6 +113,7 @@ import {
   resolveOptionalExileSelfChoice,
   resolveMilledPickChoice,
   resolveAuraEntryHostChoice,
+  resolveProtectionColorChoice,
   autoPickSacUnlessPay,
   resolveSacUnlessPayChoice,
   autoPickTaxedPayment,
@@ -785,6 +786,13 @@ function settleOptionalSacChoice(state, value) {
 // finalizeStackResolution flushes what the resolution enqueued. Mirrors settleOptionalSacChoice.
 function settleChangeTargetChoice(state, value) {
   const next = resolveChangeTargetChoice(state, typeof value === "string" ? value : null);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// PROTECTION COLOR (CR 608.2d) — settle the colour of a "protection from the color of your choice" grant: the grant runs with it and the
+// program resumes. A colour that is not a candidate leaves the state as it was (still paused — asked again).
+function settleProtectionColorChoice(state, color) {
+  const next = resolveProtectionColorChoice(state, typeof color === "string" ? color : null);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2339,6 +2347,29 @@ export function advanceUntilDecision(
         current = { ...current, state: settleTriggerOrderChoice(current.state, picked.resolveOrder) };
         continue;
       }
+      // ===== PROTECTION COLOR ===== (CR 608.2d, 702.16) — the person playing pc.controller announces the colour of a "protection from
+      // the color of your choice" grant as it resolves. Raised only for a seat a person plays (runProgram.resolveAtomAsking), so `pause` is
+      // the path it takes; the rest is the contract's settle-in-one-tick path (and a pilot's offer): one action per colour on offer, the
+      // automatic chooser's pick (`suggestedId` — the threats' colour, else the board read) as the fallback.
+      if (pc.kind === "protection-color") {
+        if (pause) {
+          return { session: current, decision: { kind: "protection-color", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: `Protection from ${String(c.name || c.id).toLowerCase()}` })),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: pc.suggestedId ?? null },
+        });
+        // Never a livelock on this path: a value that is no candidate takes the suggestion (and that failing, the first colour).
+        const ids = (pc.candidates || []).map((c) => c.id);
+        const value = ids.includes(picked.value) ? picked.value : ids.includes(pc.suggestedId) ? pc.suggestedId : ids[0] ?? null;
+        current = { ...current, state: settleProtectionColorChoice(current.state, value) };
+        continue;
+      }
       if (pc.kind === "optional-draw-discard") {
         if (pause) {
           return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
@@ -3613,6 +3644,39 @@ export function applyTriggerOrderChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== PROTECTION COLOR ===== (CR 608.2d, 702.16) — the player announced the colour of a "protection from the color of your choice"
+ * grant as it resolves (`choice.color`, a WUBRG letter, or "C" where the grant offers colourless). settleProtectionColorChoice runs the
+ * grant with it; a colour that is not one of the pause's candidates decides nothing and the question is asked again. A double-submit
+ * (nothing pending) re-derives. Mirrors applyTriggerOrderChoice.
+ */
+export function applyProtectionColorChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "protection-color") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const color = typeof choice?.color === "string" ? choice.color : null;
+  const newState = settleProtectionColorChoice(session.state, color);
+  if (newState === session.state) return advanceUntilDecision(session, opts); // not a colour on offer — ask again
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "protection-color-choice", color, sourceName: pc.sourceName ?? null },
+    auto: false,
+    reasoning: "user-chose-protection-color",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
  * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
  * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -4509,6 +4573,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "aura-entry-host") return applyAuraEntryHostChoice(session, choice, opts); // CR 303.4f — what a person's entering Aura enchants
   if (kind === "trigger-target") return applyTriggerTargetChoice(session, choice, opts); // CR 603.3d — the targets of a person's own triggered ability
   if (kind === "trigger-order") return applyTriggerOrderChoice(session, choice, opts); // CR 603.3b — the order of a person's own simultaneous triggered abilities
+  if (kind === "protection-color") return applyProtectionColorChoice(session, choice, opts); // CR 608.2d — the colour of a person's "protection from the color of your choice"
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")

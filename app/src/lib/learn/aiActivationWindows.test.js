@@ -433,8 +433,14 @@ describe("a save in response — an opponent's removal on the stack aimed at its
     expect(onBattlefield(after, "ai", "cw")).toBe(true);
   });
 
-  it("control: Mother of Runes is held when its choice would be green (the user's board is a Grizzly Bears) and the Bolt is red", () => {
-    const s = userCastsAt({ user: [...mountains(1), P("ugb", GRIZZLY_BEARS, "user")], ai: [P("mor", MOTHER_OF_RUNES, "ai"), P("gb", GRIZZLY_BEARS, "ai")], userHand: [C("h-bolt", LIGHTNING_BOLT)] }, "Lightning Bolt", "gb");
+  // (Until 2026-10-20 this control read "Mother of Runes is held when its choice would be green (the user's board is a Grizzly
+  // Bears) and the Bolt is red": the colour was the board's. It is chosen as the grant resolves, reading the Bolt on the stack —
+  // red — so that Mother now saves the Bears (protectionColorChoice.test.js). The control that stands: two harms of two colours.)
+  it("control: Mother of Runes is held when two harms of different colours are aimed at its Grizzly Bears (Murder, then Lightning Bolt) — one colour can't stop both", () => {
+    const s0 = duel({ user: [...swamps(3), ...mountains(1)], ai: [P("mor", MOTHER_OF_RUNES, "ai"), P("gb", GRIZZLY_BEARS, "ai")], userHand: [C("h-murder", MURDER), C("h-bolt", LIGHTNING_BOLT)] });
+    const one = act(s0, "user", "cast-spell", (a) => a.cardId === "h-murder" && (a.targets || []).some((t) => t.id === "gb"));
+    const s = pass(act(one, "user", "cast-spell", (a) => a.cardId === "h-bolt" && (a.targets || []).some((t) => t.id === "gb")));
+    expect([s.priorityHolder, s.stack.length]).toEqual(["ai", 2]);
     expect(abilitiesOf(s, "ai", "mor").map(targetOf)).toContain("gb");
     expect(aiPick(s)?.kind).toBe("pass-priority");
   });

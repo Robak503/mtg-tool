@@ -57,6 +57,7 @@ export const PENDING_CHOICE_KINDS = [
   "aura-entry-host", // CR 303.4f — a person picks what their Aura enchants as it enters without being cast (asked of a human seat only)
   "trigger-target", // CR 603.3d / 601.2c — a person picks the targets (and mode, CR 603.3c) of their own triggered ability as it goes on the stack (asked of a human seat only)
   "trigger-order", // CR 603.3b / 405.3 — a person picks the order their own simultaneous triggered abilities go on the stack (asked of a human seat only)
+  "protection-color", // CR 608.2d / 702.16 — a person announces the colour of "protection from the color of your choice" as it resolves (asked of a human seat only)
 ];
 
 /**
@@ -787,6 +788,34 @@ export function setPendingTriggerOrderChoice(state, { controller, batch, candida
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "trigger-order-pending", controller, batch, count: candidates.length });
   return { ...next, pendingChoice: { kind: "trigger-order", controller, batch, candidates } };
+}
+
+/**
+ * ===== PROTECTION COLOR (CR 608.2d, 702.16) ===== — suspend while the person playing `controller` announces the colour of a
+ * "protection from the color of your choice" grant as it resolves (Mother of Runes, Giver of Runes, Gods Willing …). Raised by
+ * runProgram.resolveAtomAsking for a seat a person plays (protectionChoice.protectionColorQuestion), so the AI never sees it.
+ * `candidates` are the colours on offer — `{ id, name, threats?, suggested? }`, id a WUBRG letter or "C" (colourless, for a grant
+ * that offers it); `threats` names the opponents' spells and abilities of that colour on the stack that target or damage the
+ * protected permanent; `suggested` ("threat" | "board") marks the automatic chooser's pick, `suggestedId`. `cardName` names the
+ * protected permanent(s). `step` — `{ atom, ctx }`, the grant the settler runs with the answer — and `resume` (attached by
+ * runProgram) stay engine-internal. No decline. Plain JSON.
+ */
+export function setPendingProtectionColorChoice(state, { controller, cardName = null, candidates = [], suggestedId = null, sourceName = null, step = null, resume = undefined }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "protection-color-pending", controller, cardName, suggestedId, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "protection-color",
+      controller,
+      cardName,
+      candidates,
+      suggestedId,
+      sourceName,
+      ...(step ? { step } : {}),
+      ...(resume !== undefined ? { resume } : {}),
+    },
+  };
 }
 
 /**

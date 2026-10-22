@@ -3268,3 +3268,81 @@ export function TriggerOrderPanel({ decision, onChoose }) {
     </div>
   );
 }
+
+/** Mana-identity pip colours — identity data, the sanctioned non-green exception (FoundryHome's pips; colourless grey). */
+const PROTECTION_PIP = { W: "#e9e3c9", U: "#4a90d9", B: "#8d7f9c", R: "#d4553d", G: "#57b06e", C: "#9aa0a6" };
+
+/** "A", "A and B", "A, B and C". */
+function joinNames(names) {
+  if (names.length <= 1) return names[0] || "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** Why a colour is marked, in plain words: the threats of that colour it would protect from, or the board read. "" for any other. */
+export function protectionColorReason(c) {
+  if (c?.threats?.length) return `Protects it from ${joinNames(c.threats)}`;
+  if (c?.suggested === "board") return "The most common color among your opponents’ permanents";
+  return "";
+}
+
+/**
+ * PROTECTION COLOR (CR 608.2d, 702.16): your "protection from the color of your choice" (Mother of Runes, Giver of Runes, Gods
+ * Willing …) is resolving, and you choose the color now — knowing what is on the stack. One button per color on offer (Giver adds
+ * colorless); the color of an opponent's spell or ability aimed at the creature is marked Suggested, with what it protects from;
+ * with none, the automatic pick is marked with its reason. No decline: the grant gives protection from a color.
+ */
+export function ProtectionColorPanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (color) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(color);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const target = decision.cardName || "your creature";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🛡️" title={`Choose a color${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
+        {target} gains protection from the color you choose until end of turn: nothing of that color can target it, deal damage to
+        it, enchant or equip it, or block it.
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {(decision.candidates || []).map((c) => {
+          const reason = protectionColorReason(c);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              className="ley-glass ley-card"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                textAlign: "left",
+                padding: "10px 14px",
+                cursor: "pointer",
+                color: "var(--ley-text)",
+                ...(c.suggested ? { border: "1px solid var(--ley-line-bright)" } : {}),
+              }}
+              onClick={() => submit(c.id)}
+              disabled={submitting}
+            >
+              <span
+                aria-hidden="true"
+                style={{ width: 14, height: 14, borderRadius: "50%", flex: "0 0 auto", background: PROTECTION_PIP[c.id] || "var(--ley-text-faint)" }}
+              />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <strong>{c.name || c.id}</strong>
+                {reason ? <span style={{ display: "block", fontSize: 12, color: "var(--ley-text-dim)" }}>{reason}</span> : null}
+              </span>
+              {c.suggested ? <span style={{ ...sectionLabelStyle(), color: "var(--ley-green)" }}>Suggested</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

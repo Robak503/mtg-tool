@@ -157,7 +157,8 @@ export function autoPickCardType(state, controller, options, { excludeCardId = n
 /**
  * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes, SHELF-TAIL vein #3 — CR 702.16).
  * "Protection from the color of your choice" wants the color most likely to threaten the protected
- * creature: the MOST-REPRESENTED color among OPPONENTS' nonland permanents (each permanent counts once
+ * creature. Since 2026-10-20 the threats on the stack are read first (autoPickProtectionColor below);
+ * with none, the board read: the MOST-REPRESENTED color among OPPONENTS' nonland permanents (each permanent counts once
  * per color it has — layers are not consulted; the printed colors are the defensible board read, and this
  * is a leaf module that must not import layers). WUBRG-order deterministic tiebreak; an empty read →
  * "W" (a legal color must be chosen — CR 601.2b — and the fixed fallback keeps replays byte-identical).
@@ -208,12 +209,30 @@ const printedPermanentColors = (perm) => {
 };
 
 /**
- * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes — "the color of your choice"): the most-represented color
- * among OPPONENTS' nonland permanents, WUBRG tiebreak. `colorsOfPermanent(perm)` reads each permanent's colors; the engine's
- * caller (the grant-protection atom) passes the layer-aware read (layers.permanentColors — CR 613.1e), so a creature an
- * effect turned blue is tallied blue. The default is the printed read above.
+ * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes — "the color of your choice"). Two reads, in order:
+ *   1. THE THREATS (2026-10-20): `threats` — the opponents' spells and abilities on the stack that target the protected
+ *      permanent or deal damage to it, each `{ colors }` (protectionChoice.protectionThreats reads them; this leaf imports
+ *      nothing). The colour the most threats have wins, WUBRG(+C) tiebreak; a colourless threat counts for "C" only when
+ *      colourless is an option (Giver) — the engine's reader passes none today, as protection from colourless is not enforced.
+ *      A red Lightning Bolt aimed at the creature makes it red, whatever the board shows.
+ *   2. THE BOARD, when no threat has an offered colour: the most-represented color among OPPONENTS' nonland permanents,
+ *      WUBRG tiebreak. `colorsOfPermanent(perm)` reads each permanent's colors; the engine's caller passes the layer-aware
+ *      read (layers.permanentColors — CR 613.1e), so a creature an effect turned blue is tallied blue. The default is the
+ *      printed read above.
  */
-export function autoPickProtectionColor(state, controller, { orColorless = false, colorsOfPermanent = printedPermanentColors } = {}) {
+export function autoPickProtectionColor(state, controller, { orColorless = false, colorsOfPermanent = printedPermanentColors, threats = [] } = {}) {
+  const threatTally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
+  for (const t of threats || []) {
+    const colors = Array.isArray(t?.colors) ? t.colors : [];
+    if (colors.length === 0) { if (orColorless) threatTally.C += 1; continue; }
+    for (const c of colors) if (c in threatTally && c !== "C") threatTally[c] += 1;
+  }
+  let threatBest = null;
+  let threatN = 0;
+  for (const c of Object.keys(threatTally)) { // insertion order = WUBRG(+C) → deterministic tiebreak
+    if (threatTally[c] > threatN) { threatBest = c; threatN = threatTally[c]; }
+  }
+  if (threatBest) return threatBest;
   const tally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
   for (const pid of Object.keys(state?.players || {})) {
     if (pid === controller) continue;

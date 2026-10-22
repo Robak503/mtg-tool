@@ -412,6 +412,41 @@ the contract path) is the standing order. `resolveTopOfStack` does not refuse an
 the driver asks before anyone receives priority). Every AI seat, and every table with no person, never collects a
 `personAbilities` entry: byte-identical. Witness: `triggerOrderChoice.test.js`; panel `TriggerOrderPanel`.
 
+**"Protection from the color of your choice" — chosen as it resolves** (`protectionChoice.js`, the `protection-color` pause,
+2026-10-20, CR 608.2d — a choice the effect offers is announced while applying the effect; the bundled Gods Willing ruling: "You
+choose the color as Gods Willing resolves"). Every grant of the kind is the one `grant-protection` atom with `colorChoice` (Giver's
+`orColorless` adds "C"), and its colour has ONE automatic pick, `protectionColorPick`, read by the resolution
+(`combat.applyGrantProtection`), the AI's save preview (`opponentAI.pickSaveInResponse`, per protected permanent) and a person's
+suggestion: the THREATS first — `protectionThreats`, the opponents' spells and abilities on the stack that target the protected
+permanent (CR 702.16b — its target is illegal as it resolves, CR 608.2b) or deal damage to it without targeting (a `deal-damage`
+sweep that reaches it, read as `applyDamageEffect` reads it — CR 702.16e prevents the damage); a non-targeted destroy, exile or
+-N/-N is not read (protection doesn't stop it), nor a gated atom. Their colours are the CR 608.2b re-check's
+(`stackObjectProtectionColors` = `spellEffects.resolutionSourceColors`: a spell's own, the face being cast; an ability's source
+permanent's, layer-aware). ONLY WHAT THE ENGINE ENFORCES IS READ (FN-safe — neither the AI's save nor a person's suggestion may
+promise a save the game won't give): an ability whose source has left the battlefield is read only when all it does is deal damage
+(Mogg Fanatic's ping — prevented by the last known colours `shared.damageSourceFor` keeps, CR 702.16e), because the re-check keeps
+no last known colours and its target stays legal (Executioner's Capsule's destroy goes through protection from black — not read);
+and a colourless threat is not read (protection from colourless is not enforced). The colour the most threats share wins (WUBRG
+tiebreak); with none, the old board read (`choicePolicy.autoPickProtectionColor` — the most common colour among the opponents'
+nonland permanents, unchanged). A PERSON is asked:
+`runProgram.resolveAtomAsking` (every atom a program resolves, the optional settle included) meets the atom for a
+`state.humanSeats` seat with a protected permanent still on the battlefield and pauses BEFORE it runs
+(`protectionColorQuestion` → `setPendingProtectionColorChoice`): `candidates` WUBRG (+ "C"), each `{ id, name, threats?,
+suggested? }`, the automatic pick marked ("threat" | "board") and `suggestedId`; `cardName` the protected permanent; the grant
+(`step: { atom, ctx }`) and the program's `resume` stay internal. `resolveProtectionColorChoice` runs the grant with
+`chosenColor` and resumes the program (Gods Willing's Scry 1 follows); a colour not on offer decides nothing (asked again); no
+decline. A settle that runs its atoms with `resolveAtom` directly (the optional-payment and optional-sacrifice payoffs) takes the
+automatic pick. Who asks (2026-10-20): Mother of Runes, Giver of Runes, Benevolent Bodyguard, Moonlit Strider, Armored Guardian,
+Sygg, Gods Willing, Shelter, Blessed Breath, Center Soul, Emerge Unscathed, Sejiri Shelter — every carrier that resolves the atom.
+Midvast Protector's and Sejiri Steppe's enters trigger parses to the atom, but `programQueries.atomTargetIntent` has no
+`grant-protection` case (the "ambiguous" default), so `programTriggerTargetsResolvable` is false and the trigger grants nothing
+natively; Aven
+Liberator's turned-face-up trigger is not detected at all. The other "choose a color" protection cards (Apostle's Blessing's "artifacts or the color of your
+choice", Brave the Elements, Knight of Dawn's self-grant …) are not native and never reach the atom. Not enforced anywhere:
+protection from colourless (`protection.protectionApplies` reads colour letters, and a colourless source has none), and an
+ability's departed source's colours at the re-check (`spellEffects.resolutionSourceColors`). Witness:
+`protectionColorChoice.test.js`; panel `ProtectionColorPanel`.
+
 **Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
 permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
 pause: its controller pays the ward cost or it is countered (`setPendingSoftCounterChoice` → `resolveSoftCounterChoice`; an AI
@@ -1346,8 +1381,8 @@ creature its controller controls): (1) **a save in response** (`pickSaveInRespon
 ability on the stack aims a harm at its own permanent worth a card (`stackHarmsToSeat`, whose harm records now carry their stack
 object and atom), and the activation defeats every harm aimed at it — a buff by `buffSaves` (hexproof / shroud, indestructible,
 toughness), regeneration against a destroy or lethal damage without "can't be regenerated" (CR 701.19a, 704.5g), protection when the
-colour `choicePolicy.autoPickProtectionColor` will choose as the grant resolves is a colour of every source aiming a harm at it (CR
-702.16b, 608.2b); a source spent for it (Selfless Savior, Selfless Spirit, Plaza of Heroes) only for a bigger threat than itself, or
+colour the grant will take as it resolves (`protectionChoice.protectionColorPick` on that permanent — the threats' colour first) is a
+colour of every source aiming a harm at it, as the re-check judges it (`stackObjectProtectionColors`; CR 702.16b, 608.2b); a source spent for it (Selfless Savior, Selfless Spirit, Plaza of Heroes) only for a bigger threat than itself, or
 for anything when the source is itself the target of a harm other than a bounce (it goes either way), and one answer per harm
 (nothing while an object of its own sits above the topmost harm); (2) **a pump after blocks**
 (`pickPumpAfterBlocks`, before the casts — the declare blockers step once the declaration has closed, `combat._blockTriggersFired`, the
@@ -1363,8 +1398,7 @@ that change the result (`pumpPayments`, ≤ 10), an X pump at the fewest X; (3) 
 energy cost, a payment the untap step gives back (`paymentUntapsBack` — taps only: no Treasure or Food, no pain land, no source that
 doesn't untap), and never past an instant-speed card it holds up (`keepsHeldUp` over `heldUpCosts`). Policy keys `inResponse`,
 `afterBlocks`, `endStep` ("v1" = the old pass). Not read: a sacrifice outlet for value in response (the doomed creature fed to Viscera
-Seer), the colour choice itself (it is still the board-shaped auto-pick, so Mother of Runes saves only when that colour happens to be
-the removal's), a combat-role pump (still `pickCombatRoleActivation`'s, unconditional). Witness: `aiActivationWindows.test.js`.
+Seer), a combat-role pump (still `pickCombatRoleActivation`'s, unconditional). Witness: `aiActivationWindows.test.js`.
 
 **Attack requirements (`attackRequirements.js`, added 2026-10-18 — CR 508.1d).** The one requirement check, read by the offer
 for every seat (a person's included) and by the AI's `pickAttackPlan`. `obeyingAttackOptions` narrows a creature's defenders to

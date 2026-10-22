@@ -10,7 +10,15 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.6.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.7.0"`
+
+> **v1.7.0 (additive MINOR, 2026-10-20 — a new decision kind):**
+> - **`protection-color`** (CR 608.2d, 702.16): the person playing a seat announces the colour of a "protection from the color
+>   of your choice" grant as it resolves (Mother of Runes, Giver of Runes, Benevolent Bodyguard, Gods Willing, Shelter …),
+>   knowing what is on the stack. Asked only of a seat in `state.humanSeats`; every AI seat takes the automatic pick (the colour
+>   of the opponents' spells and abilities on the stack that target or damage the protected permanent, else the board read) —
+>   which changes AI play where such a threat is on the stack. Answer `{ kind, color }` (row in §1.1a); a pilot is offered one
+>   action per colour.
 
 > **v1.6.0 (additive MINOR, 2026-10-20 — a new decision kind):**
 > - **`trigger-order`** (CR 603.3b, 405.3): the person playing a seat chooses the order in which two or more of
@@ -175,6 +183,7 @@ General rules, all kinds:
 | `taxed-payment` | `{ kind, pay: boolean }` | the answering seat is the PAYER (`controller === payer`, Rhystic-style); decline / can't-pay gives `beneficiary` the `declinePayoff` (`"draw"` \| `"treasure"`). |
 | `edict-mode` | `{ kind, mode: "life"\|"sacrifice"\|"discard", permId?, cardId? }` | `mode` must be ∈ the decision's `modes` (anything else coerces to `"life"`); `permId` picks from the `sac` pool, `cardId` from the `disc` pool; chains via `queue`. |
 | `trigger-order` | `{ kind, resolveOrder: string[] }` | v1.6.0, CR 603.3b / 405.3 — the controller of two or more simultaneous triggered abilities chooses the order they go on the stack; `resolveOrder` is every `candidates[].id` exactly once, the one that resolves FIRST first (it is put on the stack last). `candidates` (`{ id, sourceName, abilityText, targets: [{ id, type, name, controller }], targetsNext? }`) list the abilities as they stand, the topmost first — so answering them in the order given keeps the order they triggered in; `id` is the ability's stack id, `targetsNext` marks one whose targets are asked after the order. The abilities are permuted among their own stack positions, so other players' abilities keep their APNAP places. Anything else — not a list, an id missing, twice or not of the batch — decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, and not when every ability is an identical copy of the same ability from the same source for the same event. |
+| `protection-color` | `{ kind, color }` | v1.7.0, CR 608.2d / 702.16 — the controller of a "protection from the color of your choice" grant announces the colour as it resolves; `color` ∈ `candidates[].id` — a WUBRG letter, or `"C"` (colorless) where the grant offers it (Giver of Runes). `candidates` are `{ id, name, threats?, suggested? }`: `threats` the names of the opponents' spells and abilities of that colour on the stack that target or damage the protected permanent (only where protection from that colour stops it in this engine — never a colourless one, nor an ability whose source has left unless all it does is deal damage), `suggested` (`"threat"` | `"board"`) the automatic chooser's pick; `cardName` the protected permanent, `sourceName` the card granting it. No decline; a colour not on offer decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat. |
 | `trigger-target` | `{ kind, candidateId }` | v1.4.0, CR 603.3d / 601.2c / 603.3c — the controller of a triggered ability chooses its targets (or mode) as it goes on the stack; `candidateId` ∈ `candidates[].id` (`{ id, label?, targets: [{ id, type, name, controller }] }` — `label` is a mode's text; an empty `targets` is the "up to" decline), or `"none"` when `allowNone` (a modal "choose up to one" — the ability is removed, CR 603.3c). `abilityText` is the printed sentence. An id that is no candidate decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, one ability at a time in stack order (the first put on the stack first). |
 | `aura-entry-host` | `{ kind, hostId }` | v1.3.0, CR 303.4f — the Aura's controller picks what it enchants as it enters without being cast; `hostId` ∈ `candidates[].id` (`{ id, name, controller }` — the legal hosts on the board it enters; nothing is targeted, so hexproof doesn't exclude one, protection does). No decline: an id that isn't a candidate takes the house pick. Asked only of a `state.humanSeats` seat; another of that seat's Auras entering in the same event asks again. |
 

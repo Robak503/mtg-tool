@@ -333,7 +333,16 @@ export function observe(state, seat) {
 //     order chosen. A pilot is offered one order per ability resolving first (the rest as they stand).
 //     The abilities wait on the stack meanwhile, in their APNAP place (additive stack-object field
 //     `awaitingOrder`, engine-internal).
-export const PLAY_API_VERSION = "1.6.0";
+// 1.7.0 (additive MINOR — a new decision kind, 2026-10-20):
+//   - "protection-color" (CR 608.2d, 702.16): the person playing a seat announces the colour of a "protection
+//     from the color of your choice" grant as it resolves (Mother of Runes, Giver of Runes, Gods Willing …);
+//     answer `{ kind, color }`, color ∈ candidates[].id (a WUBRG letter, or "C" where the grant offers
+//     colourless). candidates[] = `{ id, name, threats?, suggested? }` — `threats` the names of the opponents'
+//     spells and abilities of that colour on the stack that target or damage the protected permanent (where
+//     protection from that colour stops it in this engine — never a colourless one),
+//     `suggested` ("threat" | "board") the automatic chooser's pick. No decline; a colour not on offer is
+//     asked again. Raised only for a seat in state.humanSeats. A pilot is offered one action per colour.
+export const PLAY_API_VERSION = "1.7.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

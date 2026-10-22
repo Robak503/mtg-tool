@@ -30,8 +30,8 @@ import { filterActions, parseManaCost, offeredPaymentPlan, abilityTargetsCombatR
 import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields, nextInTurnOrder, cardSelfPreventsUntap } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read); + nextInTurnOrder: whose turn comes next, cardSelfPreventsUntap: a source that stays tapped (the end-step sink)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow, permanentColors } from "./layers.js"; // + permanentColors: an ability source's colour against a protection colour (pickSaveInResponse)
-import { autoPickProtectionColor } from "./choicePolicy.js"; // the colour a "protection from the color of your choice" grant takes at resolution — previewed by pickSaveInResponse (a leaf: imports nothing)
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow } from "./layers.js";
+import { protectionColorPick, stackObjectProtectionColors } from "./protectionChoice.js"; // the colour a "protection from the color of your choice" grant takes at resolution (the threats on the stack first) — previewed by pickSaveInResponse; + the colours protection judges a harming source by
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
@@ -2786,9 +2786,10 @@ function paymentUntapsBack(state, aiPlayerId, a) {
  *     regenerated (Wolverine, Best There Is; Asceticism);
  *   · PROTECTION from a colour (CR 702.16b — a spell of that colour, or an ability from a source of that colour, can't target it, so
  *     the harm's target is illegal as it resolves, CR 608.2b): "the color of your choice" is chosen as the grant resolves by the
- *     shared policy (choicePolicy.autoPickProtectionColor — the colour most common among the opponents' nonland permanents), read
- *     here first; the grant saves only when that colour is a colour of every source aiming a harm at it (Mother of Runes, Giver of
- *     Runes).
+ *     shared pick (protectionChoice.protectionColorPick — the colour of the opponents' spells and abilities on the stack that target or
+ *     damage that permanent, else the colour most common among the opponents' nonland permanents), read here first, per permanent;
+ *     the grant saves only when that colour is a colour of every source aiming a harm at it, judged as the CR 608.2b re-check judges
+ *     it (protectionChoice.stackObjectProtectionColors) — Mother of Runes, Giver of Runes.
  * The saved permanent must be worth a card (worthACard — the spell arm's save bar). Costs: mana and the source's tap, or the source
  * itself (sacrificed or exiled — Selfless Savior, Selfless Spirit, Plaza of Heroes) only when what it saves is a bigger threat than
  * the source (targetThreat) and is not the source — or when the source is the target of a harm too, a bounce aside (it goes either
@@ -2804,12 +2805,6 @@ function pickSaveInResponse(state, aiPlayerId, actions, pol = {}) {
   const harmObjs = new Set([...harms.values()].flat().map((h) => h.obj));
   const topHarm = stack.reduce((top, obj, i) => (harmObjs.has(obj) ? i : top), -1);
   if (stack.slice(topHarm + 1).some((obj) => obj?.controller === aiPlayerId)) return null;
-  const sourceColours = (obj) => {
-    const sid = obj.payload?.params?.sourceId;
-    if (obj.kind !== "spell" && sid != null && findPermanent(state, sid)) return permanentColors(state, sid) || [];
-    return obj.source?.colors || [];
-  };
-  let protectionColour;
   const ranked = [];
   for (const a of actions) {
     if (a.kind !== "activate-ability" || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter || (a.payLife || 0) > 0 || (a.payEnergy || 0) > 0 || (a.phyrexianLife || 0) > 0
@@ -2828,8 +2823,9 @@ function pickSaveInResponse(state, aiPlayerId, actions, pol = {}) {
       if (effect.buff) saves = buffSaves(state, perm, hs, effect.buff);
       else if (effect.regenerate) saves = hs.every((h) => (h.kind === "destroy" || h.kind === "damage") && !h.atom?.cannotRegenerate);
       else {
-        protectionColour ??= autoPickProtectionColor(state, aiPlayerId, { orColorless: effect.protection.orColorless, colorsOfPermanent: (p) => permanentColors(state, p.id) });
-        saves = protectionColour !== "C" && hs.every((h) => sourceColours(h.obj).includes(protectionColour));
+        // The colour the grant will take as it resolves — the shared pick, on this permanent (the threats aimed at it first).
+        const colour = protectionColorPick(state, aiPlayerId, [id], { orColorless: effect.protection.orColorless });
+        saves = colour !== "C" && hs.every((h) => (stackObjectProtectionColors(state, h.obj) || []).includes(colour));
       }
       if (saves) threat += targetThreat(state, perm);
     }

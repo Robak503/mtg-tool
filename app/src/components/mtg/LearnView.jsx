@@ -59,6 +59,7 @@ import {
   AuraEntryHostPanel,
   TriggerTargetPanel,
   TriggerOrderPanel,
+  ProtectionColorPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
   HandToLibraryTopPanel,
@@ -758,6 +759,7 @@ export default function LearnView({
               onAuraEntryHostChoose={session.applyAuraEntryHostChoice}
               onTriggerTargetChoose={session.applyTriggerTargetChoice}
               onTriggerOrderChoose={session.applyTriggerOrderChoice}
+              onProtectionColorChoose={session.applyProtectionColorChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
           </main>
@@ -1038,6 +1040,12 @@ export default function LearnView({
       {session.board && decision?.kind === "trigger-order" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <TriggerOrderPanel decision={decision} onChoose={session.applyTriggerOrderChoice} />
+        </div>
+      )}
+      {/* PROTECTION COLOR (CR 608.2d) — your "protection from the color of your choice" is resolving; choose the colour now. */}
+      {session.board && decision?.kind === "protection-color" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <ProtectionColorPanel decision={decision} onChoose={session.applyProtectionColorChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -1467,6 +1475,7 @@ export function DecisionPrompt({
   onAuraEntryHostChoose,
   onTriggerTargetChoose,
   onTriggerOrderChoose,
+  onProtectionColorChoose,
   onCommanderReturnChoose,
 }) {
   if (!decision) {
@@ -1579,6 +1588,9 @@ export function DecisionPrompt({
   }
   if (decision.kind === "trigger-order") {
     return <TriggerOrderPanel decision={decision} onChoose={onTriggerOrderChoose} />;
+  }
+  if (decision.kind === "protection-color") {
+    return <ProtectionColorPanel decision={decision} onChoose={onProtectionColorChoose} />;
   }
   if (decision.kind === "commander-return") {
     return <CommanderReturnPanel decision={decision} onChoose={onCommanderReturnChoose} />;
