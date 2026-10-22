@@ -89,6 +89,18 @@ install and never sees a later sync — resolve per-call. See WAKE-REPORT.)
 - **User data** (per-profile via `profilePath`): `decks`, `chats` (v1→v2
   migration), `collection/*` (15 subroutes, single-writer lock), `games`,
   `watchlist`, `price-alerts`, `profiles`.
+  **Deck-id contract (2026-10-21):** every saved deck has a non-blank `id` —
+  the Academy pickers, the active deck, a chat's locked deck, the Sim Center,
+  Pod Balance, the Crucible and the A/B bench all key decks by it. `/api/decks`
+  enforces it: a POST gives any id-less deck one, and a GET that finds id-less
+  decks rewrites that deck file once (atomic, original kept as
+  `backups/decks.local.<stamp>.deck-id-backfill.json`) — the active profile on
+  every read, every other profile once per server start. Ids for id-less decks
+  are DERIVED (`lib/deck/deckIds.js`: `deck_<slug>_<hash>` over profile id,
+  owner, name and ordinal), so a retried or raced backfill lands on the same
+  ids; an existing id is never changed. Grind history recorded under a deck's
+  name before it had an id folds into its id (`summarizeGrind`,
+  `mineDeckHistory`).
 - **Finance**: `finance`, `collection/prices` (daily local snapshot),
   `collection/refresh-prices` (user-triggered, capped).
 - **Sync**: `sync-data` (spawns bundled sync scripts, SSE progress),

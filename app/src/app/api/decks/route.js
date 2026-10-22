@@ -4,8 +4,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { normalizeDeck } from "../../../lib/deck/deckMemory";
-import { profilePath } from "../../../lib/server/paths";
-import { ensureMigrated } from "../../../lib/server/profiles";
+import { ensureDeckIds, hasDeckId } from "../../../lib/deck/deckIds";
+import { activeProfileId, isValidProfileId, profilePath, profilesRegistryPath } from "../../../lib/server/paths";
+import { ensureMigrated, readRegistry } from "../../../lib/server/profiles";
 import { atomicWriteJson } from "../../../lib/server/atomicJson";
 
 // Keep this many rolling auto-backups of the deck file (one per save) so a torn
@@ -32,6 +33,11 @@ function deckFile() {
 }
 function backupDir() {
   return profilePath("backups");
+}
+// Deck ids are derived per profile (lib/deck/deckIds.js): the same library always derives the same
+// ids, and two profiles holding the same deck derive different ones.
+function deckIdScope() {
+  return activeProfileId() || "";
 }
 
 // Preserve (rename) the current on-disk deck file out of the way before we
@@ -196,8 +202,7 @@ function backupName(reason = "manual") {
   return `decks.local.${stamp}.${cleanReason}.json`;
 }
 
-async function createBackup(reason) {
-  const target = deckFile();
+async function createBackup(reason, target = deckFile(), dir = backupDir()) {
   try {
     await fs.access(target);
   } catch (error) {
@@ -205,11 +210,100 @@ async function createBackup(reason) {
     throw error;
   }
 
-  const dir = backupDir();
   await fs.mkdir(dir, { recursive: true });
   const backupPath = path.join(dir, backupName(reason));
   await fs.copyFile(target, backupPath);
   return backupPath;
+}
+
+// ONE-TIME ID BACKFILL (2026-10-21). Every deck needs an `id` — the Academy pickers, the active deck,
+// a chat's locked deck, the Sim Center and Pod Balance all key decks by it — but this route used to
+// store whatever it was sent, and decks saved by a writer that never set one (the import preview's
+// `{ name, format, source, cards }` posted with a `memory`) had none: 6 of the owner's 8 decks could not
+// be picked in the Academy. A read that finds an id-less deck gives each one a derived id
+// (lib/deck/deckIds.js) and rewrites that deck file once, through the write chain (so it can't
+// interleave with a save), after copying the original into that profile's backups/
+// (`decks.local.<stamp>.deck-id-backfill.json`, never pruned). It re-reads the file inside the chain:
+// a concurrent read that already backfilled leaves nothing to do. Only the ids are added; each deck is
+// otherwise written back exactly as it was. Returns the library as now on disk (normalized), or null
+// when there is no parseable library to backfill (absent, or replaced by a torn write since the read —
+// readDeckFile's recovery owns that).
+async function backfillDeckIds({ target = deckFile(), dir = backupDir(), scope = deckIdScope() } = {}) {
+  const run = writeChain.then(async () => {
+    let raw;
+    try {
+      raw = await fs.readFile(target, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null; // torn since the read: the next read's recovery path handles it
+    }
+    const stored = Array.isArray(parsed) ? parsed : parsed?.decks;
+    if (!Array.isArray(stored)) return null;
+    const { decks, assigned } = ensureDeckIds(stored, { scope });
+    if (!assigned.length) return stored.map(normalizeDeck);
+    const backupPath = await createBackup("deck-id-backfill", target, dir);
+    const envelope = Array.isArray(parsed) ? { version: 1 } : parsed;
+    await atomicWriteJson(target, { ...envelope, updatedAt: new Date().toISOString(), decks });
+    console.log(
+      `[decks] gave ${assigned.length} saved deck(s) in ${target} an id: ${assigned.map((a) => `"${a.name}" → ${a.id}`).join(", ")} — the original deck file is kept at ${backupPath}`,
+    );
+    return decks.map(normalizeDeck);
+  });
+  writeChain = run.then(() => {}, () => {});
+  return run;
+}
+
+// Serve a library in which every deck has an id. A failed backfill must not take the library away
+// (that would be a worse outage than the bug), and it is not hidden: it is logged, and the decks are
+// served with the ids the backfill derives — the same ids a later read persists (they are derived
+// from the library, not random), and the ids the client's next save writes back.
+async function withDeckIds(decks) {
+  if (decks.every(hasDeckId)) return decks;
+  try {
+    const backfilled = await backfillDeckIds();
+    if (backfilled) return backfilled;
+  } catch (error) {
+    console.error(
+      `[decks] could not save ids for the decks that lack one (${error?.message || error}) — serving them with their derived ids; the next read retries the write`,
+    );
+  }
+  return ensureDeckIds(decks, { scope: deckIdScope() }).decks;
+}
+
+// The other profiles' libraries, once per server process. The Sim Center, Pod Balance, the Crucible and
+// the A/B bench pick decks from EVERY profile by id (selfPlayDecks.listAllProfileDecks), so a profile
+// that is never opened would otherwise keep its id-less decks unpickable there. Each profile derives
+// with its own id as the scope — what that profile's own reads would derive. A failure is logged and
+// retried on the next read; it never blocks the active profile's library.
+let otherProfilesBackfilled = false;
+async function backfillOtherProfilesOnce() {
+  if (otherProfilesBackfilled) return;
+  let ok = true;
+  try {
+    const reg = readRegistry();
+    const active = activeProfileId();
+    const profilesDir = path.join(path.dirname(profilesRegistryPath()), "profiles");
+    for (const p of reg?.profiles || []) {
+      if (!isValidProfileId(p?.id) || p.id === active) continue;
+      const folder = path.join(profilesDir, p.id);
+      try {
+        await backfillDeckIds({ target: path.join(folder, "decks.local.json"), dir: path.join(folder, "backups"), scope: p.id });
+      } catch (error) {
+        ok = false;
+        console.error(`[decks] could not give the id-less decks of profile ${p.name || p.id} their ids (${error?.message || error}); the next read retries`);
+      }
+    }
+  } catch (error) {
+    ok = false;
+    console.error(`[decks] could not read the profiles registry to give every profile's decks their ids (${error?.message || error}); the next read retries`);
+  }
+  otherProfilesBackfilled = ok;
 }
 
 export async function GET() {
@@ -221,7 +315,8 @@ export async function GET() {
     // pre-migration fallback and writes it into the active profile (the race
     // that would clobber a freshly-split profile on upgrade).
     ensureMigrated();
-    const decks = await readDeckFile();
+    const decks = await withDeckIds(await readDeckFile());
+    await backfillOtherProfilesOnce();
     return Response.json({ decks, path: deckFile() });
   } catch (error) {
     return Response.json({ error: error.message || "Could not load deck file." }, { status: 500 });
@@ -237,8 +332,14 @@ export async function POST(request) {
     }
 
     // Save exactly what the client sends — no server-side merging of any kind
-    // (deck seeding no longer exists; the client owns the full library state).
-    const decks = body.decks.map(normalizeDeck);
+    // (deck seeding no longer exists; the client owns the full library state) —
+    // except that a deck sent without an id is given one: an id-less deck can't be
+    // picked anywhere. The id is derived, so re-sending the same id-less library
+    // (an outside script, a window opened before the backfill) lands on the same ids.
+    const { decks, assigned } = ensureDeckIds(body.decks.map(normalizeDeck), { scope: deckIdScope() });
+    if (assigned.length) {
+      console.log(`[decks] a save sent ${assigned.length} deck(s) without an id; gave them ids: ${assigned.map((a) => `"${a.name}" → ${a.id}`).join(", ")}`);
+    }
     const backupPath = body.createBackup ? await createBackup(body.reason || "manual") : null;
     const saved = await writeDeckFile(decks);
 

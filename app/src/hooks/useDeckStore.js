@@ -20,6 +20,7 @@ import {
   saveDeckFile,
   scheduleDeckFileSave,
 } from "../lib/deck/deckPersistence";
+import { ensureDeckIds, hasDeckId } from "../lib/deck/deckIds";
 import { fetchDeckData } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
 import { emitGremlinEvent } from "../lib/tibaltGremlinClient";
@@ -53,14 +54,16 @@ export default function useDeckStore(activeProfileName) {
       // bundled deck library and clobber a freshly-migrated per-owner split.
       // localStorage is only a fallback for when the file can't be read; in that
       // case we migrate the cache to the file so the file becomes the source.
+      // Every deck carries an id (lib/deck/deckIds.js): the server gives the file's decks theirs, and a
+      // library restored from the localStorage cache is given them here before it is saved back.
       const fileDecks = await loadDeckFile();
       if (fileDecks) {
-        const normalized = fileDecks.map(normalizeDeck);
+        const normalized = ensureDeckIds(fileDecks.map(normalizeDeck)).decks;
         setSavedDecks(normalized);
         saveJson("mtg-decks-v3", normalized);
       } else {
         const cached = (await loadJson("mtg-decks-v3")) || (await loadJson("mtg-decks-v2")) || [];
-        const normalized = cached.map(normalizeDeck);
+        const normalized = ensureDeckIds(cached.map(normalizeDeck)).decks;
         setSavedDecks(normalized);
         saveJson("mtg-decks-v3", normalized);
         if (normalized.length) saveDeckFile(normalized);
@@ -439,17 +442,19 @@ export default function useDeckStore(activeProfileName) {
       throw new Error("Library JSON must contain a decks array.");
     }
 
+    // An imported deck with an id replaces the saved deck with that id. One without (an export from
+    // before decks carried ids, a hand-made file) is given a new id first, unique against the library,
+    // so it is added — never merged by name, which collapsed two same-named decks into one.
+    const existingIds = savedDecks.filter(hasDeckId).map(deck => String(deck.id));
+    const incoming = ensureDeckIds(importedDecks.map(normalizeDeck), { reserved: existingIds }).decks;
     const merged = new Map();
     for (const deck of savedDecks) {
       const owner = deck.memory?.owner || "Colton";
-      merged.set(deck.id || `${owner}:${deck.name}`, deck);
+      merged.set(hasDeckId(deck) ? String(deck.id) : `${owner}:${deck.name}`, deck);
     }
-    for (const deck of importedDecks.map(normalizeDeck)) {
-      const owner = deck.memory?.owner || "Colton";
-      merged.set(deck.id || `${owner}:${deck.name}`, deck);
-    }
+    for (const deck of incoming) merged.set(String(deck.id), deck);
 
-    const nextDecks = [...merged.values()];
+    const nextDecks = ensureDeckIds([...merged.values()]).decks;
     persistDecks(nextDecks, { fileSave: "immediate" });
     setDeckData({});
     if (!activeDeckId && nextDecks[0]?.id) setActiveDeckId(nextDecks[0].id);

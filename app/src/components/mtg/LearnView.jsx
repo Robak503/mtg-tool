@@ -30,6 +30,7 @@ import { stableActionKey } from "../../lib/learn/actionKey.js";
 import { LearnLogEntry } from "./LearnLogEntry.jsx";
 import { evaluatePuzzle, puzzleGoalLabel } from "../../lib/learn/puzzleGoal.js";
 import { seatLabel, seatPossessive } from "../../lib/learn/seatLabels.js";
+import { hasDeckId } from "../../lib/deck/deckIds.js";
 import {
   UnresolvedPanel,
   TutorSearchPanel,
@@ -154,6 +155,39 @@ function companionOf(deck) {
   return c ? { id: `comp-${deck.id || "deck"}-${c.name}`, name: c.name } : null;
 }
 
+// The deck pickers key and value every option by the deck's id, and the Start gate looks the picked
+// value up by that id. An option must therefore never be valued by anything else: a deck without a
+// usable id (only reachable if /api/decks could not give it one) or a repeat of an id already listed
+// is shown but disabled — before, such a deck rendered an option with no value, the browser submitted
+// its NAME, the lookup missed and Start stayed disabled (6 of the owner's 8 decks, 2026-10-21).
+export function deckPickerOptions(savedDecks) {
+  const listed = new Set();
+  return (savedDecks || []).map((deck, index) => {
+    const name = deck?.name || "(unnamed deck)";
+    const id = hasDeckId(deck) ? String(deck.id) : null;
+    if (id !== null && !listed.has(id)) {
+      listed.add(id);
+      return { key: `deck:${id}`, value: id, label: name, disabled: false };
+    }
+    const why = id === null ? "no deck id" : "repeats another deck's id";
+    return { key: `unpickable:${index}`, value: `unpickable:${index}`, label: `${name} (can't be picked: ${why})`, disabled: true };
+  });
+}
+
+/** The deck a picker value names (an option value is the id as a string), or undefined. */
+function pickedDeck(savedDecks, value) {
+  if (!value) return undefined;
+  return (savedDecks || []).find((deck) => hasDeckId(deck) && String(deck.id) === value);
+}
+
+/** The Start gate: your deck and every opponent's deck picked. */
+export function learnStartPicks({ savedDecks, userDeckId, oppIds, oppCount }) {
+  const userDeck = pickedDeck(savedDecks, userDeckId);
+  const oppDecks = (oppIds || []).slice(0, oppCount).map((id) => pickedDeck(savedDecks, id));
+  while (oppDecks.length < oppCount) oppDecks.push(undefined);
+  return { userDeck, oppDecks, ready: Boolean(userDeck) && oppDecks.every(Boolean) };
+}
+
 export default function LearnView({
   savedDecks,
   initialUserDeckId = null,
@@ -205,17 +239,18 @@ export default function LearnView({
 
   // P6: seed the user-deck picker from a DeckView "Practice" handoff, once.
   useEffect(() => {
-    if (initialUserDeckId && savedDecks.some((d) => d.id === initialUserDeckId)) {
-      setUserDeckId(initialUserDeckId);
+    const handoff = initialUserDeckId == null ? "" : String(initialUserDeckId);
+    if (handoff && pickedDeck(savedDecks, handoff)) {
+      setUserDeckId(handoff);
       onConsumeInitialDeck?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUserDeckId]);
 
   const oppCount = mode === "commander" ? 3 : 1;
-  const userDeck = savedDecks.find((d) => d.id === userDeckId);
-  const oppDecks = oppIds.slice(0, oppCount).map((id) => savedDecks.find((d) => d.id === id));
-  const canStart = userDeck && oppDecks.every(Boolean) && session.status !== "starting";
+  const { userDeck, oppDecks, ready } = learnStartPicks({ savedDecks, userDeckId, oppIds, oppCount });
+  const canStart = ready && session.status !== "starting";
+  const pickerOptions = deckPickerOptions(savedDecks);
 
   const setOppId = (index, id) => setOppIds((prev) => prev.map((v, i) => (i === index ? id : v)));
 
@@ -520,9 +555,9 @@ export default function LearnView({
                 style={selectStyle(fontFamily)}
               >
                 <option value="">(pick a saved deck)</option>
-                {savedDecks.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
+                {pickerOptions.map((o) => (
+                  <option key={o.key} value={o.value} disabled={o.disabled}>
+                    {o.label}
                   </option>
                 ))}
               </select>
@@ -537,9 +572,9 @@ export default function LearnView({
                   style={selectStyle(fontFamily)}
                 >
                   <option value="">(pick a saved deck)</option>
-                  {savedDecks.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
+                  {pickerOptions.map((o) => (
+                    <option key={o.key} value={o.value} disabled={o.disabled}>
+                      {o.label}
                     </option>
                   ))}
                 </select>

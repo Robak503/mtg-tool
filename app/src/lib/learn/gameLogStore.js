@@ -226,6 +226,30 @@ export async function readGameFile(fileOrIndex) {
   return JSON.parse(text);
 }
 
+// A deck saved without an id was ground under its NAME (selfPlayDecks.toRunnerDeck: id = deck.id || name), so
+// its headers read { id: "<name>", name: "<name>" }; once /api/decks gave it an id (2026-10-21) its new games
+// carry that id. Fold the name-keyed row into the one id-keyed row with the same name so the deck stays ONE row
+// with its whole record. A name that two different ids share is left apart — which deck the old games were
+// can't be known.
+function foldNameKeyedRows(perDeck) {
+  const idKeysByName = new Map();
+  for (const [key, rec] of perDeck) {
+    if (rec.name && key !== rec.name) idKeysByName.set(rec.name, [...(idKeysByName.get(rec.name) || []), key]);
+  }
+  for (const [key, rec] of [...perDeck]) {
+    if (key !== rec.name) continue;
+    const ids = idKeysByName.get(rec.name);
+    if (!ids || ids.length !== 1) continue;
+    const into = perDeck.get(ids[0]);
+    into.games += rec.games;
+    into.decisiveGames += rec.decisiveGames;
+    into.wins += rec.wins;
+    for (const [seat, n] of Object.entries(rec.seats)) into.seats[seat] = (into.seats[seat] || 0) + n;
+    for (const [seat, n] of Object.entries(rec.seatWins)) into.seatWins[seat] = (into.seatWins[seat] || 0) + n;
+    perDeck.delete(key);
+  }
+}
+
 /**
  * Aggregate the grind store into a human-readable standings summary for the Sim Center readout: total games,
  * average turns, the winner-seat split, per-DECK games/wins/win-rate, and the personas + engine versions seen.
@@ -300,6 +324,7 @@ export async function summarizeGrind() {
       }
     }
   }
+  foldNameKeyedRows(perDeck);
   // Wilson 95% CI on the decisive-game win rate (readout honesty — a 3-game 100% is not a 66% 1,700-game rate).
   const wilson = (wins, n) => {
     if (!n) return [0, 0];

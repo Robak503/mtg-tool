@@ -304,7 +304,13 @@ export function mineDeckHistory(headers, deck, registry = null) {
   }
   if (byV.size < 2) return null; // one era = no history to tell yet
 
-  const regForDeck = registry?.[deck.id ?? deck.name] || null;
+  // A deck saved without an id was ground under its NAME (selfPlayDecks.toRunnerDeck: id = deck.id || name),
+  // so its early versions are registered under the name; once /api/decks gave it an id (2026-10-21) new
+  // versions register under the id. Read both — the id's entries win, though a deckV hash names the same
+  // list under either key.
+  const regForDeck = registry
+    ? { ...(deck.name ? registry[deck.name] : null), ...(deck.id ? registry[deck.id] : null) }
+    : null;
   const eras = [...byV.values()].sort((x, y) => x.firstOrder - y.firstOrder);
   let versionN = 0;
   const out = [];
