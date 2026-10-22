@@ -847,10 +847,33 @@ equipped / enchanted → `attachedDealerToCreature`, the dealer being the watche
 takes `{ isCombat }`: outside combat it scans only the dealer and its attachments and fires only `anyDamage` descriptors. The event
 records what each dealer dealt to each player and creature (`event.dealtTo`, `tallyRecipient`) beside its total. The self "deals
 damage to a player" subject is exact now — a compound subject (Syr Carah's "Syr Carah or an instant or sorcery spell you control")
-is undetected rather than fired for half of what it says. ⚠️ Open seam: the combat funnel deals a blocked attacker without trample
-only its blockers' lethal share (`combatResolution`, after the blocker loop — the excess is dropped, not assigned), so a 5/5 blocked
-by a 1/1 deals 1, where CR 510.1c has it deal all 5 (Vampiric Link's ruling: "you still gain 5 life"); every "that much" read off the
-combat tally — the dealt-by payoffs, lifelink, the dealt-damage amount — inherits the shortfall.
+is undetected rather than fired for half of what it says. (The seam this paragraph used to flag — a blocked attacker without trample
+dealt only its blockers' lethal share — is closed below.)
+
+**A blocked creature assigns ALL its combat damage, and Essence Sliver reads any damage (2026-10-21).** CR 510.1c: "If exactly one
+creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its
+combat damage to those creatures divided as its controller chooses among them." (the current rules have no damage assignment order
+and no lethal-first duty without trample; that duty is trample's, CR 702.19b). `combatResolution`'s blocked arm assigns in two passes:
+`shares` — each live blocker, in declaration order, its lethal share (toughness less marked damage; 1 from deathtouch, CR 702.2c),
+exactly the old amounts — then the remainder: with trample to the player as before; without it to ONE blocker, the last in
+declaration order whose damage would not be fully prevented (`combatDealPrevented` — a pure read of protection, a Maze of Ith stamp,
+a shield counter and consultCombat's full-prevention walls; a partial prevent-next-N shield is not full prevention), else the last
+blocker. Every blocker already holds its lethal share, so where the remainder goes decides no death, only how much is dealt; the
+choice that deals it is the one lifelink, the "that much" payoffs and a damage-reactive blocker read. Assignment still ignores
+prevention (a protected, Maze-stamped or shielded blocker takes its share, dealt as 0), each share is dealt in one consultCombat
+call (assigned un-doubled, doubled as dealt), and a blocker assigned nothing is skipped — before, a zero share still spent its shield
+counter (CR 120.8). The multi-block division (a blocker dividing among the attackers it blocks, CR 510.1d) already put its remainder
+on the last attacker. Every damage reader downstream inherits the full amount: lifelink, the dealt-by tally, the dealt-damage
+(enrage) amount, the damaged-by record and the excess-damage ledger (`markCombatDamage` — a blocker dealt more than its toughness
+is dealt excess damage now, CR 120.4a). The AI predicts no damage to blockers: its combat readers (`opponentAI.combatDuel`,
+`trickDuel`, `damageRow` / `unavoidableDamage`, `trampleStop`, `connectsAfterBlocks`, `combatAsDeclared`) read kills and the damage
+that reaches the player — a blocked non-trampler reaches none under either rule — and its only lifelink reads are blockers', which
+deal all their power to one attacker. Essence Sliver's "Whenever a Sliver deals damage, its controller gains that much life." is the
+`dealtBy` event with scope `subtypeGlobal` (it was `combatDamageToPlayer`, so damage to a creature or outside combat gained nothing):
+`checkDealtByTriggers` runs an all-players scan firing only subtypeGlobal descriptors, with the dealer as the triggering permanent
+(scopeMatches checks its subtype) and the dealer's controller as the beneficiary; the dealer's own and its attachments' paths exclude
+subtypeGlobal, so a watcher that is the dealer fires once. Synapse and Brood Sliver ("… combat damage to a player") stay on the
+combat-damage scan.
 
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every

@@ -10,7 +10,9 @@
  *
  * Keywords modeled (printed only, via keywords.js):
  *   - First strike / Double strike — the two-step split above.
- *   - Trample — excess over the blockers' lethal need hits the defender.
+ *   - Trample — excess over the blockers' lethal need hits the defender. Without trample a blocked
+ *     creature assigns ALL its damage among its blockers (CR 510.1c): lethal shares in declaration
+ *     order, the rest to the last blocker whose damage would not be prevented.
  *   - Deathtouch — any damage is lethal (assigns 1 as "lethal", kills on >0).
  *   - Lifelink — the dealer's controller gains life equal to damage dealt.
  *   - Flying / Reach — enforced in legalChoices (who may block), not here.
@@ -457,6 +459,28 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (amt > 0 && pvPool.length) amt = pvConsume(targetKind, targetId, amt);
     return amt;
   };
+  // WOULD ALL OF A COMBAT DEAL TO THIS CREATURE BE PREVENTED? A pure read (nothing recorded, no counter or shield spent) of the
+  // walls a deal from `sourcePerm` meets: the blocked arm's own checks (protection from the dealer — CR 702.16e; a Maze of Ith
+  // stamp; a shield counter — CR 122.1c) and consultCombat's full-prevention walls (the creature's own, a Phantom's or a stocked
+  // Bloatfly's counter shield, a prevent-and-put wall, an attached "dealt to" wall, the dealer's "dealt by" walls). A partial
+  // prevent-next-N shield is not full prevention. Read only to choose which blocker takes a blocked attacker's remainder; a wall
+  // missing here sends the remainder to a blocker that prevents it — still a legal assignment, less damage dealt, never more.
+  const combatDealPrevented = (targetId, sourcePerm, sourceColors) => {
+    const lk = findPermanent(state, targetId);
+    if (!lk) return true;
+    if (protectionPrevents(targetId, sourceColors)) return true;
+    if (lk.permanent.takesNoCombatDamageTurn === state.turn) return true;
+    if (shieldPrevents(targetId)) return true;
+    if (unpreventable) return false;
+    const card = lk.permanent.card;
+    if (selfDamagePrevention(card)) return true;
+    const cs = counterShieldPrevention(card);
+    if (cs === "phantom" || (cs === "bloatfly" && csCountersLeft(targetId) > 0)) return true;
+    if (attachedPreventPutCounters(state, targetId) || groupPreventPutCounters(state, targetId)) return true;
+    if (selfPreventPutCounters(card) && /\bcreature\b/i.test(String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? ""))) return true;
+    if (attachedDamagePrevention(state, targetId).to) return true;
+    return !!(sourcePerm?.id && (attachedDamagePrevention(state, sourcePerm.id).by || selfDamagePreventionBy(sourcePerm.card)));
+  };
 
   // Attackers deal.
   for (const att of combat.attackers) {
@@ -559,47 +583,52 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     if ((liveBlockers.length > 0 || wasBlocked) && (mayAssignAsUnblocked(lookup.permanent.card) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
       dealt += spillToDefender(power, false);
     } else if (liveBlockers.length > 0) {
+      // ASSIGNMENT (CR 510.1c — a blocked creature assigns ALL its combat damage to the creatures blocking it: all of it to a lone
+      // blocker, divided as its controller chooses among two or more). The deterministic division: each blocker, in declaration
+      // order, its lethal share — its toughness less the damage already marked, 1 from a deathtouch source (CR 702.2c) — then the
+      // rest to ONE of them; with trample the rest goes to the player instead (CR 702.19b). Assignment ignores prevention ("not
+      // any abilities or effects that might change the amount of damage that's actually dealt", CR 702.19b): a blocker protected
+      // from the attacker, Maze-stamped or shielded still takes its share, and that share is dealt as 0 below — a 5/5 red
+      // trampler blocked by a 2/2 with protection from red deals 3 to the player, not 5.
       let remaining = power;
-      for (const blk of liveBlockers) {
+      const shares = liveBlockers.map((blk) => {
         const already = blk.permanent.damageMarked || 0;
-        // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
-        // KW-PROTECTION (CR 702.16e): a blocker with protection from the attacker's color has the damage
-        // PREVENTED — it is dealt 0. But damage ASSIGNMENT ignores prevention (CR 510.1c-d / 702.19d:
-        // "not any abilities or effects that might change the amount of lethal damage"), so the blocker
-        // still absorbs its lethal share before anything can trample past it: a 5/5 red trampler blocked
-        // by a 2/2 pro-red deals 3 to the player, not 5.
-        if (protectionPrevents(blk.permanent.id, attackerColors)) {
-          remaining -= Math.min(remaining, lethalNeed);
-          continue;
-        }
-        // MAZE OF ITH (SHELF-85 V13, CR 615): a blocker stamped "takes no combat damage this turn" is dealt 0 — exactly
-        // the protection shape above: assignment still absorbs its lethal share, so a trampler spills only the excess.
-        if (blk.permanent.takesNoCombatDamageTurn === state.turn) {
-          remaining -= Math.min(remaining, lethalNeed);
-          continue;
-        }
         const give = Math.min(remaining, lethalNeed);
-        // CR 122.1c — a SHIELD COUNTER on the blocker PREVENTS the damage (0 dealt: no mark, no lifelink, no
-        // Wolverine/Toxin combat-damage-to-creature trigger) and removes one shield. Like protection, ASSIGNMENT
-        // still absorbs its lethal share (`remaining -= give` below), so a trampler spills only the excess.
+        remaining -= give;
+        return { blk, give };
+      });
+      // THE REMAINDER WITHOUT TRAMPLE: every blocker already holds its lethal share, so where the rest goes decides no death —
+      // only how much damage is dealt. It goes to the LAST blocker in declaration order whose damage would not be prevented
+      // (combatDealPrevented), so it is dealt: lifelink, the "that much" payoffs and the damage the blocker is dealt all read it.
+      // When every blocker would prevent it, the last blocker. (A blocked attacker used to drop it here: a 5/5 lifelinker blocked
+      // by a 2/2 gained 2 — Vampiric Link's ruling: "If you put this on a 5/5 and it is blocked by a 1/1, you still gain 5 life.")
+      if (!trample && remaining > 0) {
+        const open = shares.filter((sh) => !combatDealPrevented(sh.blk.permanent.id, lookup.permanent, attackerColors));
+        (open.length ? open[open.length - 1] : shares[shares.length - 1]).give += remaining;
+        remaining = 0;
+      }
+      for (const { blk, give } of shares) {
+        if (give <= 0) continue; // nothing assigned to it, nothing dealt (CR 120.8): no shield spent
+        // KW-PROTECTION (CR 702.16e): a blocker with protection from the attacker's color is dealt 0 of its share.
+        if (protectionPrevents(blk.permanent.id, attackerColors)) continue;
+        // MAZE OF ITH (SHELF-85 V13, CR 615): a blocker stamped "takes no combat damage this turn" is dealt 0 — the protection shape.
+        if (blk.permanent.takesNoCombatDamageTurn === state.turn) continue;
+        // CR 122.1c — a SHIELD COUNTER on the blocker PREVENTS its share (0 dealt: no mark, no lifelink, no Wolverine/Toxin
+        // combat-damage-to-creature trigger) and removes one shield.
         if (shieldPrevents(blk.permanent.id)) {
           shieldConsumed.add(blk.permanent.id);
-          remaining -= give;
           continue;
         }
-        // DAMAGE-REPLACEMENT (CR 614 + 702.19e): the attacker ASSIGNS lethal off normal toughness, then each
-        // assigned chunk is doubled as it's DEALT — so `remaining` decrements by the un-doubled `give` (the
-        // assignment math) while the blocker is MARKED (and lifelink credited) the doubled amount. 120.8: a
-        // doubled-from->0 chunk can't appear (give>0), but addDmg's `n > 0` re-guards regardless.
+        // DAMAGE-REPLACEMENT (CR 614, 702.19b): the share is assigned off normal toughness, un-doubled, and doubled as it is
+        // DEALT — the blocker is marked (and lifelink credited) the doubled amount. addDmg's `n > 0` re-guards CR 120.8.
         const dealtToBlocker = consultCombat(give, lookup.permanent, "creature", blk.permanent.id);
         addDmg(blk.permanent.id, dealtToBlocker, deathtouch, attackerMinus);
         if (dealtToBlocker > 0) recordArm(lookup.permanent, blk.permanent.id); // WOLVERINE: attacker dealt to a creature
         recordCreatureDamage(lookup.permanent, blk.permanent.id, dealtToBlocker); // SUBTYPE-GLOBAL→CREATURE (Toxin): attacker → blocker
-        remaining -= give;
         dealt += dealtToBlocker;
       }
-      // Trample: leftover beyond all blockers' lethal need spills to the defender.
+      // Trample: what is left beyond every blocker's lethal share goes to the defender (CR 702.19b).
       if (trample && remaining > 0) dealt += spillToDefender(remaining, true);
     } else if (wasBlocked) {
       // Blocked, but every blocker is gone. Deals NO damage — unless trample,

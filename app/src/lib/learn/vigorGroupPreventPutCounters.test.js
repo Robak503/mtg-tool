@@ -94,8 +94,7 @@ describe("noncombat — the damage funnel (applyDamageEffect → dealDamageToCre
 });
 
 describe("combat — the combat-damage funnel", () => {
-  // The blocker is a 3/3 so the Giant's whole 3 is assigned to it: the engine caps a lone blocker's assignment at its
-  // lethal need (the banked CR 510.1a finding in preventDamagePutCounters.test.js), which a 2/2 would hit.
+  // A lone blocker is assigned all of the Giant's 3 (CR 510.1c), whatever its toughness.
   it("⭐ my Hill Giant blocks theirs: no damage marked, three counters after the step; theirs still takes 3", () => {
     const out = resolveCombatDamage(giantBlockedBy(board({ userExtra: [perm("myGiant", HILL_GIANT, "user")] }), "myGiant"));
     const mine = find(out, "user", "myGiant");

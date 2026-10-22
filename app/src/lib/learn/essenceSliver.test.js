@@ -7,9 +7,9 @@
  * damage→lifegain trigger). It reuses the SAME subtypeGlobal + itsController machinery as Synapse/Brood
  * Sliver ("a Sliver deals combat damage to a player, its controller may …") — the differences Essence adds are
  * (1) the BARE "deals damage" condition (no "combat", no "to a player") and (2) an AMOUNT-SCALED effect
- * ("gains that much life" = ctx.combatDamageAmount, NOT a fixed N). checkCombatDamageTriggers' subtypeGlobal
- * all-players scan fires it on combat damage to a player, threading the amount + the dealer's controller as the
- * beneficiary override; the "gain that much life" sentinel reads the amount.
+ * ("gains that much life" = ctx.combatDamageAmount, NOT a fixed N). Since 2026-10-21 it is the DEALT-BY event: checkDealtByTriggers'
+ * subtypeGlobal all-players scan fires it once per damage event per Sliver (any damage — essenceSliverEveryDamage.test.js), threading
+ * the amount + the dealer's controller as the beneficiary override; the "gain that much life" sentinel reads the amount.
  *
  * CREED proofs below:
  *  - classification: Essence Sliver flips to native-trigger; the sibling Slivers must NOT regress.
@@ -22,7 +22,7 @@
  *    subject ("a creature deals damage"), and a "you control" narrowing all stay non-native (SAFE false-negatives).
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { checkCombatDamageTriggers, detectTriggers } from "./triggers.js";
+import { checkDealtByTriggers, detectTriggers } from "./triggers.js";
 import { triggerRoutesNatively } from "./triggerRouting.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -50,8 +50,8 @@ function stateWith(userBf, aiBf) {
     },
   };
 }
-// The combat-damage event exactly as combatResolution feeds checkCombatDamageTriggers (the real path).
-const dmgEvent = (attackerId, attackingPlayer, defender, amount = 2) => [{ kind: "combat-damage-player", attackerId, attackingPlayer, defender, amount }];
+// The dealt-by event exactly as combatResolution feeds checkDealtByTriggers (the real path): the source and what it dealt in the step.
+const dealt = (sourceId, amount = 2) => [{ sourceId, amount }];
 function resolveStack(s) {
   s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
   let g = 0;
@@ -91,10 +91,10 @@ describe("Essence Sliver — classification", () => {
   });
 });
 
-describe("Essence Sliver — lifegain fires through the real combat-damage path", () => {
+describe("Essence Sliver — lifegain fires through the real dealt-by path", () => {
   it("a Sliver YOU control dealing damage → YOU gain that-much life (= the amount)", () => {
     let s = stateWith([perm("ess", ESSENCE, "user"), perm("atk", "", "user")], []);
-    s = checkCombatDamageTriggers(s, dmgEvent("atk", "user", "ai", 2));
+    s = checkDealtByTriggers(s, dealt("atk", 2), { isCombat: true });
     expect((s.pendingTriggers || []).length).toBe(1);
     expect(s.pendingTriggers[0].controller).toBe("user"); // beneficiary = the dealing creature's controller
     s = resolveStack(s);
@@ -104,7 +104,7 @@ describe("Essence Sliver — lifegain fires through the real combat-damage path"
 
   it("AMOUNT SCALING — a 5-damage connect gains exactly 5 life (not a fixed 1)", () => {
     let s = stateWith([perm("ess", ESSENCE, "user"), perm("atk", "", "user")], []);
-    s = checkCombatDamageTriggers(s, dmgEvent("atk", "user", "ai", 5));
+    s = checkDealtByTriggers(s, dealt("atk", 5), { isCombat: true });
     s = resolveStack(s);
     expect(s.players.user.life).toBe(45); // the gain tracks ctx.combatDamageAmount, not a hardcoded amount
   });
@@ -113,7 +113,7 @@ describe("Essence Sliver — lifegain fires through the real combat-damage path"
     // user owns Essence; AI controls the Sliver that connects. The beneficiary must be AI (the dealer's
     // controller), NOT user (the watcher's controller). This is the proof the scope is GLOBAL, not you-control.
     let s = stateWith([perm("ess", ESSENCE, "user")], [perm("atk", "", "ai")]);
-    s = checkCombatDamageTriggers(s, dmgEvent("atk", "ai", "user", 3));
+    s = checkDealtByTriggers(s, dealt("atk", 3), { isCombat: true });
     expect((s.pendingTriggers || []).length).toBe(1);
     expect(s.pendingTriggers[0].controller).toBe("ai"); // beneficiary = the dealing creature's controller
     s = resolveStack(s);
@@ -123,7 +123,7 @@ describe("Essence Sliver — lifegain fires through the real combat-damage path"
 
   it("the watcher fires for ITSELF when it is the Sliver dealing damage (self-inclusion)", () => {
     let s = stateWith([perm("ess", ESSENCE, "user")], []);
-    s = checkCombatDamageTriggers(s, dmgEvent("ess", "user", "ai", 2));
+    s = checkDealtByTriggers(s, dealt("ess", 2), { isCombat: true });
     expect((s.pendingTriggers || []).length).toBe(1);
     expect(s.pendingTriggers[0].controller).toBe("user");
     s = resolveStack(s);
@@ -132,7 +132,7 @@ describe("Essence Sliver — lifegain fires through the real combat-damage path"
 
   it("CREED — a NON-member creature (a Bear) dealing damage does NOT fire the watcher (no over-fire)", () => {
     let s = stateWith([perm("ess", ESSENCE, "user")], [perm("bear", "", "ai", "Creature — Bear")]);
-    s = checkCombatDamageTriggers(s, dmgEvent("bear", "ai", "user", 2));
+    s = checkDealtByTriggers(s, dealt("bear", 2), { isCombat: true });
     expect((s.pendingTriggers || []).length).toBe(0);
     s = resolveStack(s);
     expect(s.players.user.life).toBe(40); // no fabricated gain
@@ -141,7 +141,7 @@ describe("Essence Sliver — lifegain fires through the real combat-damage path"
 
   it("no double-fire — a global watcher whose controller IS the attacking player fires exactly once", () => {
     let s = stateWith([perm("ess", ESSENCE, "user"), perm("atk", "", "user")], []);
-    s = checkCombatDamageTriggers(s, dmgEvent("atk", "user", "ai", 2));
+    s = checkDealtByTriggers(s, dealt("atk", 2), { isCombat: true });
     expect((s.pendingTriggers || []).length).toBe(1);
     s = resolveStack(s);
     expect(s.players.user.life).toBe(42); // gained once, not twice

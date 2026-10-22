@@ -174,9 +174,6 @@ describe("Panther Habit — the ATTACHED wall (all damage, that many counters)",
   it("TWO hits in one step each pay — the wall has no budget to exhaust (contrast the counter-shield)", () => {
     // The shield needs a per-step budget because it SPENDS a finite pool; this pays OUT, so blocking two
     // attackers must earn the SUM. A mis-copied budget here would cap the second hit at zero.
-    // The host is given a large toughness on purpose: with a small one, CR 510.1a's per-blocker lethal
-    // cap (`give = min(remaining, lethalNeed)`) shrinks what each attacker ASSIGNS, and this test would
-    // then be measuring that cap rather than the absence of a budget. See the pairing test below.
     const s = equippedBoard(PANTHER_HABIT, [{ id: "atk", power: "3" }, { id: "atk2", power: "5" }], "40");
     const out = resolveCombatDamage(blockWith(s, "host", ["atk", "atk2"]));
     const host = find(out, "user", "host");
@@ -185,19 +182,15 @@ describe("Panther Habit — the ATTACHED wall (all damage, that many counters)",
   });
 
   it("'that many' tracks what the engine would ACTUALLY have dealt, not the attacker's raw power", () => {
-    // A 4-toughness host absorbs only its lethal need from each attacker (CR 510.1a), so 3+5 power
-    // assigns 3+4 = 7. The wall pays 7, matching the damage it prevented — the two numbers are read
-    // from the same value, so they cannot drift apart.
-    //
-    // ⚠️ BANKED FINDING (out of scope here, do NOT "fix" it in this slice): that per-blocker cap is
-    // applied even when a NON-TRAMPLER has a single blocker, where CR 510.1a requires it to assign ALL
-    // its damage to that one blocker. Measured: a 7/7 lifelinker blocked by one 4/4 gains 4 life, not 7.
-    // Invisible for lethality, but visible to lifelink, damage-dealt triggers, and now this wall.
+    // Each attacker is blocked by the host alone, so it assigns ALL its damage to it (CR 510.1c) — even
+    // past the host's 4 toughness: 3 + 5 = 8. The wall pays 8, matching the damage it prevented — the two
+    // numbers are read from the same value, so they cannot drift apart. (Until 2026-10-21 a blocked
+    // non-trampler assigned only its blocker's lethal need, 3 + 4 = 7, and this test pinned that.)
     const s = equippedBoard(PANTHER_HABIT, [{ id: "atk", power: "3" }, { id: "atk2", power: "5" }], "4");
     const out = resolveCombatDamage(blockWith(s, "host", ["atk", "atk2"]));
     const host = find(out, "user", "host");
     expect(host.damageMarked || 0).toBe(0);
-    expect(counters(host)).toBe(7);
+    expect(counters(host)).toBe(8);
   });
 
   it("the wall is synthesized-on-read: unequip and the damage lands with no counters", () => {

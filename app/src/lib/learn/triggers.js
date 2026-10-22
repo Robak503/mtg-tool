@@ -4598,16 +4598,14 @@ function detectSelfCombatDamageToCreatureTapLock(condRaw, cardName, _typeLine, e
 }
 
 // GLOBAL SUBTYPE damage → controller-lifegain (Essence Sliver) — "Whenever a <Subtype> deals damage, ITS
-// CONTROLLER gains that much life." A Sliver-wide TRIGGERED grant: every Sliver on the battlefield (any
-// controller) has a damage→lifegain trigger, and the LIFE goes to the DEALING creature's controller, scaled to
-// the damage amount. Reuses the SAME subtypeGlobal + itsController machinery as detectSubtypeGlobalCombatDamage
-// (Synapse/Brood) — the ONLY differences are (1) the bare "deals damage" condition (NO "combat", NO "to a
-// player") and (2) the amount-scaled "gains that much life" effect. The engine's checkCombatDamageTriggers
-// subtypeGlobal scan fires this on combat damage to a player, threading ctx.combatDamageAmount (which the
-// "gain that much life" sentinel reads) + the dealer's controller as the beneficiary override. Slivers dealing
-// combat damage to a CREATURE or non-combat damage under-fire (that path carries no amount) — a SAFE
-// false-negative (the controller gains LESS life, never a wrong/fabricated amount), the same accepted
-// approximation as the TRIG-DMG-TO-OPPONENT self form ("deals damage" ≈ combat damage in the simulator).
+// CONTROLLER gains that much life." The watcher sees EVERY player's matching creature, and the LIFE goes to the
+// DEALING creature's controller, scaled to the damage it dealt. The bare "deals damage" names no recipient and no
+// "combat": any damage, to a player, a planeswalker or a creature, in combat or out of it — the DEALT-BY event
+// (2026-10-21; it was the combat-damage-to-a-player event, so a Sliver's damage to a creature or outside combat
+// gained nothing while the card was credited native). checkDealtByTriggers' all-players scan fires it once per
+// damage event per matching dealer, with that dealer's total for the event (ctx.combatDamageAmount, which the "gain
+// that much life" sentinel reads) and the dealer's controller as the beneficiary override (scope subtypeGlobal +
+// itsController, the Synapse/Brood Sliver machinery).
 // CREED gates, mirroring the sibling detectors: fires ONLY when (a) the condition is the BARE global "deals
 // damage" form (END-anchored; NO "you control" — a you-control form is a different scope; NO "combat"/"to a
 // player" rider — those match the sibling detector instead) AND (b) the effect is EXACTLY "its controller gains
@@ -4623,7 +4621,7 @@ function detectSubtypeGlobalDamageLifegain(condRaw, _cardName, _typeLine, effect
   if (!/^its controller gains that much life$/.test(eff)) return null; // only the dealer-controller amount-scaled lifegain (CREED gate)
   const filter = parseSubtypeList(m[1]);
   if (!filter) return null;                            // a card-TYPE word / non-subtype → Arbiter (no over-fire)
-  return { event: "combatDamageToPlayer", scope: "subtypeGlobal", whose: "any", subtypeFilter: filter, itsController: true };
+  return { event: "dealtBy", scope: "subtypeGlobal", whose: "any", subtypeFilter: filter, itsController: true };
 }
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
@@ -9161,7 +9159,11 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents,
  *   · its own "Whenever this creature deals [combat] damage" — printed, granted by an attached Equipment's or Aura's quoted line
  *     (Ceremonial Knife, Quintessential Katana), or by a group or until-end-of-turn grant (Stir the Pride); its controller's;
  *   · each attachment's "Whenever equipped/enchanted creature deals [combat] damage" (scope equippedCreature — Spirit Link,
- *     Umezawa's Jitte), whoever controls the attachment (an Aura on an opponent's creature feeds its own controller).
+ *     Umezawa's Jitte), whoever controls the attachment (an Aura on an opponent's creature feeds its own controller);
+ *   · every player's "Whenever a <Subtype> deals damage, its controller …" watcher (scope subtypeGlobal — Essence Sliver) whose
+ *     subtype the source carries, the watcher itself included, for the SOURCE's controller (the beneficiary override).
+ *     Only this all-players scan fires subtypeGlobal; the two paths above exclude it, so a watcher that is the source, or is
+ *     attached to it, fires once.
  * A `combatOnly` descriptor fires only when `isCombat`. ctx.combatDamageAmount / ctx.dealtDamageAmount = the total, the "that
  * much" / "that many" the payoff reads. A source no longer on the battlefield has no ability left to trigger: a dealt-by ability
  * is not a look-back trigger (CR 603.10), so the call sites fire before the lethal-damage pass, while a source dealt lethal damage
@@ -9171,17 +9173,25 @@ export function checkDealtByTriggers(state, events, { isCombat = false } = {}) {
   const hits = (events || []).filter((e) => e && e.sourceId != null && e.amount > 0);
   if (!hits.length) return state;
   const fires = (d) => !d.combatOnly || isCombat;
+  const notGlobal = (scope) => scope !== "subtypeGlobal";
+  const globalOnly = (scope) => scope === "subtypeGlobal";
   let fired = [];
   for (const ev of hits) {
     const lk = findPermanent(state, ev.sourceId);
     if (!lk) continue;
     const dealer = lk.permanent;
     const context = { combatDamageAmount: ev.amount, dealtDamageAmount: ev.amount };
-    fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: dealer, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: fires }));
+    fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: dealer, triggeringPermanent: dealer, triggeringContext: context, scopeFilter: notGlobal, descriptorFilter: fires }));
     for (const attId of dealer.attachments || []) {
       const att = findPermanent(state, attId);
       if (!att) continue;
-      fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: att.permanent, triggeringPermanent: dealer, triggeringContext: context, descriptorFilter: fires }));
+      fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: att.permanent, triggeringPermanent: dealer, triggeringContext: context, scopeFilter: notGlobal, descriptorFilter: fires }));
+    }
+    // GLOBAL SUBTYPE (Essence Sliver): every player's watcher; scopeMatches checks the dealer's subtype; "its controller" is the dealer's.
+    for (const pid of Object.keys(state.players || {})) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        fired = fired.concat(triggersForEvent(state, { event: "dealtBy", sourcePermanent: watcher, triggeringPermanent: dealer, triggeringContext: context, beneficiary: dealer.controller, scopeFilter: globalOnly, descriptorFilter: fires }));
+      }
     }
   }
   if (!fired.length) return state;
