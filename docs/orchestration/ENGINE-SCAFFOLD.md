@@ -1486,7 +1486,8 @@ that change the result (`pumpPayments`, ≤ 10), an X pump at the fewest X; (3) 
 (`pickEndStepSink`, after the casts — the end step of the player `nextInTurnOrder` names, no extra turn queued, the stack empty):
 `pickSafeAbilityActivation`'s draws, tokens, scry / surveil and life, every atom the AI's own (no "Each player draws"), no discard or
 energy cost, a payment the untap step gives back (`paymentUntapsBack` — taps only: no Treasure or Food, no pain land, no source that
-doesn't untap), and never past an instant-speed card it holds up (`keepsHeldUp` over `heldUpCosts`). Policy keys `inResponse`,
+doesn't untap), and never past an instant-speed card it holds up (`keepsHeldUp` over `heldUpCosts`); a token loop is a sink only short
+of "enough" (the combo line below — a held loop never reaches these pickers). Policy keys `inResponse`,
 `afterBlocks`, `endStep` ("v1" = the old pass). Not read: a sacrifice outlet for value in response (the doomed creature fed to Viscera
 Seer), a combat-role pump (still `pickCombatRoleActivation`'s, unconditional). Witness: `aiActivationWindows.test.js`.
 
@@ -1646,7 +1647,17 @@ asks `tokenLoopState` (null for every seat without the loop, so nothing else
 changes): it never activates the loop on top of its own copy (X is read on
 resolution), stops once the creatures that can attack kill everyone (or, when the
 swing is a turn away, twice that against every opposing creature), and at
-enough-now passes to combat instead of playing on. `pickAttackPlan` asks
+enough-now passes to combat instead of playing on. The hold is one gate for EVERY
+window (2026-10-21): `pickAction` reads `tokenLoopState` once, right after the
+activation-window split, and while `holdLoop` the loop ability leaves both the
+default-window actions and `extra` before any picker reads them — the end-step
+sink, the save in response, the pump after blocks and the main phase's generic
+picker alike (the end-step sink once read `extra` without it, and A/B game 16
+doubled to 2,572 permanents at the end step before Squirrel Girl's turn). Short
+of enough the loop stays offered, so the end-step sink builds toward the kill
+and stops there. A new picker over `actions` or `extra` inherits the hold; a new
+resource-multiplying line gets its gate in the same place. Witness:
+`tokenLoopEveryWindow.test.js`. `pickAttackPlan` asks
 `tokenLoopAttackPlan` for the split. All of it is restraint or target choice over
 actions the engine already offered — never a new action. The next slices (other
 finishes, tutoring for the finisher, other combo decks) are UPGRADE-BACKLOG E7.

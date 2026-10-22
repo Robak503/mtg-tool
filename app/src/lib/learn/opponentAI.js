@@ -2517,7 +2517,8 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
 // answers a removal), each for one narrow window with its own reading: a save in response to an opponent's removal on the stack
 // (pickSaveInResponse), a pump after blocks that changes the combat (pickPumpAfterBlocks), and a mana sink at the end step of the
 // player whose turn comes right before the AI's (pickEndStepSink). Everything else offered outside the default windows is still not
-// one of the AI's choices.
+// one of the AI's choices. A token loop held by its "enough" judgment (tokenLoopLine.tokenLoopState's `holdLoop`) never reaches them:
+// pickAction drops it from both lists before any picker reads them (2026-10-21).
 
 /** The keys an atom may carry for the new windows' reading (activationEffectOf) — anything else (a board-scaled, conditional or filtered
  * pump, a fixed protection colour list) is not read, and the activation is held. */
@@ -2744,8 +2745,9 @@ function pickPumpAfterBlocks(state, aiPlayerId, actions, pol = {}) {
  * player draws" — Faerie Mastermind, Mikokoro), no discard or energy cost; and a payment its untap step gives back (paymentUntapsBack —
  * taps only: never a Treasure or a Food sacrificed, a pain land's life, a source that doesn't untap). Held when the payment would leave
  * unpayable an instant-speed card it holds (heldUpCosts — an instant or a flash card in its hand whose printed cost the board pays
- * now: Counterspell is held up for the rest of the step though nothing is on the stack to target yet). Policy key `endStep` ("v1" =
- * the old pass).
+ * now: Counterspell is held up for the rest of the step though nothing is on the stack to target yet). A token loop (The Unbeatable
+ * Squirrel Girl's doubling) is a sink here only short of "enough" — held, pickAction has already taken it out of `extra`
+ * (2026-10-21), so the sink builds toward the kill and stops there. Policy key `endStep` ("v1" = the old pass).
  */
 function pickEndStepSink(state, aiPlayerId, extra, pol = {}) {
   if (pol.endStep === "v1" || state.phase !== "ending" || state.step !== "end" || (state.stack || []).length > 0) return null;
@@ -3044,6 +3046,18 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     actions = actions.filter((a) => inDefaultAIActivationWindow(state, aiPlayerId, a));
     if (actions.length === 0) return null;
   }
+  // THE TOKEN LOOP'S "ENOUGH" IN EVERY WINDOW (tokenLoopLine.js — Colton 2026-10-03: build only to enough; every window since
+  // 2026-10-21). null for a seat with no self-scaling token loop, and then nothing here changes. With one, while `holdLoop` (its own
+  // copy on the stack, its attack under way, the swing lethal now or twice over next turn, a sacrifice outlet's route complete) the
+  // loop ability is no choice at all: it leaves both lists here, before every picker, so the end-step sink, the save in response,
+  // the pump after blocks and the main phase's generic picker all read the one judgment. (The end-step sink once read `extra`
+  // without it, and A/B game 16 doubled to 2,572 permanents at the end step before Squirrel Girl's turn.) Short of enough the loop
+  // stays offered to whichever picker reads it, as before.
+  const loop = tokenLoopState(state, aiPlayerId);
+  if (loop?.holdLoop) {
+    actions = actions.filter((a) => !isTokenLoopAction(loop, a));
+    extra = extra.filter((a) => !isTokenLoopAction(loop, a));
+  }
   // PHYREXIAN MANA PAID WITH LIFE (2026-10-17): the offer stamps `phyrexianLife` when no mana of a symbol's colour is left to pay
   // it (legalChoices.withPhyrexianPayment — mana first). The AI pays that life only while it stays at LIFE_PRUDENCE_FLOOR or more,
   // the floor its other life payments use; below it the cast or activation is held (dropped here, before every chooser).
@@ -3126,8 +3140,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // THE TOKEN-LOOP LINE (tokenLoopLine.js — Colton 2026-10-03: a combo deck plays its line). null for a seat with no
   // self-scaling token loop, and then nothing below changes. With one: once the creatures that can attack kill every
   // opponent, FORGO EVERYTHING ELSE — no land, no cast, no activation — and pass to combat, where pickAttackPlan
-  // executes the finish.
-  const loop = tokenLoopState(state, aiPlayerId);
+  // executes the finish. (`loop` is read once, above the pickers, where its hold leaves both action lists.)
   if (loop?.finishNow && (state.stack || []).length === 0) {
     const pass = actions.find(a => a.kind === "pass-priority");
     if (pass) return pass;
@@ -3218,8 +3231,8 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       }
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
-      // The token loop is held while its own copy is on the stack (X is read on resolution) and once there is enough.
-      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility && !(loop?.holdLoop && isTokenLoopAction(loop, a))), { state, aiPlayerId });
+      // A held token loop (its own copy on the stack, or enough) is already out of `abilities` (the gate above the pickers).
+      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility), { state, aiPlayerId });
       if (generic) return generic;
     }
     // CREW (VH-1) — take a ZERO-COST crew: the offer's auto-picked tap set is all summoning-sick

@@ -143,7 +143,8 @@ const beforeAttackers = (state, playerId) => state.activePlayer === playerId
  *   sources      — Map(permanentId → Set(abilityIndex)), the loop abilities
  *   finishNow    — own turn before attackers and the creatures that can attack kill every opponent: go to combat
  *   holdLoop     — do not activate the loop now (its copy is on the stack, the seat's attack is under way, or
- *                  there is already enough)
+ *                  there is already enough) — in ANY window: opponentAI.pickAction takes the loop out of every
+ *                  picker's actions while it holds, the end-step sink's included (2026-10-21)
  *   outlet       — outletFinishLine.outletState: the sacrifice-outlet routes, or null with no outlet on the battlefield
  */
 export function tokenLoopState(state, playerId) {
