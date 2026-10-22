@@ -663,6 +663,11 @@ export default function LearnView({
 
       <TableStrip table={session.table} activePlayer={session.activePlayer} />
 
+      <SaveFailureNotice
+        failure={session.saveFailureDismissed ? null : session.saveFailure}
+        onDismiss={session.dismissSaveFailure}
+      />
+
       {/* CR 103.8c teaching note: in games with more than two players the starting player DOES draw
           on their first turn (unlike 1v1), so an 8-card opening hand on turn 1 is correct — not a
           bug. Shown only on commander turn 1, once the game is actually being played. */}
@@ -1324,6 +1329,49 @@ function AskPanel({ sessionId, avoidSheet = false }) {
 }
 
 // ─── Table strip (all seats: life / zones / commander damage) ─────────────────
+
+/** What the save notice says for each `saveFailure.kind` the play routes report (learnPersistence.js). */
+export const SAVE_FAILURE_TEXT = {
+  autosave: "Autosave failed — your game may not survive a restart.",
+  "game-record": "This game's record wasn't saved — it won't appear in your Crucible records.",
+};
+
+/**
+ * The quiet, dismissible notice for a game the server could not keep on disk. Play is never blocked; the
+ * server log has the full error, and the detail rides along as the tooltip. Renders nothing without a failure.
+ */
+export function SaveFailureNotice({ failure, onDismiss }) {
+  if (!failure) return null;
+  const text = SAVE_FAILURE_TEXT[failure.kind] || SAVE_FAILURE_TEXT.autosave;
+  return (
+    <div
+      role="status"
+      title={failure.detail || undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        fontSize: 11,
+        color: "var(--ley-gold)",
+        padding: "4px 12px",
+        background: "var(--ley-surface-1)",
+        borderBottom: "1px solid var(--ley-gold-dim)",
+      }}
+    >
+      <span>⚠ {text}</span>
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={onDismiss}
+        aria-label="Dismiss the save notice"
+        title="Dismiss"
+        style={{ padding: "0 6px", minHeight: 0, lineHeight: 1.4 }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export function TableStrip({ table, activePlayer }) {
   if (!table || table.length === 0) return null;

@@ -20,12 +20,21 @@
  *
  * Computed ONCE per process: a long-running dev server that hot-reloads engine code keeps its start-time
  * stamp until restart (scripts and the grind pool are fresh processes, so they are always exact).
+ *
+ * The package version is a static JSON import, never a runtime file read. Next's webpack rewrites
+ * `new URL("../../../package.json", import.meta.url)` into its own relative-URL object (dev) or a
+ * "/_next/static/media/package.<hash>.json" asset URL (the production build the exe ships), and
+ * `readFileSync` rejects both with ERR_INVALID_ARG_TYPE. That read made engineBuild() throw in every
+ * bundled server from 2026-09-29 (v0.161.0) on, so every Academy autosave, every "Save as puzzle" and the
+ * in-app grind failed there, while plain-Node scripts and tests (no bundler) passed. A JSON import is
+ * inlined by the bundler at build time (after release.yml has stamped the version) and read by Node directly
+ * everywhere else. engineBuild.bundled.test.js bundles this file with Next's own webpack to keep it so.
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pkg from "../../../package.json" with { type: "json" };
 
 const DESCRIBE_ARGS = ["describe", "--tags", "--long", "--always", "--dirty", "--abbrev=8", "--match", "v*.*.*"];
 
@@ -72,7 +81,7 @@ let cached = null;
 export function engineBuild() {
   if (cached === null) {
     cached = computeEngineBuild({
-      readPkgVersion: () => JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")).version,
+      readPkgVersion: () => pkg.version,
       // Run from THIS file's directory, so the stamp describes the tree the engine code was loaded from —
       // even when a harness outside the repo (Omnath's pilots) imports this module with another cwd.
       runGitDescribe: () =>

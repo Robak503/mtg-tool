@@ -172,3 +172,12 @@ pipeline or the Rust shell.
   edit or from a file copy taken before the mutation (same for tier-snapshot before/after:
   copy the touched files aside, `git show HEAD:<path> >` for BEFORE, copy back for AFTER —
   never stash, never checkout).
+- **Server code never reads a file through `new URL("<relative>", import.meta.url)`.** Next's webpack
+  (`module.parser.javascript.url: "relative"`) rewrites that expression into its own relative-URL
+  object in `next dev` and a `/_next/static/media/<name>.<hash>.<ext>` asset URL in `next build`,
+  and `fs.readFileSync` rejects both (`ERR_INVALID_ARG_TYPE`), while plain Node and vitest (no
+  bundler) pass. `engineBuild.js` did exactly this from v0.161.0: every Academy autosave, Save as
+  puzzle and in-app grind failed in the dev server and the exe for three weeks, hidden by an empty
+  catch. Import JSON statically (`import pkg from "…/package.json" with { type: "json" }` — the
+  bundler inlines it) or resolve paths through `paths.js`; `engineBuild.bundled.test.js` shows how
+  to test a module the way Next bundles it.

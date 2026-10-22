@@ -5,8 +5,12 @@
  * version, checksum, atomic write, a denormalized index, and pruning. All paths
  * resolve via profilePath() so saves are scoped to the active profile.
  *
- * Autosave is fire-and-forget from the routes; a failed save never breaks a live
- * game. Resume re-hydrates the session into the in-memory store and the route
+ * Failures are never swallowed here. Writing the save, its index entry, or a
+ * deletion throws to the caller; the play routes go through learnPersistence.js,
+ * which logs the failure and reports it in the response (the Academy shows a
+ * notice) without blocking the game. Pruning old saves is the one best-effort
+ * step: its failures are logged and the new save still stands.
+ * Resume re-hydrates the session into the in-memory store and the route
  * re-derives the current decision via advanceUntilDecision.
  */
 
@@ -74,7 +78,11 @@ function isSaveFile(name) {
   return name.endsWith(".json") && name !== "index.json" && !name.includes(".tmp.");
 }
 
-/** Autosave a live session to disk. Returns the save doc, or null if it couldn't. */
+/**
+ * Autosave a live session to disk. Returns the save doc (null for a session without an id). Throws when the save
+ * file or the saved-games index (what the Resume list reads) can't be written. Pruning old saves afterwards is
+ * best-effort: a failure there is logged and the new save stands.
+ */
 export async function autosaveSession(session) {
   if (!session?.id) return null;
   const ser = isSerializable(session);
@@ -90,8 +98,12 @@ export async function autosaveSession(session) {
   };
   await fs.mkdir(SAVES_DIR(), { recursive: true });
   await atomicWriteJson(saveFilePath(session.id), saveDoc);
-  await rebuildIndex().catch(() => {});
-  await pruneSaves().catch(() => {});
+  await rebuildIndex();
+  try {
+    await pruneSaves();
+  } catch (error) {
+    console.error(`[learnSaveStore] pruning old Academy saves failed (the new save of ${session.id} stands):`, error);
+  }
   return saveDoc;
 }
 
@@ -104,34 +116,55 @@ export async function loadSave(sessionId) {
   return { ok: true, saveDoc: doc };
 }
 
-/** List saves from the index (self-heals by rebuilding if missing/corrupt). */
+/**
+ * List saves from the index. A missing or corrupt index self-heals from the save files; the list is served from
+ * that scan even when the rebuilt index can't be written back (logged — the next autosave writes it again).
+ */
 export async function listSaves() {
-  let idx = await readJsonSafe(INDEX_FILE());
-  if (!idx || !Array.isArray(idx.saves)) idx = await rebuildIndex();
-  return idx?.saves || [];
+  const idx = await readJsonSafe(INDEX_FILE());
+  if (idx && Array.isArray(idx.saves)) return idx.saves;
+  const files = await readSaveFolder();
+  if (!files) return [];
+  const rebuilt = await indexFromFiles(files);
+  try {
+    await atomicWriteJson(INDEX_FILE(), rebuilt);
+  } catch (error) {
+    console.error("[learnSaveStore] the rebuilt saved-games index could not be written (listed from the save files):", error);
+  }
+  return rebuilt.saves;
 }
 
-/** Delete a save file + refresh the index. */
+/** Delete a save file + refresh the index. A save that is already gone is fine; any other failure throws. */
 export async function deleteSave(sessionId) {
-  await fs.unlink(saveFilePath(sessionId)).catch(() => {});
-  await rebuildIndex().catch(() => {});
+  try {
+    await fs.unlink(saveFilePath(sessionId));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  await rebuildIndex();
   return true;
 }
 
-/** Rebuild the denormalized index by scanning the save files. Returns the index. */
-export async function rebuildIndex() {
-  const emptyIdx = {
+function emptyIndex() {
+  return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: "learn-session-index",
     updatedAt: new Date().toISOString(),
     saves: [],
   };
-  let files;
+}
+
+/** The save folder's entries, or null when it doesn't exist yet (no game saved). Any other failure throws. */
+async function readSaveFolder() {
   try {
-    files = await fs.readdir(SAVES_DIR());
-  } catch {
-    return emptyIdx;
+    return await fs.readdir(SAVES_DIR());
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
   }
+}
+
+async function indexFromFiles(files) {
   const saves = [];
   for (const f of files) {
     if (!isSaveFile(f)) continue;
@@ -140,19 +173,28 @@ export async function rebuildIndex() {
     saves.push(indexEntryFromDoc(doc));
   }
   saves.sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
-  const idx = { ...emptyIdx, saves };
-  await atomicWriteJson(INDEX_FILE(), idx).catch(() => {});
+  return { ...emptyIndex(), saves };
+}
+
+/**
+ * Rebuild the denormalized index by scanning the save files and write it. Returns the index. With no save folder
+ * there is nothing to index and nothing is written. Throws when the folder can't be read or the index written.
+ */
+export async function rebuildIndex() {
+  const files = await readSaveFolder();
+  if (!files) return emptyIndex();
+  const idx = await indexFromFiles(files);
+  await atomicWriteJson(INDEX_FILE(), idx);
   return idx;
 }
 
-/** Prune saves past the count cap (oldest first) + the age cap. */
+/**
+ * Prune saves past the count cap (oldest first) + the age cap. Every deletion is attempted; then the index is
+ * rebuilt if anything was deleted, and an AggregateError names the saves that could not be deleted.
+ */
 export async function pruneSaves() {
-  let files;
-  try {
-    files = await fs.readdir(SAVES_DIR());
-  } catch {
-    return;
-  }
+  const files = await readSaveFolder();
+  if (!files) return;
   const docs = [];
   for (const f of files) {
     if (!isSaveFile(f)) continue;
@@ -169,6 +211,12 @@ export async function pruneSaves() {
     const tooOld = Number.isFinite(t) && t < cutoff;
     if (overCount || tooOld) deletions.push(d.full);
   });
-  await Promise.all(deletions.map(p => fs.unlink(p).catch(() => {})));
-  if (deletions.length) await rebuildIndex().catch(() => {});
+  const results = await Promise.allSettled(deletions.map(p => fs.unlink(p)));
+  const failures = results
+    .filter(r => r.status === "rejected" && r.reason?.code !== "ENOENT") // already gone is pruned
+    .map(r => r.reason);
+  if (deletions.length) await rebuildIndex();
+  if (failures.length) {
+    throw new AggregateError(failures, `could not delete ${failures.length} of ${deletions.length} old save(s)`);
+  }
 }

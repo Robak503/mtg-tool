@@ -37,7 +37,9 @@ export default [
   {
     files: ["src/**/*.{js,jsx}"],
     languageOptions: {
-      ecmaVersion: 2024,
+      // 2025: import attributes — engineBuild.js imports package.json `with { type: "json" }` so the bundler
+      // inlines it and plain Node reads it (a runtime `new URL(..., import.meta.url)` read breaks under webpack).
+      ecmaVersion: 2025,
       sourceType: "module",
       globals: { ...globals.browser, ...globals.node },
       parserOptions: { ecmaFeatures: { jsx: true } },

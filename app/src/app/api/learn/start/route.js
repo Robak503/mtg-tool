@@ -22,7 +22,9 @@
  *   }
  *
  * Response:
- *   { sessionId, decision, status }
+ *   { sessionId, decision, status, saveFailure? }
+ *   saveFailure ({ kind: "autosave", detail }) is present only when the new game could not be saved
+ *   (learnPersistence.js) — play goes on and the Academy shows a notice.
  *
  * Where `decision` is the result of advanceUntilDecision — usually
  * an "ask" with prompt + options, or "game-over" if the deck setup
@@ -48,7 +50,7 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveSession } from "../../../../lib/server/learnSaveStore.js";
+import { autosaveForPlay } from "../../../../lib/server/learnPersistence.js";
 import { enrichDeck, enrichDecks } from "../../../../lib/server/learnDeckEnrich.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
@@ -155,14 +157,9 @@ export async function POST(request) {
   }
 
   putSession(session);
-  // Autosave so the game survives a server restart. Awaited but error-swallowed:
-  // a failed save must never break a playable game, but awaiting keeps the save
-  // deterministic (it's a small atomic write on a user-paced turn).
-  try {
-    await autosaveSession(session);
-  } catch {
-    /* never block play on a save */
-  }
+  // Autosave so the game survives a server restart. Awaited (a small atomic write on a
+  // user-paced turn), never blocking: a failure is logged and comes back as `saveFailure`.
+  const saveFailure = await autosaveForPlay(session);
 
   return Response.json({
     sessionId: session.id,
@@ -175,5 +172,6 @@ export async function POST(request) {
     step: session.state.step,
     table: tableSnapshot(session.state),
     board: boardSnapshot(session.state),
+    ...(saveFailure ? { saveFailure } : {}),
   });
 }

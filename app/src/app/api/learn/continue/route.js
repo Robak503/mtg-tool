@@ -5,6 +5,8 @@
  * spell (the engine couldn't model it) and wants to keep playing. Clears the
  * `pendingArbiter` flag, records the acknowledgment, and re-derives the next
  * decision. Same response envelope as /api/learn/step.
+ * saveFailure ({ kind, detail }) is in the response only when the game could not be kept on disk
+ * (learnPersistence.js) — play goes on and the Academy shows a notice.
  *
  * Body:
  *   { sessionId }
@@ -22,7 +24,7 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
+import { autosaveForPlay, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
 
 export async function POST(request) {
   let body;
@@ -59,11 +61,13 @@ export async function POST(request) {
 
   putSession(stepped);
 
+  // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
+  let saveFailure = null;
   if (isComplete(stepped)) {
     deleteSession(sessionId);
-    try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
+    await dropFinishedGameSave(sessionId);
   } else {
-    try { await autosaveSession(stepped); } catch { /* never block play on a save */ }
+    saveFailure = await autosaveForPlay(stepped);
   }
 
   return Response.json({
@@ -77,5 +81,6 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(stepped),
     table: tableSnapshot(stepped.state),
     board: boardSnapshot(stepped.state),
+    ...(saveFailure ? { saveFailure } : {}),
   });
 }

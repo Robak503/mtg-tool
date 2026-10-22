@@ -6,8 +6,9 @@
  * <tmpdir>/data/learn-sessions.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -129,5 +130,78 @@ describe("learnSaveStore", () => {
     const entry = (await listSaves()).find(x => x.sessionId === "learn-old2");
     expect(entry).toBeTruthy();
     expect(entry.resumable).toBe(true);
+  });
+});
+
+// 2026-10-21 — no silent catches in the save store. A failure that costs the player their game (the save, or the
+// index the Resume list reads) throws to the route, which logs and reports it; pruning is the one best-effort
+// step, and its failures are logged with the new save left standing.
+describe("learnSaveStore — failures surface", () => {
+  let errorSpy;
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  const logged = () => errorSpy.mock.calls.map((args) => args.map(String).join(" "));
+
+  it("deleteSave throws when the save exists but can't be removed", async () => {
+    await autosaveSession(session("learn-aaa"));
+    fs.rmSync(saveDirFile("learn-aaa.json"), { force: true });
+    fs.mkdirSync(saveDirFile("learn-aaa.json")); // unlink on a folder: EPERM / EISDIR, not ENOENT
+    await expect(deleteSave("learn-aaa")).rejects.toThrow();
+  });
+
+  it("deleteSave of a save that is already gone is fine (control)", async () => {
+    await autosaveSession(session("learn-aaa"));
+    fs.rmSync(saveDirFile("learn-aaa.json"), { force: true });
+    await expect(deleteSave("learn-aaa")).resolves.toBe(true);
+    expect(await listSaves()).toHaveLength(0);
+  });
+
+  it("autosaveSession throws when the saved-games index can't be written (the Resume list would miss the game)", async () => {
+    fs.mkdirSync(saveDirFile("index.json"), { recursive: true }); // the index's rename onto a folder fails
+    await expect(autosaveSession(session("learn-aaa"))).rejects.toThrow();
+  });
+
+  it("listSaves lists from the save files when the rebuilt index can't be written, and logs that", async () => {
+    await autosaveSession(session("learn-aaa"));
+    fs.rmSync(saveDirFile("index.json"), { force: true });
+    fs.mkdirSync(saveDirFile("index.json")); // unreadable as JSON (self-heal) and unwritable
+    const saves = await listSaves();
+    expect(saves.map((s) => s.sessionId)).toEqual(["learn-aaa"]);
+    expect(logged().some((l) => l.includes("[learnSaveStore] the rebuilt saved-games index could not be written"))).toBe(true);
+  });
+
+  it("a prune that fails is logged, and the new save stands", async () => {
+    const old = session("learn-old");
+    fs.mkdirSync(path.dirname(saveDirFile("x")), { recursive: true });
+    fs.writeFileSync(
+      saveDirFile("learn-old.json"),
+      JSON.stringify({ schemaVersion: 6, kind: "learn-session-save", savedAt: "2020-01-01T00:00:00.000Z", sessionId: "learn-old", session: old, serializable: true, checksum: checksumOf(old) }),
+    );
+    const realUnlink = fsp.unlink;
+    vi.spyOn(fsp, "unlink").mockImplementation(async (p) => {
+      if (String(p).endsWith("learn-old.json")) throw Object.assign(new Error("EPERM: operation not permitted, unlink"), { code: "EPERM" });
+      return realUnlink(p);
+    });
+    await expect(autosaveSession(session("learn-new"))).resolves.toBeTruthy();
+    expect((await loadSave("learn-new")).ok).toBe(true);
+    expect(fs.existsSync(saveDirFile("learn-old.json"))).toBe(true);
+    expect(logged().some((l) => l.includes("[learnSaveStore] pruning old Academy saves failed (the new save of learn-new stands)"))).toBe(true);
+  });
+
+  it("a prune that succeeds deletes the expired save and logs nothing (control)", async () => {
+    const old = session("learn-old");
+    fs.mkdirSync(path.dirname(saveDirFile("x")), { recursive: true });
+    fs.writeFileSync(
+      saveDirFile("learn-old.json"),
+      JSON.stringify({ schemaVersion: 6, kind: "learn-session-save", savedAt: "2020-01-01T00:00:00.000Z", sessionId: "learn-old", session: old, serializable: true, checksum: checksumOf(old) }),
+    );
+    await autosaveSession(session("learn-new"));
+    expect(fs.existsSync(saveDirFile("learn-old.json"))).toBe(false);
+    expect((await listSaves()).map((s) => s.sessionId)).toEqual(["learn-new"]);
+    expect(logged()).toEqual([]);
   });
 });

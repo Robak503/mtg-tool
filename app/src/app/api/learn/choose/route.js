@@ -11,6 +11,9 @@
  *   { sessionId, choice: { permId: string | null } }  // clone: permId null/absent = decline copy
  *   { sessionId, choice: { keep: string[] } }         // scry/surveil: ordered ids to keep on top
  *
+ * Response: the step route envelope, with saveFailure ({ kind, detail }) only when the game could not
+ * be kept on disk (learnPersistence.js) — play goes on and the Academy shows a notice.
+ *
  * Errors:
  *   400 — missing body / sessionId
  *   404 — unknown sessionId (expired or server restarted)
@@ -25,8 +28,8 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
-import { appendGameRecord, recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
+import { autosaveForPlay, recordFinishedGame, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
+import { recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
@@ -64,14 +67,16 @@ export async function POST(request) {
 
   putSession(stepped);
 
+  // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
+  let saveFailure;
   if (isComplete(stepped)) {
     // The record keeps a FULL narrative tail (up to the store's 160-line cap) for
     // the P7 replay scrubber — not the 5-entry "recent activity" strip the live feed uses.
-    try { await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160))); } catch { /* records are best-effort */ }
+    saveFailure = await recordFinishedGame(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160)));
     deleteSession(sessionId);
-    try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
+    await dropFinishedGameSave(sessionId);
   } else {
-    try { await autosaveSession(stepped); } catch { /* never block play on a save */ }
+    saveFailure = await autosaveForPlay(stepped);
   }
 
   return Response.json({
@@ -85,5 +90,6 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(stepped),
     table: tableSnapshot(stepped.state),
     board: boardSnapshot(stepped.state),
+    ...(saveFailure ? { saveFailure } : {}),
   });
 }

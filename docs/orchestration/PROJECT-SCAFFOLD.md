@@ -122,7 +122,12 @@ from `/api/chat-stream`), `useCardSearch`, `useLearnSession` (the game-UI wire
 loop). The **Learn/Academy** UI drives the native engine: a server-owned
 `GameState` emits a wire `decision`, the UI renders it (option buttons /
 click-to-act board / a side-sheet per interactive `pendingChoice` kind), the user
-answers, `POST /api/learn/choose|step|continue` advances. **SelfPlayPanel /
+answers, `POST /api/learn/choose|step|continue` advances. After every move
+(and on `start` / `mulligan`) the route keeps the game on disk through
+`lib/server/learnPersistence.js` → `learnSaveStore.js` (`profiles/<id>/learn-sessions/`,
+resumed by `/api/learn/resume`); a save that fails never blocks play and is never
+silent: it is logged (server.err.log in the exe) and returned as `saveFailure`, which
+the Academy shows as a dismissible notice. **SelfPlayPanel /
 SimCenter** drive `/api/self-play`. Reference client-mutation pattern worth
 copying: `CollectionView`'s optimistic stepper (`collectionRef` + per-row seq +
 reconcile).

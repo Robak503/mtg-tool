@@ -13,6 +13,8 @@
  *
  * Response mirrors /api/learn/step|choose: the next `decision` is either another mulligan ask
  * (still status "mulligan") or the game's first real decision (status "active" once opened).
+ * saveFailure ({ kind, detail }) is in the response only when the game could not be kept on disk
+ * (learnPersistence.js) — play goes on and the Academy shows a notice.
  *
  * Errors:
  *   400 — missing body / sessionId
@@ -35,8 +37,8 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
-import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
-import { appendGameRecord, recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
+import { autosaveForPlay, recordFinishedGame, dropFinishedGameSave } from "../../../../lib/server/learnPersistence.js";
+import { recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
 
 export async function POST(request) {
   let body;
@@ -79,24 +81,14 @@ export async function POST(request) {
 
   // A game can't normally end during the mulligan phase, but keep the completion handling uniform
   // with /choose|/step in case the opened game reaches a terminal on the very first advance.
+  // Never blocks play; a failure is logged and comes back as `saveFailure` (learnPersistence.js).
+  let saveFailure;
   if (isComplete(stepped)) {
-    try {
-      await appendGameRecord(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160)));
-    } catch {
-      /* records are best-effort */
-    }
+    saveFailure = await recordFinishedGame(recordFromSession(stepped, filteredDecisionLogTail(stepped, 160)));
     deleteSession(sessionId);
-    try {
-      await deleteSave(sessionId);
-    } catch {
-      /* never block on cleanup */
-    }
+    await dropFinishedGameSave(sessionId);
   } else {
-    try {
-      await autosaveSession(stepped);
-    } catch {
-      /* never block play on a save */
-    }
+    saveFailure = await autosaveForPlay(stepped);
   }
 
   // Still in the mulligan phase ⇒ another mulligan ask; otherwise the game has opened and the
@@ -117,5 +109,6 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(stepped),
     table: tableSnapshot(stepped.state),
     board: boardSnapshot(stepped.state),
+    ...(saveFailure ? { saveFailure } : {}),
   });
 }

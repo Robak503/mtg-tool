@@ -17,6 +17,8 @@
  *   // decision updates to the next prompt (or game-over)
  *
  * All errors are caught and surfaced in `error`. The hook never throws.
+ * A game the server could not keep on disk keeps playing; the response's `saveFailure` lands in
+ * `saveFailure` (see nextSaveNotice) and the Academy shows a dismissible notice.
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -34,8 +36,24 @@ const INITIAL_STATE = {
   board: null, // full board view model (hands/permanents/zones/stack) for LearnBoard
   decisionLogTail: [],
   puzzle: null, // P9: { id, goal, startTurn } when this session is a puzzle attempt; null otherwise
+  saveFailure: null, // { kind: "autosave" | "game-record", detail } from the last play response; null = kept on disk
+  saveFailureDismissed: false, // the player closed the notice (until a save succeeds again)
   error: null,
 };
+
+/**
+ * The save notice's state after a play response (start / step / choose / continue / mulligan). A response
+ * carrying `saveFailure` shows it, unless the player dismissed a failure since the last good save (a failing
+ * disk would otherwise re-raise it on every move); a response without one means the game was kept, which
+ * clears the notice and re-arms it. Pure, so it is tested without React.
+ */
+export function nextSaveNotice(prev, data) {
+  if (!data?.saveFailure) return { saveFailure: null, saveFailureDismissed: false };
+  return {
+    saveFailure: data.saveFailure,
+    saveFailureDismissed: prev?.saveFailure ? !!prev.saveFailureDismissed : false,
+  };
+}
 
 /**
  * The /api/learn/choose payload for a reflexive-sacrifice answer. The value-token form answers a bare boolean; the
@@ -167,6 +185,7 @@ export default function useLearnSession() {
           table: data.table || [],
           board: data.board || null,
           decisionLogTail: [],
+          ...nextSaveNotice(INITIAL_STATE, data),
           error: null,
         };
         setState(next);
@@ -180,6 +199,11 @@ export default function useLearnSession() {
     },
     [],
   );
+
+  /** Close the save-failure notice; it stays closed until a save succeeds again (nextSaveNotice). */
+  const dismissSaveFailure = useCallback(() => {
+    setState((prev) => ({ ...prev, saveFailureDismissed: true }));
+  }, []);
 
   /**
    * Apply a chosen action. Returns the next decision (also written
@@ -221,6 +245,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -269,6 +294,7 @@ export default function useLearnSession() {
         table: data.table || prev.table,
         board: data.board || prev.board,
         decisionLogTail: data.decisionLogTail || [],
+        ...nextSaveNotice(prev, data),
         error: null,
       }));
       return data.decision;
@@ -320,6 +346,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -373,6 +400,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -426,6 +454,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -482,6 +511,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -536,6 +566,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -587,6 +618,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -640,6 +672,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -690,6 +723,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -739,6 +773,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -787,6 +822,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -838,6 +874,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -888,6 +925,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -938,6 +976,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -991,6 +1030,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1045,6 +1085,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1098,6 +1139,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1240,6 +1282,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1293,6 +1336,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1347,6 +1391,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1400,6 +1445,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1454,6 +1500,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1506,6 +1553,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1539,7 +1587,7 @@ export default function useLearnSession() {
         setState((prev) => ({
           ...prev, decision: data.decision, status: isOver ? "ended" : "active", difficulty: data.difficulty ?? prev.difficulty,
           turn: data.turn, activePlayer: data.activePlayer, step: data.step, table: data.table || prev.table, board: data.board || prev.board,
-          decisionLogTail: data.decisionLogTail || [], error: null,
+          decisionLogTail: data.decisionLogTail || [], ...nextSaveNotice(prev, data), error: null,
         }));
         return data.decision;
       } catch (error) {
@@ -1588,6 +1636,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1640,6 +1689,7 @@ export default function useLearnSession() {
           table: data.table || prev.table,
           board: data.board || prev.board,
           decisionLogTail: data.decisionLogTail || [],
+          ...nextSaveNotice(prev, data),
           error: null,
         }));
         return data.decision;
@@ -1849,6 +1899,7 @@ export default function useLearnSession() {
     applyCommanderReturnChoice,
     mulligan,
     reset,
+    dismissSaveFailure,
     listSaves,
     resume,
     deleteSave,
