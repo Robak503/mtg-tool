@@ -345,7 +345,8 @@ describe("BUG 2 — a permanent removed from combat is no longer in it (CR 506.4
     const steps = [];
     let cur = blockersStep;
     for (let g = 0; g < 20 && cur.phase === "combat"; g++) { if (steps.at(-1) !== cur.step) steps.push(cur.step); cur = pass(cur); }
-    expect(steps).toEqual(["declare-blockers", "first-strike-damage", "combat-damage", "end-of-combat"]);
+    // No first or double striker in combat: no first-strike damage step (CR 510.4 — 2026-10-22; it used to be entered here).
+    expect(steps).toEqual(["declare-blockers", "combat-damage", "end-of-combat"]);
   });
 
   it("outside combat — a game's first main phase, before any combat record exists — a creature leaving the battlefield touches no combat state", () => {
@@ -386,7 +387,11 @@ describe("BUG 2 — a permanent removed from combat is no longer in it (CR 506.4
     expect(offered(passTo(saved, "declare-blockers"), "ai", "declare-blocker")).toEqual([]);
   });
 
-  /** Blocks declared (the AI double-blocks the user's Grizzly Bears), then the user steals one blocker in the first-strike damage step. */
+  /**
+   * Blocks declared (the AI double-blocks the user's Grizzly Bears), then the user steals one blocker in the declare blockers
+   * step, once the block declaration has closed and the user holds priority. (Until 2026-10-22 this was the first-strike damage
+   * step, which the rules do not create in a combat with no first or double striker — CR 510.4.)
+   */
   function stolenBlocker({ second = true, userHand = [], aiHand = [], aiLands = [], userLands = [] } = {}) {
     const s0 = table({
       user: [P("gbu", GRIZZLY_BEARS, "user"), ...lands("mt", MOUNTAIN, 5, "user"), ...userLands],
@@ -397,7 +402,8 @@ describe("BUG 2 — a permanent removed from combat is no longer in it (CR 506.4
     s = pass(s); // the active player passes; the defender declares
     s = act(s, "ai", "declare-blocker", (a) => a.permanentId === "gba1");
     if (second) s = act(s, "ai", "declare-blocker", (a) => a.permanentId === "gba2");
-    s = passTo(s, "first-strike-damage");
+    for (let g = 0; g < 20 && (s.combat?.blockDeclarationOpen || s.priorityHolder !== "user"); g++) s = pass(s);
+    expect(s.step).toBe("declare-blockers");
     expect(s.combat.blockers.map((b) => `${b.blockerId}>${b.attackerId}`)).toEqual(second ? ["gba1>gbu", "gba2>gbu"] : ["gba1>gbu"]);
     return resolveStack(cast(s, "user", "Turn Against", "gba1"));
   }

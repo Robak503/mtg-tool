@@ -63,7 +63,7 @@ import { setPendingCleanupDiscardChoice, setPendingTriggerTargetChoice, setPendi
 import { targetTaxForStackObject } from "./ward.js"; // ward and Diffusion Sliver on a triggered ability's target (CR 702.21a) — the cast and ability paths' own detector (ward.js reaches gameState, layers, faceUp, groupWard and manaModel; none imports gameEngine)
 import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's pay-or-decline answer to a ward — read by the trigger-target chooser so it never aims where it won't pay
 import { skipsDrawStep, extraTurnSkipped } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped; + the opponent-scoped extra-turn skip (Trouble in Pairs, #626)
-import { resolveCombatDamage } from "./combatResolution.js";
+import { resolveCombatDamage, combatHasFirstStrike } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import {
@@ -330,12 +330,13 @@ function colorlessManaEntry(entry) {
  * step's automatic effects (untap, draw, etc.).
  */
 /**
- * ENTER-COMBAT post-processing (Increment 3b, 2026-08-12) — everything a beginning-of-combat ENTRY owes,
- * shared by the normal sequence walk and BOTH extra-phase jumps. The jumps used to return early and SKIP
- * this: an extra combat never fired its combatBegin step triggers or the Vihaan animate — Halana's own
- * combat trigger was silent in exactly the combats Karlach creates. Also stamps the turn-scoped combat
- * tally (`combatsThisTurn: { turn, count }`) that Karlach's "first combat phase of the turn"
- * intervening-if reads — self-expiring via the turn stamp, so it needs no reset wiring.
+ * ENTER-COMBAT post-processing (Increment 3b, 2026-08-12) — everything a beginning of combat step owes as it begins: the
+ * "at the beginning of combat" triggers (CR 507.1, 603.2b), the Vihaan animate, and the turn-scoped combat tally
+ * (`combatsThisTurn: { turn, count }`) that Karlach's "first combat phase of the turn" intervening-if reads — self-expiring
+ * via the turn stamp, so it needs no reset wiring. Run ONCE per beginning of combat step, by runStepActions, whether the
+ * step was reached by the normal walk or by one of advanceStep's extra-combat jumps (CR 500.8 — an additional combat phase
+ * has its own beginning of combat step, begun once). The jumps also ran it from 2026-08-12 to 2026-10-22, so every
+ * additional combat counted twice and its beginning-of-combat triggers triggered twice.
  */
 function enterCombatPostProcess(s) {
   let out = { ...s, combatsThisTurn: { turn: s.turn, count: (s.combatsThisTurn?.turn === s.turn ? s.combatsThisTurn.count : 0) + 1 } };
@@ -374,6 +375,11 @@ export function advanceStep(state) {
   //
   // ⛔ THE NON-TERMINATION TRAP: the run is popped as it is taken (never re-queued), so N grants give
   // exactly N extra combats. Without the pop, Relentless Assault loops the turn forever.
+  //
+  // ⛔ EVERY JUMP BELOW ONLY MOVES THE STATE (2026-10-22). The beginning of combat step it lands on is begun by runStepActions,
+  // exactly as on the normal walk — the tally, the "at the beginning of combat" triggers, the Vihaan animate, once
+  // (enterCombatPostProcess; CR 507.1, 603.2b). Until 2026-10-22 the five jumps ran enterCombatPostProcess themselves as well,
+  // so every additional combat counted twice and its beginning-of-combat triggers triggered twice.
   if (state.step === "end-of-combat" && state.currentExtraCombat && state.currentExtraCombat.withMain === false) {
     // AFTER-MAIN FIDELITY (KT-7b): this extra combat had NO main after it (Full Throttle, Grim Reaper's Sprint) — chain straight
     // to the next after-main combat if one is queued, else to the OWED normal combat; only then does a main follow.
@@ -381,16 +387,16 @@ export function advanceStep(state) {
     const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
     const nextIdx = queued.length ? [...queued].map((e, i) => [e, i]).filter(([e]) => e.after === "main").map(([, i]) => i).pop() : undefined;
     if (bocIdx !== -1 && nextIdx !== undefined) {
-      return enterCombatPostProcess({
+      return {
         ...emptied, extraPhases: queued.filter((_, i) => i !== nextIdx), currentExtraCombat: { withMain: queued[nextIdx].withMain !== false },
         phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
-      });
+      };
     }
     if (bocIdx !== -1 && state.normalCombatOwed) {
-      return enterCombatPostProcess({
+      return {
         ...emptied, normalCombatOwed: false, currentExtraCombat: null,
         phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
-      });
+      };
     }
   }
   if (state.step === "end-of-combat") {
@@ -402,7 +408,7 @@ export function advanceStep(state) {
     if (idx !== undefined) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
-        return enterCombatPostProcess({
+        return {
           ...emptied,
           extraPhases: queued.filter((_, i) => i !== idx), // LIFO within the class — most recent first (CR 500.8)
           phase: TURN_SEQUENCE[bocIdx].phase,
@@ -410,7 +416,7 @@ export function advanceStep(state) {
           combat: null,                     // a NEW combat: last combat's attackers/blockers do not carry over
           priorityHolder: null,
           consecutivePasses: 0,
-        });
+        };
       }
     }
   }
@@ -432,7 +438,7 @@ export function advanceStep(state) {
         // AFTER-MAIN FIDELITY (KT-7b, CR 500.8): leaving the PRECOMBAT main into an extra combat means the turn's NORMAL
         // combat has not happened yet — it is OWED and comes after the extra sequence. The entry remembers whether a main
         // follows it (`withMain`); a no-main extra combat chains to the next combat at its end (see end-of-combat).
-        return enterCombatPostProcess({
+        return {
           ...emptied,
           extraPhases: queued.filter((_, i) => i !== idx),
           normalCombatOwed: state.phase === "precombat-main" ? true : !!state.normalCombatOwed,
@@ -442,7 +448,7 @@ export function advanceStep(state) {
           combat: null,
           priorityHolder: null,
           consecutivePasses: 0,
-        });
+        };
       }
     }
     // The owed NORMAL combat: leaving a postcombat main with nothing queued and the normal combat still owed → it happens now
@@ -450,10 +456,10 @@ export function advanceStep(state) {
     if (state.phase === "postcombat-main" && state.normalCombatOwed) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
-        return enterCombatPostProcess({
+        return {
           ...emptied, normalCombatOwed: false, currentExtraCombat: null,
           phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
-        });
+        };
       }
     }
   }
@@ -472,6 +478,14 @@ export function advanceStep(state) {
     if (state.step === "declare-attackers" && (state.combat?.attackers || []).length === 0 && !(state.combat?.declaredAttackerCount > 0)) {
       const eoc = TURN_SEQUENCE.findIndex((e) => e.step === "end-of-combat");
       if (eoc !== -1) next = TURN_SEQUENCE[eoc];
+    }
+    // CR 510.4 / 506.1 — the phase gets the FIRST-STRIKE combat damage step only "if at least one attacking or blocking creature
+    // has first strike … or double strike … as the combat damage step begins". With none in combat as the declare blockers step
+    // ends, the combat damage step is the only one: go straight to it. Until 2026-10-22 the first-strike step was always
+    // entered — an empty step with its own priority round in every combat with attackers.
+    if (state.step === "declare-blockers" && !combatHasFirstStrike(state)) {
+      const cd = TURN_SEQUENCE.findIndex((e) => e.step === "combat-damage");
+      if (cd !== -1) next = TURN_SEQUENCE[cd];
     }
     return {
       ...emptied,
@@ -758,10 +772,10 @@ export function runStepActions(state) {
       break;
 
     case "first-strike-damage":
-      // First-strike + double-strike creatures deal here; the call no-ops when
-      // none have it (CR 510.4 — a first-strike/double-strike combatant creates this
-      // first combat-damage step). Lethal first-strike damage kills before the
-      // regular step, so those creatures never deal back.
+      // First-strike + double-strike creatures deal here. The step exists only when a
+      // combatant has first strike or double strike (CR 510.4 — advanceStep enters it
+      // only then). Lethal first-strike damage kills before the regular step, so those
+      // creatures never deal back.
       next = resolveCombatDamage(next, { firstStrikeStep: true });
       next = logEvent(next, {
         kind: "step",
@@ -894,7 +908,7 @@ export function runStepActions(state) {
   //    player in triggersForEvent; whose:"any" ("each combat", Unnatural Growth) fires regardless of turn.
   //  - firstMain: at the PRECOMBAT main only (gate on phase — both main phases share step "main"); else it
   //    would fire twice (a postcombat-main double-fire is the landmine here).
-  else if (next.step === "beginning-of-combat") next = enterCombatPostProcess(next); // combatBegin triggers + Vihaan animate + the combat tally (Increment 3b)
+  else if (next.step === "beginning-of-combat") next = enterCombatPostProcess(next); // combatBegin triggers + Vihaan animate + the combat tally — the ONE entry for every combat phase, the additional ones included (2026-10-22)
   // VIHAAN-ANIMATE (a targeted #319-style hook the trigger compiler can't reach): at the beginning-of-combat
   // step, Vihaan, Goldwaker makes every Treasure the ACTIVE player controls a 3/3 Construct Assassin artifact
   // creature until end of turn — a MASS, optional, subject-scoped layer-4 animate the effect vocabulary can't
@@ -902,7 +916,7 @@ export function runStepActions(state) {
   // framework (vihaanAnimate.js); a no-op when no Vihaan-style watcher is on the active player's board. Fired
   // right after the combatBegin step trigger so the now-creature Treasures are full combat participants for the
   // attack/block declarations that follow this step.
-  // (the Vihaan animate runs inside enterCombatPostProcess now — ONE entry chain for all three beginning-of-combat sites)
+  // (the Vihaan animate runs inside enterCombatPostProcess — run once per beginning of combat step, here)
   if (next.phase === "precombat-main" && next.step === "main")
     next = checkStepTriggers(next, "firstMain");
   // secondMain (CR 505.1b) — the postcombat sibling. Gated on the PHASE for the same reason firstMain is:

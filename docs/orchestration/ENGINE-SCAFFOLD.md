@@ -311,6 +311,23 @@ through them as `rotationAnchor` — never after the last taker (until 2026-10-2
 extra turn or one taken after another player's turn — Nexus of Fate in an opponent's turn, Perch Protection's gift — handed the
 next normal turn to the wrong seat). An anchor that has left the game rotates from the active player.
 
+**Extra combats** (CR 500.8): `applyExtraCombat` pushes `{ kind: "combat" }` onto `state.extraPhases` — `after: "main"` for "After
+this main phase…" (Relentless Assault, Full Throttle), `withMain: false` when no main follows. `advanceStep` has five jumps back to
+`beginning-of-combat`: the after-combat pop (Aurelia, Karlach), the after-main pop, the no-main chain to the next additional combat,
+and the owed normal combat from each of the last two (`normalCombatOwed`, set when the precombat main is left into an additional
+combat). **A jump only moves the state** (`advanceStep`'s contract: no triggers); the beginning of combat step it lands on is begun by
+`runStepActions`, as on the normal walk, which runs `enterCombatPostProcess` once — the `combatBegin` triggers, the Vihaan animate
+and the turn's combat tally (`combatsThisTurn`, Karlach's "first combat phase of the turn"). From 2026-08-12 to 2026-10-22 the jumps
+also ran it, so every additional combat counted twice and its beginning-of-combat triggers triggered twice (Lord Skitter's two
+Rats, Unnatural Growth doubling twice). Witness: `combatPhaseBeginsOnce.test.js`.
+
+**The combat damage steps** (CR 510.4, 506.1): leaving `declare-blockers`, `advanceStep` enters `first-strike-damage` only if an
+attacking or blocking creature still in combat has first strike or double strike (`combatResolution.combatHasFirstStrike`; a
+creature removed from combat, CR 506.4, does not count); otherwise it goes straight to `combat-damage`. Until 2026-10-22 the
+first-strike step was entered in every combat with attackers — an empty step with its own priority round. Still open: the regular
+step chooses its dealers by the keywords they have then (`dealsThisStep`), not by what they had as the first step began (CR 702.7c,
+702.4c/d).
+
 **After an action the actor keeps priority and the lap restarts** (CR 117.3c,
 117.4): every dispatcher handler that casts a spell, activates a non-mana ability
 or takes a special action returns `{ ...next, priorityHolder: action.playerId,

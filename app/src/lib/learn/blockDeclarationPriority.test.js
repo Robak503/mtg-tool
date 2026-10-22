@@ -220,12 +220,15 @@ describe("CR 509.2a — the block triggers are on the stack before the active pl
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// From here to the session driver the step after the declare blockers step is the combat damage step: no attacking or blocking
+// creature has first strike or double strike, so there is no first-strike damage step (CR 510.4 — 2026-10-22; until then the
+// engine entered it in every combat and these pins read "first-strike-damage").
 describe("CR 509.2, 117.3d — in a pod every player gets priority after the blocks, the active player first, in turn order", () => {
   it("⭐ the user attacks ai2; after ai2 blocks, priority runs user → ai1 → ai2 → ai3 inside the declare blockers step, and the step ends after the fourth pass", () => {
     const s = toBlockers(attackWith(pod(), "user", ["gb"], "ai2"));
     const { state, windows } = walkBlockers(s, { block: { ai2: [["hg", "gb"]] } });
     const afterBlocks = windows.filter((w) => w.blocks > 0).map((w) => `${w.holder}:${w.passes}`);
-    expect({ afterBlocks, leftInto: state.step }).toEqual({ afterBlocks: ["ai2:2", "ai3:3", "user:0", "ai1:1", "ai2:2", "ai3:3"], leftInto: "first-strike-damage" });
+    expect({ afterBlocks, leftInto: state.step }).toEqual({ afterBlocks: ["ai2:2", "ai3:3", "user:0", "ai1:1", "ai2:2", "ai3:3"], leftInto: "combat-damage" });
   });
 });
 
@@ -250,7 +253,7 @@ describe("CR 117.4, 500.2 — the step still ends (controls)", () => {
   it("a pod with nobody acting leaves the step within two laps of passes", () => {
     const s = toBlockers(attackWith(pod(), "user", ["gb"], "ai2"));
     const { state, windows } = walkBlockers(s, {});
-    expect({ left: state.step, withinTwoLaps: windows.length <= 2 * 4 }).toEqual({ left: "first-strike-damage", withinTwoLaps: true });
+    expect({ left: state.step, withinTwoLaps: windows.length <= 2 * 4 }).toEqual({ left: "combat-damage", withinTwoLaps: true });
   });
 
   it("a state built inside the step after the declaration (blocks recorded, nothing open) offers the holder its instants, and one lap of passes ends the step", () => {
@@ -261,7 +264,7 @@ describe("CR 117.4, 500.2 — the step still ends (controls)", () => {
     };
     const offeredGG = !!ggOffer(s, "user", "gb");
     const after = pass(pass(s));
-    expect({ offeredGG, left: after.step }).toEqual({ offeredGG: true, left: "first-strike-damage" });
+    expect({ offeredGG, left: after.step }).toEqual({ offeredGG: true, left: "combat-damage" });
   });
 
   it("a forced advance out of the step (nextStep) fires the block trigger once and holds in the step with the active player's priority", () => {
@@ -272,7 +275,7 @@ describe("CR 117.4, 500.2 — the step still ends (controls)", () => {
     for (let g = 0; g < 10 && cur.stack.length; g++) cur = pass(cur);
     const left = nextStep(cur);
     expect({ step: held.step, holder: held.priorityHolder, stack: held.stack.length, leftInto: left.step, power: permanentPower(cur, "dw") })
-      .toEqual({ step: "declare-blockers", holder: "user", stack: 1, leftInto: "first-strike-damage", power: 3 });
+      .toEqual({ step: "declare-blockers", holder: "user", stack: 1, leftInto: "combat-damage", power: 3 });
   });
 });
 

@@ -84,7 +84,7 @@ function toxicValue(card) {
  * blockers); the destroy itself belongs to the end-of-combat step (CR 511.1 — the delayed trigger
  * fires there, AFTER combat damage).
  *
- * THE BOUNDARY: this engine's step machine runs first-strike-damage → combat-damage → end-of-combat,
+ * THE BOUNDARY: this engine's step machine runs [first-strike-damage →] combat-damage → end-of-combat,
  * and the end-of-combat case in gameEngine only CLEARS combat state — no game actions run there. The
  * regular (firstStrikeStep=false) resolveCombatDamage call is therefore the LAST game action of every
  * combat, so its end — after damage, the lethal SBA, and the dies-trigger look-backs — IS the
@@ -144,15 +144,24 @@ function drainEndOfCombatEffects(state) {
 // GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
 // printed one (Phase-7 PR-12). Vanilla creatures resolve via the empty-board
 // fast path, so this is byte-identical for keyword-less boards.
-function combatHasFirstStrike(state, combat) {
+/**
+ * THE FIRST-STRIKE COMBAT DAMAGE STEP'S CONDITION (CR 510.4 — "If at least one attacking or blocking creature has first strike
+ * … or double strike … as the combat damage step begins"; CR 506.1). Read by gameEngine.advanceStep as the declare blockers step
+ * ends: true → the phase gets the first-strike damage step, false → it goes straight to the (only) combat damage step. A
+ * creature removed from combat (CR 506.4 — its record stays so the attacker stays blocked, `removedFromCombat` marks it) is no
+ * longer attacking or blocking and does not count.
+ */
+export function combatHasFirstStrike(state, combat = state?.combat) {
+  if (!combat) return false;
   const ids = [
-    ...combat.attackers.map(a => a.permanentId),
+    ...(combat.attackers || []).map(a => a.permanentId),
     ...(combat.blockers || []).map(b => b.blockerId),
   ];
-  return ids.some(id =>
-    findPermanent(state, id) &&
-    (permanentHasKeyword(state, id, "First strike") || permanentHasKeyword(state, id, "Double strike")),
-  );
+  return ids.some(id => {
+    const lk = findPermanent(state, id);
+    return !!lk && !lk.permanent.removedFromCombat &&
+      (permanentHasKeyword(state, id, "First strike") || permanentHasKeyword(state, id, "Double strike"));
+  });
 }
 
 /**
@@ -180,8 +189,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // and still happens (CR 511). Drain at the regular step's exit, the end-of-combat boundary.
     return firstStrikeStep ? fogged : drainEndOfCombatEffects(fogged);
   }
-  // The first combat-damage step only happens if a creature has first/double
-  // strike (CR 510.4) — otherwise skip it entirely (the regular step does all).
+  // The first combat-damage step only happens if a creature has first/double strike (CR 510.4): advanceStep enters it only then
+  // (combatHasFirstStrike, as the declare blockers step ends). A direct call outside that path stays a no-op here.
   if (firstStrikeStep && !combatHasFirstStrike(state, combat)) {
     return state;
   }

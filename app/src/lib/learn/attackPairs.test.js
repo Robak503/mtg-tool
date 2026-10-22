@@ -256,6 +256,10 @@ describe("RUNTIME — the attack trigger: four seats, ai1 attacks, you hold Mang
 
   it("Trouble in Pairs' ruling: a second declaration in an extra combat triggers it again — ai1 swings twice (Relentless Assault), you draw twice", () => {
     let s = table({ boards: { user: [P("tip", TROUBLE, "user")], ai1: [P("b1", BEARS, "ai1"), P("b2", BEARS, "ai1"), ...lands("ai1", MOUNTAIN, 4)] }, hands: { ai1: [H("ra", RELENTLESS)] } });
+    // The table starts in the declare attackers step: give it the tally its beginning of combat step would have stamped (one
+    // combat so far), so the count below is the turn's. (Until 2026-10-22 the extra combat counted itself twice, which read 2
+    // here without this line.)
+    s = { ...s, combatsThisTurn: { turn: s.turn, count: 1 } };
     const u0 = handSize(s);
     const first = declare(s, [["b1", "user"], ["b2", "user"]]);
     s = until(resolveStack(first.s), (x) => x.phase === "postcombat-main" && x.step === "main");

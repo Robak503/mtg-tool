@@ -15,6 +15,9 @@
  * triggers (Halana's own trigger was silent in exactly the combats Karlach creates) and never bumped
  * the tally. enterCombatPostProcess is now the ONE entry chain for all three sites, which is also what
  * makes Karlach's gate close in her own extra combat (count 2 ≠ 1 — the non-recursion guarantee).
+ * (2026-10-22: the jumps had in fact never skipped it — runStepActions begins the step they land on — so from this slice
+ * on every extra combat ran the chain twice: the tally +2, its triggers twice. The jumps now only move the state and
+ * runStepActions runs the chain once; the pin below steps through it. combatPhaseBeginsOnce.test.js witnesses the rest.)
  *
  * Mutation-checked (2026-08-12, applied-check by PRINTING THE CHANGED LINE BACK):
  *   · the first-combat interveningIf arm removed -> Karlach parks (the condition is undecidable).
@@ -26,7 +29,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
-import { advanceStep } from "./gameEngine.js";
+import { nextStep } from "./gameEngine.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
@@ -57,13 +60,13 @@ describe("⭐⭐ LAW 6 — the first-combat gate reads the REAL tally, and extra
     expect(row).toEqual({ first: true, second: false, absent: false, staleTurn: false });
   });
 
-  it("⛔⛔ THE ENTER-COMBAT FIX: an extra-phase jump bumps the tally AND runs the entry chain", () => {
-    // Before the fix the jumps returned early: no combatBegin triggers, no tally — an extra combat was
-    // invisible to everything that watches combats begin.
+  it("⛔⛔ THE ENTER-COMBAT FIX: an extra-phase jump lands on a beginning of combat step that bumps the tally once", () => {
+    // The jump (advanceStep) moves the state; the step's automatic actions (runStepActions) run the entry chain — once
+    // (2026-10-22: until then the jump ran it too, and the tally read 3 here).
     const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     const eoc = { ...s0, activePlayer: "user", phase: "combat", step: "end-of-combat", priorityHolder: null, consecutivePasses: 0,
       turn: 3, combatsThisTurn: { turn: 3, count: 1 }, extraPhases: [{ kind: "combat" }] };
-    const after = advanceStep(eoc);
+    const after = nextStep(eoc);
     const row = { step: after.step, tally: after.combatsThisTurn };
     console.log("  WITNESS extraCombatCounts", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ step: "beginning-of-combat", tally: { turn: 3, count: 2 } });

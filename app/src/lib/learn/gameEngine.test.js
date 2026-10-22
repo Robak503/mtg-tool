@@ -11,6 +11,7 @@ import {
   _resetIdsForTests,
   createGameState,
   createStackObject,
+  createPermanent,
   STEPS,
 } from "./gameState.js";
 import {
@@ -66,15 +67,33 @@ describe("advanceStep — phase/step walk", () => {
     expect(state.step).toBe("main");
   });
 
-  it("walks every combat step in order (an attacker is declared — CR 508.8 skips them otherwise)", () => {
+  /** At the beginning of combat with one attacker declared: a1, a Youthful Knight ("First strike") when `firstStrike`, else a Grizzly Bears. */
+  function combatWithAttacker(firstStrike) {
     let state = baseState();
     // Advance to first combat step.
     while (!(state.phase === "combat" && state.step === "beginning-of-combat")) {
       state = advanceStep(state);
     }
     expect(state.step).toBe("beginning-of-combat");
+    const card = firstStrike
+      ? { id: "c-a1", name: "Youthful Knight", type: "Creature — Human Knight", mana: "{1}{W}", power: "2", toughness: "1", keywords: ["First strike"], oracle: "First strike" }
+      : { id: "c-a1", name: "Grizzly Bears", type: "Creature — Bear", mana: "{1}{G}", power: "2", toughness: "2", keywords: [], oracle: "" };
+    const a1 = createPermanent({ id: "a1", card, controller: state.activePlayer, summoningSick: false });
+    const me = state.players[state.activePlayer];
     // CR 508.8 (B3): declare-blockers/combat-damage only happen when an attacker was declared.
-    state = { ...state, combat: { attackers: [{ permanentId: "a1", attackingPlayer: state.activePlayer, defender: "ai" }], blockers: [] } };
+    return { ...state, players: { ...state.players, [state.activePlayer]: { ...me, battlefield: [...me.battlefield, a1] } },
+      combat: { attackers: [{ permanentId: "a1", attackingPlayer: state.activePlayer, defender: "ai" }], blockers: [] } };
+  }
+
+  it("without a first or double striker in combat the first-strike damage step is not walked (CR 510.4)", () => {
+    let state = combatWithAttacker(false);
+    const steps = [];
+    while (state.phase === "combat") { steps.push(state.step); state = advanceStep(state); }
+    expect(steps).toEqual(STEPS.combat.filter((s) => s !== "first-strike-damage"));
+  });
+
+  it("walks every combat step in order (an attacker is declared — CR 508.8 skips them otherwise — and it has first strike, CR 510.4)", () => {
+    let state = combatWithAttacker(true);
 
     const expected = STEPS.combat;
     let i = 0;
