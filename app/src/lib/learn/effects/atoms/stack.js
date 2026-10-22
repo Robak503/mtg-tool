@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } 
 import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
-import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
+import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -18,6 +18,7 @@ import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (B
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
 import { stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
+import { protectionApplies } from "../../protection.js"; // ATTACH-ON-ENTER EQUIPMENT (Hero's Blade): the colour-protection test at the move (CR 702.16d) — an import-free leaf
 import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-copy builds a fresh effect-program payload (a zero-import leaf; resolvers.js re-exports it)
@@ -320,6 +321,28 @@ function applyAttachSourceToTriggering(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "aura-attach-to-triggering", auraId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
 }
 
+/**
+ * ATTACH-EQUIPMENT-TO-TRIGGERING (play-weighted 2026-10-21 — Hero's Blade: "Whenever a legendary creature you control enters, you may
+ * attach this Equipment to it."; Sai of the Shinobi, Stormrider Rig, Ronin Warclub, Inventor's Goggles) — the SOURCE Equipment moves
+ * onto the creature whose entering fired the trigger (ctx.triggeringPermanentId). Read at resolution (CR 608.2): both must still be
+ * on the battlefield (a departed one is a clean no-op — CR 400.7, a creature that left and came back is a new object), the newcomer
+ * a creature right now (CR 301.5) and not the Equipment itself (CR 301.5c). The Equipment doesn't move (CR 701.3b) when it can't
+ * equip: it is a creature without reconfigure or no Equipment right now (cannotEquipNow, the Equip lane's guard), or the creature
+ * has protection from one of its colours (CR 702.16d). Already on that creature, nothing happens (CR 701.3b). Otherwise it leaves its
+ * old host, if any (CR 701.3a). The "you may" is the parser's optional peel; runProgram's auto-take keeps an attached Equipment
+ * where it is. Logged.
+ */
+function applyAttachEquipmentToTriggering(state, atom, ctx) {
+  const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const tgt = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  if (!src || !tgt || src.permanent.id === tgt.permanent.id) return state;
+  if (!permanentIsCreature(state, tgt.permanent.id) || cannotEquipNow(state, src.permanent.id)) return state;
+  if (protectionApplies(permanentProtectionColors(state, tgt.permanent.id), permanentColors(state, src.permanent.id))) return state;
+  if (src.permanent.attachedTo === tgt.permanent.id) return state;
+  const next = attachPermanent(state, { equipId: src.permanent.id, targetId: tgt.permanent.id });
+  return logEvent(next, { kind: "spell-effect", effect: "equipment-attach-to-triggering", equipId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
+}
+
 function applyAttachPair(state, atom, ctx) {
   const ts = ctx.targets || [];
   let attachT = ts.find((t) => t?.role === "attachment");
@@ -386,6 +409,10 @@ export function attachClauseParser(clause) {
   // the SOURCE Aura moves onto the TRIGGERING creature (ctx.triggeringPermanentId, threaded by the enters watcher). No
   // chosen target; the Aura's own Enchant line is honoured at the move (CR 303.4) in the resolver.
   if (t === "attach this aura to that creature") return { op: "attach-source-to-triggering", targetType: null };
+  // ATTACH-ON-ENTER EQUIPMENT (play-weighted 2026-10-21 — Hero's Blade, Sai of the Shinobi, Stormrider Rig, Ronin Warclub, Inventor's
+  // Goggles): the Equipment sibling — the sentinel detectTriggers writes for "attach this Equipment to it / that creature" on a
+  // controlled-creature enters watcher (triggers.js ETB_ATTACH_EQUIPMENT_RE), never printed text. See applyAttachEquipmentToTriggering.
+  if (t === "attach this equipment to the triggering creature") return { op: "attach-equipment-to-triggering", targetType: null };
   if (/^attach target aura or equipment you control to target creature you control$/.test(t)) {
     return {
       op: "attach-pair",
@@ -2701,6 +2728,7 @@ export const stackResolvers = {
   },
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
+  "attach-equipment-to-triggering": applyAttachEquipmentToTriggering, // ATTACH-ON-ENTER EQUIPMENT (play-weighted 2026-10-21 — Hero's Blade) — the source Equipment onto the entering creature
   "attach-source-to-triggering": applyAttachSourceToTriggering, // ATTACH-ON-ENTER AURAS — the source Aura onto the creature whose entering fired the trigger
   "attach-pair": applyAttachPair, // ATTACH-PAIR (CAP16) — attach a chosen Aura/Equipment onto a chosen creature (neither is the source)
 };

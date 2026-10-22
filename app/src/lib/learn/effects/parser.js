@@ -68,7 +68,7 @@ import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DI
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser, selfWheelClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
-import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
+import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, multiKindCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
@@ -364,9 +364,28 @@ const MINTED_HASTE_RE = /^(?:it|that token|the token|they|those tokens) gains? h
 // CREATED-TOKEN HASTE UNTIL END OF TURN (play-weighted #753 — Loyal Apprentice: "create a 1/1 colorless Thopter artifact
 // creature token with flying. That token gains haste until end of turn."; Siege-Gang Lieutenant: "Those tokens gain haste
 // until end of turn.") — right after a create-token atom, "that token" / "those tokens" are the tokens that atom made
-// (CR 608.2c). Folded onto the create atom as hasteUntilEot. Whole-clause anchored: a longer sentence ("…and attacks this
-// combat if able" — Legion Warboss) leaves its tail unparsed and the card parked.
-const CREATED_TOKEN_HASTE_EOT_RE = /^(?:that token|those tokens) gains? haste until end of turn\.?$/i;
+// (CR 608.2c). Folded onto the create atom as hasteUntilEot.
+// THE PRONOUN FORMS AND "ATTACKS THIS COMBAT IF ABLE" (play-weighted 2026-10-21 — Sokenzan, Crucible of Defiance: "Create two
+// 1/1 colorless Spirit creature tokens. They gain haste until end of turn."; Krenko, Baron of Tin Street: "create a 1/1 red
+// Goblin creature token. It gains haste until end of turn."; Legion Warboss: "create a 1/1 red Goblin creature token. That token
+// gains haste until end of turn and attacks this combat if able."; Howlsquad Heavy: "That token attacks this combat if able.").
+// Right after a create-token atom the pronoun names the tokens that atom made (CR 608.2c) — "it" only when it made exactly one
+// (a fixed count of one), "they" only when it made several or a counted number, so a pronoun that could name something else
+// stays unread. "Attacks this combat if able" is a requirement on exactly those tokens for the combat in progress
+// (CR 508.1d): folded as mustAttackThisCombat (applyCreateToken stamps the combat; attackRequirements.mustAttackNow reads it).
+// Whole-clause anchored: any other tail leaves the sentence unread.
+const CREATED_TOKEN_RIDER_RE = /^(that token|those tokens|it|they) (?:gains? haste until end of turn(?: and (attacks? this combat if able))?|(attacks? this combat if able))\.?$/i;
+function createdTokenRider(prev, clause) {
+  if (prev?.op !== "create-token") return null;
+  const m = String(clause || "").trim().match(CREATED_TOKEN_RIDER_RE);
+  if (!m) return null;
+  const subject = m[1].toLowerCase();
+  const single = (prev.count == null || prev.count === 1) && !prev.countX && !prev.countContext && !prev.countFor;
+  if (subject === "it" && !single) return null;
+  if (subject === "they" && single) return null;
+  if (m[3]) return { mustAttackThisCombat: true };
+  return m[2] ? { hasteUntilEot: true, mustAttackThisCombat: true } : { hasteUntilEot: true };
+}
 
 // A BARE "IT" AFTER A TARGET (2026-10-17 — Assassin Den, Jailbreak Scheme, Kiora of Salt and Sand). A few arms read a leading
 // "it" as the ability's own permanent (target "self" — "it can't be blocked this turn", "it becomes colorless until end of
@@ -3976,6 +3995,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const atoms = [];
   let allParsed = clauses.length > 0;
   for (const [ci, clause] of clauses.entries()) {
+    // CREATED-TOKEN RIDERS (Loyal Apprentice, Sokenzan, Legion Warboss — see createdTokenRider): only directly after the
+    // create-token atom whose tokens they name, read before the clause parser so a pronoun is never taken for the source; the
+    // atom is replaced by a flagged copy (a parsed atom may be shared).
+    const tokenRider = createdTokenRider(atoms[atoms.length - 1], clause);
+    if (tokenRider) { atoms[atoms.length - 1] = { ...atoms[atoms.length - 1], ...tokenRider }; continue; }
     let atom = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
     if (!atom) {
       // EXILE-IF-DIES rider (subsystem 3) — "If that creature would die this turn, exile it instead."
@@ -3996,9 +4020,6 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // token the copy made, so the grant folds onto that copy as gainsHaste — a lasting layer-6 Haste on exactly the minted
       // tokens (applyCreateTokenCopy), not the copiable "except it has haste" (CR 707.9b).
       if (prev?.op === "create-token-copy" && MINTED_HASTE_RE.test(clause)) { prev.gainsHaste = true; continue; }
-      // CREATED-TOKEN HASTE UNTIL END OF TURN (Loyal Apprentice) — see CREATED_TOKEN_HASTE_EOT_RE. Only directly after the
-      // create-token atom whose tokens it names; the atom is replaced by a flagged copy (a parsed atom may be shared).
-      if (prev?.op === "create-token" && CREATED_TOKEN_HASTE_EOT_RE.test(clause)) { atoms[atoms.length - 1] = { ...prev, hasteUntilEot: true }; continue; }
       // "YOU GAIN LIFE EQUAL TO THE DAMAGE DEALT THIS WAY" (play-weighted 2026-10-18 — Creeping Bloodsucker #1543, Corrupt, Rite of
       // Consumption, Enter the God-Eternals, Syphon Soul): the life is what the damage sentence right before it actually dealt
       // (Corrupt's ruling — prevented damage gains nothing; a 2/2 dealt 6 gains 6), never the amount it set out to deal. Only
@@ -4426,6 +4447,7 @@ registerClauseParser(removeNamedCounterSelfClauseParser); // ARIXMETHES — "rem
 // combatResolution) consume it via the CR 122.1c replacement/prevention. Whole-clause anchored (multi-count /
 // permanent-typed / opponent-targeted forms stay on the Arbiter). Distinct subject → no overlap with add-counter.
 registerClauseParser(shieldCounterClauseParser);
+registerClauseParser(multiKindCounterClauseParser); // play-weighted 2026-10-21 — Gift of the Viper: counters of several kinds on one target, one event
 // DESTROY ⇄ EXILE (seam batch 27 / Wave C, RIDER-FOLDING) — the 5 destroy/exile matchers (exile-creature +
 // shared (destroy|exile) target <typelist> + MASS wipes) co-extracted to atoms/removal.destroyExileClauseParser.
 // The rider-folding dispatch (matchRemovalControllerRider) now resolves its lead via parseExtendedAtom() ||

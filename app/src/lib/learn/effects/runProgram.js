@@ -1545,7 +1545,10 @@ export function optionalAutoTakeValue(state, pc) {
   // The deterministic default: attach iff the Equipment is currently UNATTACHED (pure upside then; a
   // Cutter already on a wearer holds). The policy evaluator below refines this when enabled — this guard
   // only replaces the blind always-take on the legacy path.
-  if (pc?.effectOp === "attach-source-to-last-token" && (!who || !policyEvalEnabledFor(state, who))) {
+  // ATTACH-ON-ENTER EQUIPMENT (play-weighted 2026-10-21 — Hero's Blade, Sai of the Shinobi, Stormrider Rig, Inventor's Goggles,
+  // Quintessential Katana): the same yank — "you may attach this Equipment to it" on every creature that enters — so the same
+  // default: attach iff the Equipment is unattached now.
+  if ((pc?.effectOp === "attach-source-to-last-token" || pc?.effectOp === "attach-equipment-to-triggering") && (!who || !policyEvalEnabledFor(state, who))) {
     const srcId = pc?.resume?.sourceId;
     const src = srcId ? findPermanent(state, srcId) : null;
     return !!src && !src.permanent.attachedTo;

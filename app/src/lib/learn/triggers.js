@@ -1676,6 +1676,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // filter rather than a negated flag — a descriptor carrying neither must keep firing on BOTH, which is
     // every unqualified "a creature you control enters" on the board.
     if (etbSubjRaw === "a creature token you control") return { event: "etb", scope: "creatureYouControl", whose: "any", tokenFilter: true };
+    // THE LEGENDARY SUPERTYPE (play-weighted 2026-10-21 — Hero's Blade: "Whenever a legendary creature you control enters, you may
+    // attach this Equipment to it."): the controlled creature scope narrowed by the entering creature's Legendary supertype
+    // (CR 205.4a), the `legendaryFilter` Yoshimaru's "another legendary …" already carries — listed in the descriptor assembly
+    // and enforced in scopeMatches' creatureYouControl case off the same type line.
+    if (etbSubjRaw === "a legendary creature you control") return { event: "etb", scope: "creatureYouControl", whose: "any", legendaryFilter: true };
     // "ANOTHER nontoken creature you control enters" (Surrak and Goreclaw) — the OTHER-creature analog of the
     // line above (excludes the source). Same scope-expressible nontoken restriction (CR 111.1); the bare
     // "another nontoken creature" (no subtype) falls through the another-subtype matcher below because
@@ -4162,6 +4167,15 @@ const ETB_ENTERING_CREATURE_SCOPES = new Set([
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
   "creatureYouControlKeyword",  // KEYWORD-FILTER ETB (Waterkin Shaman counter-on-it; Dragon Tempest "it gains haste")
 ]);
+// ATTACH-ON-ENTER EQUIPMENT (play-weighted 2026-10-21 — Hero's Blade, Sai of the Shinobi, Stormrider Rig: "… you may attach this
+// Equipment to it."; Ronin Warclub: "… attach this Equipment to that creature."; Inventor's Goggles' Artificer): on `etb` the
+// pronoun is the entering creature — the guarantee the pronoun arm below relies on — rewritten to the sentinel the stack atoms
+// read ("attach this equipment to the triggering creature", a phrase no printed card carries; a spell's or another event's
+// "attach this Equipment to it" never becomes it). Only for the controller's own creatures entering: an Equipment moved onto
+// another player's creature is legal (CR 301.5) but a choice the engine does not make, so those scopes keep the raw pronoun and
+// stay parked.
+const ETB_ATTACH_EQUIPMENT_SCOPES = new Set(["creatureYouControl", "otherCreatureYouControl", "subtypeYouControl"]);
+const ETB_ATTACH_EQUIPMENT_RE = /^((?:you may )?attach this equipment to )(?:it|that creature)$/i;
 
 // ETB-ENTERING-PRONOUN — the COUNTER + PUMP-KEYWORD pronoun referent for an ETB enters-watcher. On an `etb`
 // event the triggering permanent IS the entering creature for every scope in ETB_ENTERING_CREATURE_SCOPES
@@ -5729,6 +5743,9 @@ export function detectTriggers(cardIn) {
         // on. Tested BEFORE that arm, whose gate also matches this text (the "counters on it" substring) and would leave it
         // unrewritten.
         effectClause = effectClause.replace(/ if its power is /i, " if the triggering creature's power is ").replace(/ on it$/i, " on the triggering creature");
+      } else if (cls.event === "etb" && ETB_ATTACH_EQUIPMENT_SCOPES.has(cls.scope) && ETB_ATTACH_EQUIPMENT_RE.test(effectClause)) {
+        // ATTACH-ON-ENTER EQUIPMENT (Hero's Blade) — see ETB_ATTACH_EQUIPMENT_RE: the whole clause, the pronoun to the sentinel.
+        effectClause = effectClause.replace(ETB_ATTACH_EQUIPMENT_RE, "$1the triggering creature");
       } else if ((cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) || cls.event === "attacks" && (cls.scope === "creatureYouControl" || cls.scope === "equippedCreature") || cls.event === "dealtDamage" && cls.scope === "creatureYouControl") && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
         // (The `dealtDamage`/creatureYouControl arm — Rite of Passage "put a +1/+1 counter on it": on
         // dealtDamage the triggering permanent IS the damaged creature (checkDealtDamageTriggers threads it as
@@ -7106,7 +7123,8 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "eachOtherCreature":
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent, state);
     case "creatureYouControl":
-      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card))); // Hero's Blade — "a legendary creature you control"
     case "commanderYouControl":
       // COMMANDER-SCOPED subject (CR 903.3) — "a commander you control deals combat damage to an opponent"
       // (Kediss, Emberclaw Familiar). Narrower than creatureYouControl in exactly one way: the triggering

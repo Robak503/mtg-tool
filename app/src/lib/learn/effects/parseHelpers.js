@@ -773,7 +773,8 @@ export function parseTokenKeywords(phrase) {
   return out;
 }
 
-// ===== TOKENS ===== T5 quoted TRIGGERED ability — a minted token may carry a self-DIES triggered ability
+// ===== TOKENS ===== T5 quoted TRIGGERED ability — a minted token may carry a self-DIES triggered ability (or, since
+// 2026-10-21, the Wizard's noncreature-cast ping — see its entry below)
 // whose trigger event AND payoff are BOTH modeled and runtime-fired end-to-end (a Pest's "When this token dies,
 // you gain N life", a Devil's "When this token dies, it deals N damage to any target / to each opponent" —
 // SoK/Innistrad-block staples). Stamped as the token's real oracle so checkDiesTriggers detects the self-dies
@@ -788,11 +789,17 @@ const TOKEN_TRIGGERED_ABILITY = [
   [/^when this token dies, you gain (\d+) life$/i, (m) => `When this token dies, you gain ${m[1]} life.`],
   [/^when this token dies, it deals (\d+) damage to any target$/i, (m) => `When this token dies, it deals ${m[1]} damage to any target.`],
   [/^when this token dies, it deals (\d+) damage to each opponent$/i, (m) => `When this token dies, it deals ${m[1]} damage to each opponent.`],
+  // THE WIZARD'S CAST TRIGGER (play-weighted 2026-10-21 — Lindblum, Industrial Regency // Mage Siege; Circle of Power; Cornered by
+  // Black Mages; Mysidian Elder; Queen Brahne: a 0/1 black Wizard "with 'Whenever you cast a noncreature spell, this token deals 1
+  // damage to each opponent.'"). Minted as the printed creature form — the cast watcher detectTriggers reads off a permanent's
+  // own text (spellFilter noncreature, CR 603.2) with the token as the damage's source — exactly as a printed creature with that
+  // sentence plays. It mints nothing, so it can never recurse a mint.
+  [/^whenever you cast a noncreature spell, this token deals (\d+) damage to each opponent$/i, (m) => `Whenever you cast a noncreature spell, this creature deals ${m[1]} damage to each opponent.`],
 ];
 /**
  * Parse a token's quoted ability (the text after "with"/"It has"/"They have", including the surrounding
  * quotes) into a canonical TRIGGERED-ability oracle string to stamp on the minted token, or null if it isn't
- * one of the curated, runtime-verified self-dies forms above. Tolerates straight or curly quotes and a
+ * one of the curated, runtime-verified forms above. Tolerates straight or curly quotes and a
  * trailing period. Tried AFTER parseTokenManaAbility in the create-token "with" branch (a quoted ability is a
  * mana ability XOR a triggered ability); both gates return null for anything unmodeled, so the token parks.
  */

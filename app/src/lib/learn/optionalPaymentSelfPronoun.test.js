@@ -46,10 +46,16 @@ describe("the self pronoun now binds to the source", () => {
 });
 
 describe("CREED — the allowlist refuses every ambiguous pronoun", () => {
-  it("a TOKEN-maker keeps its pronoun and parks — 'it' would be the token, not the source", () => {
+  it("a TOKEN-maker's 'it' is the token, never the source", () => {
     // The exact shape a denylist would have missed. Pumping the source here would be the wrong permanent.
+    // GRADUATED (2026-10-21, the play-weighted program — Krenko, Baron of Tin Street): this asserted `confidence !== "high"` as a PROXY
+    // for "the source is not pumped". "It gains haste until end of turn." right after a create-token atom that made one token now reads
+    // as that token's haste (parser.createdTokenRider, CR 608.2c), so the claim is asserted directly: the haste rides the token the
+    // atom makes, and no atom pumps the source.
     const r = parseEffectClause("you may pay {2}. If you do, create a 2/2 colorless Robot artifact creature token. it gains haste until end of turn", "Creature");
-    expect(r.confidence).not.toBe("high");
+    const inner = r.atoms[0]?.effectAtoms || [];
+    expect(inner).toEqual([{ op: "create-token", count: 1, power: 2, toughness: 2, descriptor: "colorless robot artifact", targetType: null, hasteUntilEot: true }]);
+    expect(inner.some((a) => a.op === "pump" || a.target === "self")).toBe(false);
   });
 
   it("'ANOTHER target creature' is not rewritten (the proxy changed; the claim did not)", () => {

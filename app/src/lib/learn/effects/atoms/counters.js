@@ -181,6 +181,9 @@ export function applyAddCounter(state, atom, ctx) {
         if (t.controller === ctx.controller) placedOnYours += placed;
       }
       next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: addAmt });
+      // COUNTERS OF SEVERAL KINDS (Gift of the Viper — multiKindCounterClauseParser): the other kinds land on the same recipient in
+      // the same event; none is a +1/+1 counter (the parser keeps that one first), so the watcher tally above is already whole.
+      for (const kind of atom.alsoCounterTypes || []) next = addCounter(next, { permanentId: t.id, type: kind, amount: addAmt });
     }
   }
   // -1/-1 counters lower DERIVED toughness — the lethal check for a creature it drops to 0
@@ -1135,6 +1138,30 @@ export function shieldCounterClauseParser(clause) {
     return { op: "add-counter", counterType: kw[1], amount: 1, targetType: "creature", ...(restrictions.length ? { restrictions } : {}) };
   }
   return null;
+}
+
+/**
+ * COUNTERS OF SEVERAL KINDS ON ONE TARGET (play-weighted 2026-10-21 — Gift of the Viper, EDHREC #1691: "Put a +1/+1 counter, a
+ * reach counter, and a deathtouch counter on target creature."; Qarsi Revenant #2356's renew: "Put a flying counter, a deathtouch
+ * counter, and a lifelink counter on target creature."; Champion of Dusan, Unexpected Fangs). One instruction, one recipient: every
+ * counter is put on the chosen creature in the same event (CR 122.1; a keyword counter grants its keyword, CR 122.1b). Read as ONE
+ * add-counter atom — the first kind as its counterType, the rest as `alsoCounterTypes` — so the placement stays one event: a
+ * "whenever one or more counters are put" watcher sees it once (applyAddCounter tallies the +1/+1 among them for that watcher).
+ *   · one counter of each kind ("a"/"an"), two kinds at least, no kind twice;
+ *   · every kind one the engine places and honours: the +1/+1 counter, or a keyword counter in the set the grant reads
+ *     (ENFORCED_KEYWORD_COUNTER_KINDS — the keyword arm's own gate). A +1/+1 counter only as the first kind (every printed carrier
+ *     lists it first; the watcher tally reads the first kind), so the side the trigger chooser aims at is "own" for every kind.
+ * Whole-clause anchored on "on target creature"; any other recipient or kind stays unread.
+ */
+export function multiKindCounterClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = t.match(/^put (an? .+? counter(?:, an? .+? counter)*,? and an? .+? counter) on target creature$/);
+  if (!m) return null;
+  const kinds = m[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map((s) => s.trim()).filter(Boolean)
+    .map((s) => s.match(/^an? (.+?) counter$/)?.[1] ?? null);
+  if (kinds.length < 2 || kinds.some((k) => k == null) || new Set(kinds).size !== kinds.length) return null;
+  if (kinds.some((k, i) => k === "+1/+1" ? i !== 0 : !ENFORCED_KEYWORD_COUNTER_KINDS.has(k))) return null;
+  return { op: "add-counter", counterType: kinds[0], amount: 1, alsoCounterTypes: kinds.slice(1), targetType: "creature" };
 }
 
 /**

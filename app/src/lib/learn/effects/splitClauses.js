@@ -667,6 +667,16 @@ export function splitClauses(oracle) {
     // INTERNAL " and " (one pump+grant instruction on the triggering creature), so keep the whole sentence
     // for the clause parse. All-or-nothing anchored; a sentinel-only phrase, never produced by a spell.
     if (/^the triggering creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // COUNTERS OF SEVERAL KINDS (play-weighted 2026-10-21 — Gift of the Viper: "Put a +1/+1 counter, a reach counter, and a
+    // deathtouch counter on target creature."; Qarsi Revenant's renew, Champion of Dusan, Unexpected Fangs): one instruction
+    // naming one recipient — the " and " joins the list of counters, not two effects. Kept whole for counters.js'
+    // multiKindCounterClauseParser, which reads only the kinds it can place; anything else stays unread.
+    if (/^put an? [a-z+/0-9 -]+? counter(?:, an? [a-z+/0-9 -]+? counter)*,? and an? [a-z+/0-9 -]+? counter on target creature$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // CREATED-TOKEN HASTE AND ATTACK (play-weighted 2026-10-21 — Legion Warboss: "That token gains haste until end of turn and
+    // attacks this combat if able."): one subject, two instructions about the same tokens — split at the " and ", the second half
+    // would have no subject. Kept whole for the parser's created-token rider (createdTokenRider), which reads it only directly
+    // after the create-token atom; anywhere else it parses to nothing and the card stays parked.
+    if (/^(?:that token|those tokens|it|they) gains? haste until end of turn and attacks? this combat if able$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== TOKENS ===== a keyword token minted with several keywords ("Create a 4/4 white Angel
     // creature token with flying and vigilance") joins them with " and " — INTERNAL to the one
     // create-token instruction, not a top-level effect boundary. Keep the whole sentence so

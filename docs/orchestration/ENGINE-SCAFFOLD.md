@@ -912,6 +912,34 @@ deal all their power to one attacker. Essence Sliver's "Whenever a Sliver deals 
 subtypeGlobal, so a watcher that is the dealer fires once. Synapse and Brood Sliver ("… combat damage to a player") stay on the
 combat-damage scan.
 
+**Seven readers the most-played lacked (play-weighted 2026-10-21).** The created-token rider (`parser.createdTokenRider`, read at
+the top of parseEffectClauseImpl's clause loop, before the clause parser, so a pronoun is never taken for the source): right after a
+`create-token` atom, "that token / those tokens / it / they gain(s) haste until end of turn" folds `hasteUntilEot` onto it — "it" only
+after a fixed single token, "they" only after several or a counted number (Sokenzan, Krenko, Baron of Tin Street) — and "[… and]
+attacks this combat if able" folds `mustAttackThisCombat` (Legion Warboss, Howlsquad Heavy; `splitClauses` keeps the "haste … and
+attacks" sentence whole). `applyCreateToken` stamps each minted token `mustAttackCombat: { turn, combat }` from gameEngine's
+`combatsThisTurn` tally, only inside a combat phase; `attackRequirements.mustAttackNow` reads the stamp, so the requirement holds for
+that combat's declaration and never an additional combat (CR 508.1d). ⚠️ Open seam (found here, not fixed): an additional combat
+entered through `advanceStep`'s extra-combat branches runs `enterCombatPostProcess` twice — once in the branch, once more in
+`runStepActions`' beginning-of-combat arm — so it counts twice in `combatsThisTurn` and its "at the beginning of combat" triggers fire
+twice (Legion Warboss makes two Goblins there). The stamp is still that combat's own (both writes precede its declaration). The graveyard-enter batch payoff (`zones.gyBatchToBattlefield`)
+takes "put them onto the battlefield tapped" (`all`, `entersTapped` — Hedge Shredder): every batch card still in the graveyard enters
+together through `enterCardsTogether`. The curated token-trigger gate (`parseHelpers.TOKEN_TRIGGERED_ABILITY`) takes the Wizard's
+"Whenever you cast a noncreature spell, this token deals N damage to each opponent." (Lindblum // Mage Siege, Circle of Power, Cornered
+by Black Mages, Mysidian Elder, Queen Brahne), minted as the printed creature form the cast watcher reads off a permanent — a new
+quoted token trigger is one entry there, and only for a payoff that never mints. The up-to-N graveyard return (zones.js `multiM`) reads
+"X and/or Y cards" as the " or " union (Ishgard // Faith & Grief, Scholar of the Ages). `counters.multiKindCounterClauseParser` reads
+"put a A counter, a B counter, and a C counter on target creature" as ONE `add-counter` with `alsoCounterTypes` (one placement event —
+a counters-put watcher fires once): +1/+1 (first only) and `ENFORCED_KEYWORD_COUNTER_KINDS` (Gift of the Viper, Qarsi Revenant's and
+Champion of Dusan's renew, Unexpected Fangs); `splitClauses` keeps the list whole. The controlled-creature enters watcher takes "a
+legendary creature you control" (`legendaryFilter`, enforced in scopeMatches' `creatureYouControl` case), and on the three controlled
+enters scopes (`ETB_ATTACH_EQUIPMENT_SCOPES`) "[you may] attach this Equipment to it / that creature" is rewritten to the sentinel
+"attach this equipment to the triggering creature" → `stack.attach-equipment-to-triggering` (Hero's Blade, Sai of the Shinobi,
+Stormrider Rig, Ronin Warclub, Inventor's Goggles, Quintessential Katana): the Equipment moves unless it can't equip that creature
+(cannotEquipNow, colour protection — CR 701.3b, 702.16d); `runProgram.optionalAutoTakeValue` gives it the Cori-Steel Cutter default
+(attach iff unattached). An Equipment watching any player's creatures (Cloak and Dagger's "a Rogue creature enters") keeps its raw
+pronoun and stays parked.
+
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
 seat) and one set (every creature now not of the chosen type by its current types; a changeling is never in it). The bounce rides

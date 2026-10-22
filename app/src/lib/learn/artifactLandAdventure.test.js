@@ -19,9 +19,10 @@
  * FLIPS (both halves modeled, every one played end to end below): The Arkenstone // Seek the Heart, Horn of Valhalla //
  * Ysgard's Call, Jidoor, Aristocratic Capital // Overture, Value Town // Take a Trip to….
  * PARKED (one half unmodeled; the permanent half still casts or plays, the Adventure is never offered): Altar of Bhaal, My
- * Precious, Ghost Lantern, Monster Manual (Zoological Study), Glamdring (both halves); Lindblum, Midgar, Ishgard, Zanarkand (the
- * Adventure half). Two-Handed Axe was parked on its artifact half until 2026-10-20 (its equipped-attacker "double its power" reads
- * now) and flips.
+ * Precious, Ghost Lantern, Monster Manual (Zoological Study), Glamdring (both halves); Midgar, Zanarkand (the Adventure half).
+ * Two-Handed Axe was parked on its artifact half until 2026-10-20 (its equipped-attacker "double its power" reads now) and flips;
+ * Ishgard and Lindblum were parked on their Adventure halves until 2026-10-21 (Faith & Grief's "and/or", Mage Siege's Wizard token)
+ * and flip.
  *
  * Real oracle fixtures (bundled Scryfall snapshot, publicCard shape, copied 2026-10-17). Every runtime witness drives the real
  * paths: legalActionsForPlayer → dispatchAction → resolveTopOfStack, the tutor settle, and the step path for the end step.
@@ -178,8 +179,15 @@ describe("the metric — both halves modeled flips native-mixed; an unmodeled ha
   it("⭐ Two-Handed Axe flips — both halves modeled", () => {
     expect(verdict(AXE)).toEqual({ card: "native-mixed", permanentNative: true, adventureNative: true });
   });
+  // GRADUATED 2026-10-21 (play-weighted): Ishgard's "artifact and/or enchantment cards" (andOrGraveyardReturn.test.js) and Lindblum's
+  // Wizard token with its cast trigger (wizardTokenCastTrigger.test.js) read now; both halves of each are modeled.
+  it("⭐ Ishgard and Lindblum flip — both halves modeled", () => {
+    for (const c of [ISHGARD, LINDBLUM]) {
+      expect({ name: c.name, ...verdict(c) }).toEqual({ name: c.name, card: "native-mixed", permanentNative: true, adventureNative: true });
+    }
+  });
   it("⛔ the parked Towns stay land-partial (the land still plays), never body-only", () => {
-    for (const c of [MIDGAR, ISHGARD, ZANARKAND, LINDBLUM]) {
+    for (const c of [MIDGAR, ZANARKAND]) {
       expect({ name: c.name, ...verdict(c) }).toEqual({ name: c.name, card: "land-partial", permanentNative: true, adventureNative: false });
     }
   });

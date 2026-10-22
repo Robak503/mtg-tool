@@ -881,10 +881,14 @@ export function graveyardReturnClauseParser(clause) {
     return { op: "return-attached-from-graveyard", targetType: "graveyardCard", cardFilter: { anyOf: [{ subtype: "Aura" }, { subtype: "Equipment" }] },
       minTargets: 0, maxTargets: 99, anyNumber: true };
   }
+  // "AND/OR" (play-weighted 2026-10-21 — Ishgard, the Holy See // Faith & Grief: "Return up to two target artifact and/or
+  // enchantment cards from your graveyard to your hand."; Scholar of the Ages' "instant and/or sorcery cards"): each target is a
+  // card of either type (an artifact enchantment is both) — the " or " union the filter already reads (CR 601.2c, each target
+  // checked on its own), so the words are read as that union. parseGraveyardFilter still checks every word.
   const multiM = /^return up to (one|two|three|four|five) target (.*?)cards? from your graveyard to your hand$/.exec(t);
   if (multiM) {
     const n = SMALL_NUM[multiM[1]];
-    const cardFilter = parseGraveyardFilter(multiM[2]);
+    const cardFilter = parseGraveyardFilter(multiM[2].replace(/\s+and\/or\s+/g, " or "));
     if (n >= 1 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
   }
   // MODAL-GY-PAIR (BLITZ MG-1 — Return from Extinction / Raise the Draugr / Unbury, mode 2): "return two
@@ -2195,8 +2199,17 @@ function applyOwnerTuckRevealPut(state, atom, ctx) {
  * most valuable first for the AI's default pick. Mandatory: the printed "put" has no "may". Only the batch event supplies
  * the referent — triggerRouting refuses it elsewhere, coverage refuses it on a spell.
  */
+// "PUT THEM ONTO THE BATTLEFIELD TAPPED" (play-weighted 2026-10-21 — Hedge Shredder: "Whenever one or more land cards are put into
+// your graveyard from your library, put them onto the battlefield tapped."): the same batch referent, every card of it rather than
+// one — all of them that are still in the controller's graveyard enter together, tapped (CR 400.7: one gone since is a new object
+// the trigger never named), as one event (enterCardsTogether — CR 603.6a, each sees the others enter). A land put onto the
+// battlefield this way is not played (CR 305.4). Mandatory, as printed; the routing pin and the coverage refusal of the "one of
+// them" form apply unchanged (only the graveyard-enter batch names "them").
 export function gyBatchToBattlefieldClauseParser(clause) {
-  return /^put one of them onto the battlefield$/i.test(String(clause || "").trim()) ? { op: "gy-batch-to-battlefield", targetType: null } : null;
+  const t = String(clause || "").trim();
+  if (/^put one of them onto the battlefield$/i.test(t)) return { op: "gy-batch-to-battlefield", targetType: null };
+  if (/^put them onto the battlefield tapped$/i.test(t)) return { op: "gy-batch-to-battlefield", all: true, entersTapped: true, targetType: null };
+  return null;
 }
 export function applyGyBatchToBattlefield(state, atom, ctx) {
   const me = ctx.controller;
@@ -2205,6 +2218,10 @@ export function applyGyBatchToBattlefield(state, atom, ctx) {
   const candidates = (state.players?.[me]?.graveyard || []).filter((c) => ids.has(c.id))
     .sort((a, b) => mv(b) - mv(a) || String(a.name).localeCompare(String(b.name)));
   if (!candidates.length) return logEvent(state, { kind: "spell-effect", effect: "gy-batch-to-battlefield", picked: null, controller: me });
+  if (atom.all) {
+    const back = enterCardsTogether(state, candidates.map((c) => ({ playerId: me, cardId: c.id, fromZone: "graveyard", tapped: !!atom.entersTapped })));
+    return logEvent(back.state, { kind: "spell-effect", effect: "gy-batch-to-battlefield", entered: back.results.filter((r) => r.entered).map((r) => r.cardId), controller: me });
+  }
   if (candidates.length === 1) {
     const r = enterCardFromZone(state, { playerId: me, cardId: candidates[0].id, fromZone: "graveyard" });
     return logEvent(r.state, { kind: "spell-effect", effect: "gy-batch-to-battlefield", picked: candidates[0].name, controller: me });

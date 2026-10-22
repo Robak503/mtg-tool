@@ -64,6 +64,11 @@ export function mustAttackNow(state, seat, permanent) {
   if ((state.forcedToAttackTurn || {})[seat] === state.turn) return true;
   if (!permanent) return false;
   if (permanentHasKeyword(state, permanent.id, "mustAttack")) return true;
+  // "ATTACKS THIS COMBAT IF ABLE" (Legion Warboss, Howlsquad Heavy — the created token's stamp, applyCreateToken): a requirement
+  // for the one combat it names, by its place in the turn (gameEngine's combatsThisTurn tally). An additional combat later in
+  // the turn is another combat and carries no requirement from it.
+  const stamp = permanent.mustAttackCombat;
+  if (stamp && stamp.turn === state.turn && state.combatsThisTurn?.turn === state.turn && state.combatsThisTurn.count === stamp.combat) return true;
   if (!selfMustAttack(permanent.card)) return false;
   const unless = mustAttackUnlessOf(permanent.card);
   return !(unless && controllerMeetsBoardPredicate(state, seat, permanent.id, unless));

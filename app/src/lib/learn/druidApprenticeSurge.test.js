@@ -324,11 +324,14 @@ describe("Loyal Apprentice — Lieutenant: a Thopter with haste until end of tur
     expect(row).toEqual({ tier: "native-mixed", goblins: [["Token Creature — Goblin", true], ["Token Creature — Goblin", true]], aiLife: [40, 39], tokenSacrificed: true, lieutenantStays: true });
   });
 
-  it("CREED — a longer token sentence is never half-read: Legion Warboss ('…and attacks this combat if able') and Loyal Unicorn stay parked", () => {
-    expect([LEGION_WARBOSS, LOYAL_UNICORN].map((c) => classifyCard(c))).toEqual(["body-only", "body-only"]);
+  // GRADUATED 2026-10-21 (play-weighted): "…and attacks this combat if able" is read as the created token's requirement for the combat in
+  // progress (parser.createdTokenRider → mustAttackThisCombat; createdTokenRiders.test.js plays Legion Warboss). Loyal Unicorn stays parked.
+  it("CREED — a longer token sentence is read whole or not at all: Legion Warboss reads with its attack requirement; Loyal Unicorn stays parked", () => {
+    expect([LEGION_WARBOSS, LOYAL_UNICORN].map((c) => classifyCard(c))).toEqual(["native-trigger", "body-only"]);
     const [boss] = detectTriggers(LEGION_WARBOSS).filter((d) => d.event === "combatBegin");
     const p = parseEffectClause(boss.effectClause, "Instant", { hasX: false, sourceScoped: true });
-    expect({ confidence: programConfidence(p), atoms: p.atoms }).toEqual({ confidence: "low", atoms: [] });
+    expect({ confidence: programConfidence(p), atoms: p.atoms }).toEqual({ confidence: "high",
+      atoms: [{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "red goblin", targetType: null, hasteUntilEot: true, mustAttackThisCombat: true }] });
   });
 
   it("SYNTHETIC (CREED guards with no printed carrier) — 'that token' needs the create-token atom right before it; a plain created token has no haste", () => {

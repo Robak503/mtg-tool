@@ -13,9 +13,9 @@
  *      re-derived from the LIVE board at both the offer and the payment (an action's frozen cost is never
  *      trusted for the amount — CR 601.2f fixes the cost at activation).
  *
- * HONEST SIBLINGS: Sokenzan ("They gain haste until end of turn" — a token-pronoun follow-up), Takenuma and
- * Boseiju carry effects the program parser rates LOW, so they stay land-partial on their EFFECT, exactly as
- * before — the prefix and the rider alone move nothing they should not.
+ * HONEST SIBLINGS: Takenuma and Boseiju carried effects the program parser rated LOW, so they stayed land-partial on their
+ * EFFECT — the prefix and the rider alone move nothing they should not. Sokenzan ("They gain haste until end of turn" — a
+ * token-pronoun follow-up) graduated 2026-10-21 when that sentence was read.
  *
  * Channel may be activated any time its controller has priority (CR 702.33a); the from-hand lane offers it
  * only in the controller's own main phase — a deliberate, documented under-offer (FN-safe), the window every
@@ -143,8 +143,10 @@ describe("classification", () => {
     expect(classifyCard({ ...OTAWARA, oracle: OTAWARA.oracle.replace("for each legendary creature you control", "for each Spirit you control") })).toBe("land-partial");
   });
 
-  it("CREED — Sokenzan stays land-partial on its EFFECT ('They gain haste' is unmodeled), prefix and rider notwithstanding", () => {
-    expect(parseDiscardCostAbility(SOKENZAN)?.channel).toBe(true); // the line reads …
-    expect(classifyCard(SOKENZAN)).toBe("land-partial");          // … and the unmodeled effect still parks it
+  // GRADUATED 2026-10-21 (play-weighted): "They gain haste until end of turn." right after the create-token atom names the two Spirits it
+  // made (CR 608.2c — parser.createdTokenRider), so Sokenzan's effect reads whole; createdTokenRiders.test.js plays it.
+  it("Sokenzan is a land whose every line reads — its Channel line and its effect", () => {
+    expect(parseDiscardCostAbility(SOKENZAN)?.channel).toBe(true);
+    expect(classifyCard(SOKENZAN)).toBe("land");
   });
 });

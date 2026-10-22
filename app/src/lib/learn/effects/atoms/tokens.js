@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
+import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf, updatePermanentSafe } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -327,6 +327,14 @@ export function applyCreateToken(state, atom, ctx) {
   if (atom.hasteUntilEot) {
     next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [...mintedIds] },
       duration: { kind: "endOfTurn", turn: next.turn }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
+  }
+  // "ATTACKS THIS COMBAT IF ABLE" (play-weighted 2026-10-21 — Legion Warboss, Howlsquad Heavy): a requirement on exactly these
+  // tokens for the combat in progress (CR 508.1d), stamped with that combat's place in the turn (gameEngine's combatsThisTurn
+  // tally) so attackRequirements.mustAttackNow holds it for this combat's declaration only — never an additional combat later in
+  // the turn. Created outside a combat phase there is no "this combat", and nothing is stamped.
+  const combatNow = next.phase === "combat" && next.combatsThisTurn?.turn === next.turn ? next.combatsThisTurn.count : null;
+  if (atom.mustAttackThisCombat && combatNow != null) {
+    for (const id of mintedIds) next = updatePermanentSafe(next, id, (p) => ({ ...p, mustAttackCombat: { turn: next.turn, combat: combatNow } }));
   }
   // A 0/0 token with no other effect dies (CR 704.5f) — the lethal check after the ETB enqueue (inside a resolution, the check after it).
   const r = destroyLethalCreaturesAfterEffect(next);
