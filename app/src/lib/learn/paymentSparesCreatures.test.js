@@ -9,7 +9,8 @@
  * record that taps a creature (`tapsCreatures` — the source itself, or a creature its cost taps: Springleaf Drum), and when
  * the plan taps one while another source is left, planPayment plans once more with those records spared and keeps that plan
  * when it pays and taps fewer creatures. The first plan still decides affordability (canAfford), so nothing becomes payable or
- * unpayable; a creature that alone makes the color is still tapped; spend-restricted lands are judged as before.
+ * unpayable; a creature that alone makes the color is still tapped; a spend-restricted land the payment may not spend is held
+ * behind every unrestricted source, creatures included (the restricted-line hold, 2026-10-21 — restrictedLineHold.test.js).
  *
  * Every payment runs through legalActionsForPlayer + dispatchAction (the Academy's auto-tap, a person's cast) unless said.
  * Real oracle fixtures: bundled Scryfall oracle_cards.json (2026-10-20).
@@ -156,10 +157,10 @@ describe("controls — what the sparing leaves as it was", () => {
     expect(tapped(castIt(s, "h-bears"))).toEqual(["f1", "f2"]);
   });
 
-  it("a restricted-line land the payment may not spend is still promoted as plain {C}: Mech Hangar pays Grizzly Bears' {1} beside a creature", () => {
+  it("a restricted-line land the payment may not spend is held behind every unrestricted source, a creature included (the restricted-line hold, 2026-10-21): Grizzly Bears beside Llanowar Elves, Mech Hangar and a Forest taps the Elves and the Forest", () => {
     const s = table({ user: [P("elves", LLANOWAR), P("hangar", MECH_HANGAR), P("f1", FOREST)], hand: [["h-bears", BEARS]] });
     const out = castIt(s, "h-bears");
-    expect(tapped(out)).toContain("hangar");
+    expect(tapped(out)).toEqual(["elves", "f1"]);
     expect(out.players.user.restrictedMana ?? []).toEqual([]);
   });
 

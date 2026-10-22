@@ -3910,6 +3910,9 @@ export function manualManaTaps(state, playerId) {
  * the same there). canAfford runs plan 1 alone.
  * + THE CREATURES IT SPARES (2026-10-20): when the plan taps a creature for mana and another source is left, one more plan with the
  * creatures' records spared, taken only when it pays and taps fewer creatures (withCreaturesSpared, below).
+ * + THE RESTRICTED-LINE HOLD (2026-10-21): plan 2 also holds back a permanent with a spend-restricted line this payment may not
+ * spend (Cavern of Souls for a non-matching spell, Mech Hangar for anything but a Pilot or Vehicle) — spent last, after every
+ * unrestricted source (restrictedHeldPermanents); a board with such a permanent plans twice for that alone.
  */
 const isOneShotSource = (s) => !!(s && (s.sacrifices || s.sacrificesCreature || s.sacrificesFood || s.fromHand || (s.noTap && s.payLife != null)));
 export function planPayment(pool, sources, cost, spendContext = null) {
@@ -4334,21 +4337,50 @@ function plainColorlessPermanents(records) {
  * and spent its tap on one {C} for generic before any land (measured by the Omnath self-play lane on its deck); so did Three Tree
  * City, the filter lands and the "{1}, {T}: Add one mana of any color" lands, Crystal Vein, Phyrexian Tower and a storage land
  * holding counters. In planPayment's plan 2 such a line anywhere on the board keeps its permanent in board order, as Mogg Hollows
- * always did. A SPEND-RESTRICTED line is not one: it counts only when this payment may spend it (the core keeps it then), as
- * 3d121554 judged it — Eldrazi Temple keeps its place paying for an Eldrazi and goes first for anything else. Its mana pays a
- * narrow set of spells where a basic's color pays any; whether it should hold Cavern of Souls or Eldrazi Temple back too is a
- * play question left open (RUN-LEDGER 2026-10-17). Records only: a line that makes nothing has no record (Nykthos at devotion 0
- * offers just its {C}), so that permanent is still promoted.
+ * always did. A SPEND-RESTRICTED line is not one: when this payment may spend it the core keeps it and the permanent is judged by
+ * it, as 3d121554 judged it (Eldrazi Temple keeps its place paying for an Eldrazi); when it may not, plan 2 holds the permanent
+ * back further — behind every unrestricted source (restrictedHeldPermanents, 2026-10-21). Records only: a line that makes nothing
+ * has no record (Nykthos at devotion 0 offers just its {C}), so that permanent is still promoted.
  */
 const holdsBack = (s) => !s.restriction && !isPlainRecord(s);
-/** Can planPayment's two plans differ on this list? Only through a permanent with a plain record AND a line that holds it back. */
+/**
+ * THE RESTRICTED-LINE HOLD (2026-10-21 — the owner's decision, closing the open call of the 2026-10-17 Nykthos entry). Cavern of
+ * Souls, Mech Hangar, Eldrazi Temple, Plaza of Heroes, Secluded Courtyard, Unclaimed Territory, Sliver Hive, the Bloomburrow
+ * villages, Tablet of Discovery and the rest of the 27 bundled permanents that print a spend-restricted mana line (CR 106.6) beside
+ * an unrestricted one were judged by the unrestricted line alone whenever a payment could not spend the restricted one — a plain
+ * {C}, promoted FIRST for generic: Grizzly Bears beside Cavern of Souls tapped the Cavern for its {1}. The owner: until the engine
+ * can reason about when to spend such a land, the automatic payment keeps it untapped and plays with reason — it is spent LAST,
+ * never never. So in planPayment's second plan (and the creature-sparing plan, which shares its whole-board judgment) a permanent
+ * with a restricted line that THIS call may not spend is held: never promoted, and taken only after every unrestricted repeatable
+ * source that can do the same job (a colored, snow or hybrid pip as well as generic; a spared creature included) and before a
+ * one-shot sacrifice source (a Treasure is spent for good; the one-shot pass A already plans without it). A call that may spend one
+ * of its restricted lines — the spend context matches and the line's whole output fits the cost, the core's own admission (a
+ * creature of Cavern's chosen type, a Pilot or Vehicle for Mech Hangar, a colorless Eldrazi for Eldrazi Temple) — judges it as
+ * before: that spend is the line's reason to exist. The costed pass's funding call (no spend context: it pays a mana ability's
+ * cost) holds it too. canAfford runs the first plan alone and planPayment falls back to it when the second pays nothing, so a cost
+ * only the held permanent can pay still uses it and no cost becomes payable or unpayable — a play order only (any mana pays
+ * generic, CR 107.4b).
+ * Returns the ids of the held permanents on `board` (null when none): a permanent with a restricted record of which `admitted`
+ * admits none.
+ */
+function restrictedHeldPermanents(board, admitted) {
+  let held = null;
+  const spendable = new Set();
+  for (const r of board) if (r.restriction && admitted(r)) spendable.add(r.permanentId);
+  for (const r of board) if (r.restriction && !spendable.has(r.permanentId)) (held ??= new Set()).add(r.permanentId);
+  return held;
+}
+/** Can planPayment's two plans differ on this list? Through a permanent with a plain record AND a line that holds it back, or
+ *  (2026-10-21) a permanent with a spend-restricted line beside an unrestricted one — the restricted-line hold. */
 function boardJudgmentCanDiffer(board) {
-  const plain = new Set(), held = new Set();
+  const plain = new Set(), held = new Set(), restricted = new Set(), open = new Set();
   for (const s of board) {
+    if (s.restriction) restricted.add(s.permanentId); else open.add(s.permanentId);
     if (isPlainRecord(s)) plain.add(s.permanentId);
     else if (holdsBack(s)) held.add(s.permanentId);
   }
   for (const id of plain) if (held.has(id)) return true;
+  for (const id of restricted) if (open.has(id)) return true;
   return false;
 }
 
@@ -4405,26 +4437,35 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   // contract), but a resolved variable source with an explicit amount of 0 (Gaea's Cradle / Sanctum
   // Weaver on an empty board) must NOT be floored UP to 1 — that would fabricate mana (MANA-VARIABLE
   // CREED). A non-positive source produces nothing right now, so drop it from the payable set.
+  // ⛔ SPEND-RESTRICTED ADMISSION (CR 106.6). Two conditions, both required:
+  //   1. the spend context satisfies the printed permission (default-deny — no context means no);
+  //   2. ⭐ the source's ENTIRE output is consumed by this cost.
+  // Condition 2 is the one that is easy to miss and fatal to omit. Surplus from an over-producing source
+  // FLOATS into the mana pool (documented at the tap loop below), and pool mana carries NO restriction tag —
+  // so a 3-mana restricted source spent on a 1-mana creature spell would leave 2 GENERAL-PURPOSE mana
+  // behind, laundering the restriction away in a single tap. Requiring full consumption makes that
+  // unreachable without teaching the pool about restrictions, which is a much larger change.
+  // The bound is the cost's total pip count: generic + colored + hybrid.
+  // (One predicate for the filter below and the restricted-line hold after it, so the two cannot disagree.)
+  const restrictedLineAdmitted = (s) => {
+    if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null, castEvery: spendContext?.castEvery === true })) return false;
+    const totalPips = (cost.generic || 0)
+      + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
+      + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);
+    return s.amount <= totalPips;
+  };
   const avail = sources
     .map(plannerSourceRecord)
     .filter(s => s.amount > 0)
-    // ⛔ SPEND-RESTRICTED FILTER (CR 106.6). Two conditions, both required:
-    //   1. the spend context satisfies the printed permission (default-deny — no context means no);
-    //   2. ⭐ the source's ENTIRE output is consumed by this cost.
-    // Condition 2 is the one that is easy to miss and fatal to omit. Surplus from an over-producing source
-    // FLOATS into the mana pool (documented at the tap loop below), and pool mana carries NO restriction tag —
-    // so a 3-mana restricted source spent on a 1-mana creature spell would leave 2 GENERAL-PURPOSE mana
-    // behind, laundering the restriction away in a single tap. Requiring full consumption makes that
-    // unreachable without teaching the pool about restrictions, which is a much larger change.
-    // The bound is the cost's total pip count: generic + colored + hybrid.
-    .filter(s => {
-      if (!s.restriction) return true;
-      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null, castEvery: spendContext?.castEvery === true })) return false;
-      const totalPips = (cost.generic || 0)
-        + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
-        + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);
-      return s.amount <= totalPips;
-    });
+    .filter(s => !s.restriction || restrictedLineAdmitted(s));
+  // THE RESTRICTED-LINE HOLD (2026-10-21 — the owner's call: until the engine can reason about when to spend them, the auto-tap keeps
+  // such lands untapped). In planPayment's second plan (`board` — the whole list), a permanent with a spend-restricted line that THIS
+  // call may not spend (none of its restricted lines admitted above) is held: never promoted as plain colorless, and taken only after
+  // every unrestricted source that can do the same job (`holdTier`). When the call may spend one of its restricted lines, the
+  // permanent is judged as before — that spend is the line's reason to exist. See restrictedHeldPermanents.
+  const heldIds = board ? restrictedHeldPermanents(board, (r) => (r.amount ?? 1) > 0 && restrictedLineAdmitted({ restriction: r.restriction, amount: r.amount ?? 1 })) : null;
+  // The order tier of a record: 0 — an ordinary source; 1 — spared (a creature, planPayment's creature-sparing plan); 2 / 3 — held.
+  const holdTier = (s) => (heldIds?.has(s.permanentId) ? 2 : 0) + (s.spare ? 1 : 0);
   // A PERMANENT THE PAYMENT ALREADY TAPPED (2026-10-20 — CR 107.5, 118.3): a record that would tap it again is used up before this call
   // starts — kept on the list, so the generic tap's per-permanent judgment (plainColorlessPermanents) reads the records it always read.
   if (tappedIds) for (const s of avail) if (tapsAnyOf(s, tappedIds)) s.used = true;
@@ -4551,17 +4592,20 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
 
   // Tap the most-constrained untapped source that can make `color` (via own mana OR a boost-Aura bonus).
   // A SPARED record (`spare` — planPayment's creature-sparing plan only) goes after every other source that can make it, whatever
-  // their flexibility; with `spareOk` false it is not taken at all (the hybrid pips below try every option without one first).
-  const tapForColor = (color, spareOk = true) => {
+  // their flexibility, and a HELD one (the restricted-line hold, planPayment's second plan) after those (`holdTier`); a record whose
+  // tier is above `maxTier` is not taken at all (the hybrid pips below try every option without one first).
+  const tapForColor = (color, maxTier = 3) => {
     let best = -1;
     let bestLen = Infinity;
-    let bestSpare = true;
+    let bestTier = Infinity;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
-      if (s.used || !sourceCanMake(s, color) || !victimsHold(s) || (s.spare && !spareOk)) continue;
+      if (s.used || !sourceCanMake(s, color) || !victimsHold(s)) continue;
+      const tier = holdTier(s);
+      if (tier > maxTier) continue;
       // Constraint = how many distinct colors this source can make (own ∪ bonus); the least-flexible wins.
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
-      if (best === -1 || (bestSpare && !s.spare) || (s.spare === bestSpare && flex < bestLen)) { bestLen = flex; best = i; bestSpare = s.spare; }
+      if (best === -1 || tier < bestTier || (tier === bestTier && flex < bestLen)) { bestLen = flex; best = i; bestTier = tier; }
     }
     if (best === -1) return false;
     tapSource(avail[best], color);
@@ -4589,12 +4633,13 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   //      have, and a colored pip besides. It loses only when the surplus goes unspent AND a later step wants more mana
   //      than color — the planner sees the cost, not the hand.
   //   2. then any other REPEATABLE source, board order (in planPayment's creature-sparing plan a spared record — one that taps a
-  //      creature — after every other);
+  //      creature — after every other; in its second plan a held restricted-line permanent after those: holdTier);
   //   3. then a one-shot sacrifice source (Treasure/Gold) — never crack a Treasure while an untapped land/rock could pay.
   const tapAny = (owed) => {
     if (!plainIds) {
       plainIds = plainColorlessPermanents(avail);
       if (board) for (const s of board) if (holdsBack(s)) plainIds.set(s.permanentId, false); // plan 2: a line this pass holds out still counts
+      if (heldIds) for (const id of heldIds) plainIds.set(id, false); // plan 2: a held restricted-line permanent is never promoted
     }
     let first = null;
     let cover = null;
@@ -4615,11 +4660,12 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
       }
     }
     if (best) return tapSource(best, null);
-    // A spared record (planPayment's creature-sparing plan) after every other repeatable source, and before any sacrifice source.
+    // A spared record (planPayment's creature-sparing plan) after every other repeatable source, a held one (the restricted-line
+    // hold) after those, and all of them before any sacrifice source — a one-shot source is spent for good.
     for (const preferSac of [false, true]) {
-      for (const spared of [false, true]) {
+      for (const tier of [0, 1, 2, 3]) {
         for (const s of avail) {
-          if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac || s.spare !== spared || !victimsHold(s)) continue;
+          if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac || holdTier(s) !== tier || !victimsHold(s)) continue;
           return tapSource(s, null);
         }
       }
@@ -4638,13 +4684,14 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
   while (snowNeeded > 0) {
     let best = -1;
     let bestLen = Infinity;
-    let bestSpare = true;
+    let bestTier = Infinity;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
       if (s.used || !s.snow || !victimsHold(s)) continue;
       const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
-      // A spared record (the creature-sparing plan) after every other snow source, as in tapForColor.
-      if (best === -1 || (bestSpare && !s.spare) || (s.spare === bestSpare && flex < bestLen)) { bestLen = flex; best = i; bestSpare = s.spare; }
+      // A spared record (the creature-sparing plan) after every other snow source, a held one after those, as in tapForColor.
+      const tier = holdTier(s);
+      if (best === -1 || tier < bestTier || (tier === bestTier && flex < bestLen)) { bestLen = flex; best = i; bestTier = tier; }
     }
     if (best === -1) return null;                 // no untapped snow source → {S} unpayable
     const color = tapSource(avail[best], null);   // tap it; its mana enters `working`
@@ -4671,17 +4718,18 @@ function planPaymentCore(pool, sources, cost, spendContext = null, board = null,
 
   // 2. Hybrid pips — pay one colored option.
   // An option a source that isn't spared can pay before any spared one (the creature-sparing plan: {G/W} off a Plains, not
-  // Llanowar Elves); with no spared record on the list the second round never runs (the first found what it could).
+  // Llanowar Elves), and one a source that isn't held can pay before any held one (the restricted-line hold: {R/W} off a Plains,
+  // not Tablet of Discovery); a round finds nothing new when the list holds no record of its tier.
   for (const options of cost.hybrid || []) {
     const colored = options.filter(o => COLOR_SET.has(o));
     let paid = false;
     for (const opt of colored) {
       if (working[opt] > 0) { spendOne(opt); paid = true; break; }
     }
-    for (const spareOk of [false, true]) {
+    for (const maxTier of [0, 1, 3]) {
       if (paid) break;
       for (const opt of colored) {
-        if (tapForColor(opt, spareOk)) { spendOne(opt); paid = true; break; }
+        if (tapForColor(opt, maxTier)) { spendOne(opt); paid = true; break; }
       }
     }
     if (!paid) return null;

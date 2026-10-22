@@ -11,8 +11,9 @@
  * Three Tree City, the filter lands and the "{1}, {T}: Add one mana of any color" lands (their second lines made since
  * f71b7e86), Crystal Vein's sacrifice line and Mage-Ring Network's storage line did the same. Such a permanent now keeps
  * its board place for generic, as Mogg Hollows always did — planPayment's second plan, taken when it also pays; the first
- * plan (each call's own judgment, as before) still decides affordability. A spend-restricted line still counts only when
- * the payment may spend it (Eldrazi Temple, as 3d121554 judged it). An order change only: any mana pays generic (CR 107.4b).
+ * plan (each call's own judgment, as before) still decides affordability. A spend-restricted line counts only when the
+ * payment may spend it (Eldrazi Temple, as 3d121554 judged it); when it may not, the second plan holds the permanent back behind
+ * every unrestricted source (2026-10-21 — restrictedLineHold.test.js). An order change only: any mana pays generic (CR 107.4b).
  *
  * Real oracle fixtures: bundled Scryfall via cardIndex.publicCard (2026-10-17).
  */
@@ -172,9 +173,9 @@ describe("controls — a permanent whose every record is plain colorless still g
     expect({ tapped: tapped(paid), pool: pool(paid) }).toEqual({ tapped: ["m1", "ring"], pool: { ...NO_MANA, C: 1 } });
   });
 
-  it("scope: a spend-restricted line counts only when the payment may spend it (3d121554) — Grizzly Bears (not an Eldrazi) still takes Eldrazi Temple's {C} first", () => {
+  it("scope: a spend-restricted line the payment may not spend holds its permanent back (the restricted-line hold, 2026-10-21; restrictedLineHold.test.js) — Grizzly Bears (not an Eldrazi) taps both Forests and keeps Eldrazi Temple", () => {
     const s0 = table({ user: [...forests(2), P("temple", ELDRAZI_TEMPLE)], hand: [["bears", BEARS]] });
-    expect(tapped(act(s0, cast("bears")))).toEqual(["f1", "temple"]);
+    expect(tapped(act(s0, cast("bears")))).toEqual(["f1", "f2"]);
   });
 
   it("scope: judged by the records on the board — at devotion 0 Nykthos offers only its {C} (no devotion record), so it is taken first like Wastes", () => {

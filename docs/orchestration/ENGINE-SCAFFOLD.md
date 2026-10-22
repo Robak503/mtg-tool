@@ -1290,12 +1290,32 @@ player.
   still counts (`holdsBack`, over the whole list `planPayment` was handed): a costed line kept
   out of the direct pass (Nykthos' devotion, Three Tree City, a filter land, "{1}, {T}: any
   color"), a one-shot line out of pass A (Crystal Vein, Phyrexian Tower) or a counter line
-  out of the storage pass A keeps the permanent in board order. A spend-restricted line still
-  counts only when the payment may spend it (Eldrazi Temple, for an Eldrazi) — whether it
-  should hold Cavern of Souls back too is open. That plan is `planPayment`'s second, taken
-  when it also pays; the first (each call's own judgment, as before) decides affordability,
-  and `canAfford` runs it alone. The second plan alone is not safe: the costed pass is greedy,
-  and what its funding call taps decides the colors left for the rest.
+  out of the storage pass A keeps the permanent in board order. A spend-restricted line
+  counts only when the payment may spend it (Eldrazi Temple, for an Eldrazi). That plan is
+  `planPayment`'s second, taken when it also pays; the first (each call's own judgment, as
+  before) decides affordability, and `canAfford` runs it alone. The second plan alone is not
+  safe: the costed pass is greedy, and what its funding call taps decides the colors left for
+  the rest.
+  **Restricted-line permanents are spent last (2026-10-21, the owner's call — it closes the
+  open question above).** A permanent that prints a spend-restricted mana line beside an
+  unrestricted one (Cavern of Souls, Mech Hangar, Eldrazi Temple, Plaza of Heroes, Secluded
+  Courtyard, Unclaimed Territory, Sliver Hive, the Bloomburrow villages, Tablet of Discovery —
+  27 bundled cards; Shrine of the Forsaken Gods makes 28 from seven lands) used to be judged
+  by its unrestricted line alone whenever the payment could not spend the restricted one, so
+  its plain {C} was promoted FIRST for generic. In the second
+  plan (and the creature-sparing plan, which shares its whole-board judgment) planPaymentCore
+  now holds such a permanent (`restrictedHeldPermanents` over `board`, by the same admission
+  predicate as its restricted-source filter — the spend context matches AND the line's whole
+  output fits the cost): never promoted, and taken only after every unrestricted repeatable
+  source that can do the same job — a colored, snow or hybrid pip as well as generic, a spared
+  creature included (`holdTier`: 0 ordinary, 1 spared, 2–3 held) — and before a one-shot
+  sacrifice source. A call that may spend its restricted line judges it as before (that spend
+  is the line's reason to exist); the costed pass's funding call has no spend context, so it
+  holds the permanent too. A board with such a permanent plans the second plan for that alone
+  (`boardJudgmentCanDiffer`). Affordability is untouched: the first plan decides it, and
+  `planPayment` falls back to it when the second pays nothing (the costed pass funding a Signet
+  from the Swamp a later {B} pip needed) — so a cost only the held permanent can pay still uses
+  it.
   **Creatures are tapped last (2026-10-20).** `manaSources` stamps `tapsCreatures` on a record
   whose activation taps a creature — the source itself when it is a creature now (layer 4: a
   mana dork, an earthbent or animated land) and the line has {T}, and any creature among its
@@ -1306,7 +1326,8 @@ player.
   pip's other option first, generic after every other repeatable source and before a sacrifice,
   never promoted as plain colorless (Palladium Myr) — under the second plan's whole-board
   judgment, and that plan is returned only when it pays and taps fewer creatures. The first plan
-  still decides affordability; spend-restricted lines are judged as before — a restricted
+  still decides affordability; a restricted-line permanent the payment may not spend is held
+  behind the spared creatures (above), and a restricted
   creature line (Codsworth's Equipment mana) is never spared: when the payment may spend it,
   its narrow mana goes where it can. Every plan is still
   made by the same core, so a new rider or pass gets the sparing for free; a new preference of
