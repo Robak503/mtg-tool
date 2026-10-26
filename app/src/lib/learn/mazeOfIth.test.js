@@ -5,11 +5,13 @@
  *   "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature
  *    this turn."
  *
- * The untap-by-combat-role atom and the ④-AE combat window existed; the ④-AU dealer stamp (noCombatDamageTurn) existed.
- * New: the prevent sentence folds onto the untap sentence (as "Untap it." folds onto a pump) and the splitter keeps the
- * folded clause whole; ONE untap atom carries `preventCombatDamageTurn`; the resolver stamps BOTH halves on the target
- * for this turn — the dealer gate and the new receiver gate `takesNoCombatDamageTurn`, which combat resolution honours
- * at both receiver sites exactly like protection (assignment still absorbs the lethal share). The AI's combat-role
+ * The untap-by-combat-role atom and the ④-AE combat window existed. New: the prevent sentence folds onto the untap sentence (as
+ * "Untap it." folds onto a pump) and the splitter keeps the folded clause whole; ONE untap atom carries `preventCombatDamageTurn`;
+ * the resolver stamps BOTH halves on the target for this turn — the dealer gate `combatDamageDealtPreventedTurn` (its own stamp
+ * since 2026-10-22, apart from the ④-AU Laccolith stamp `noCombatDamageTurn`: both halves are prevention, which "Combat damage
+ * can't be prevented" overrides — CR 615.12; Laccolith's "assigns no combat damage" is not) and the receiver gate
+ * `takesNoCombatDamageTurn`, which combat resolution honours at both receiver sites exactly like protection (assignment still
+ * absorbs the lethal share). The AI's combat-role
  * picker treats the prevent-untap as ENEMY-facing: it Mazes an attacker attacking it, never its own.
  *
  * Real oracle fixtures (bundled Scryfall snapshot, verified in-session 2026-09-04).
@@ -73,7 +75,7 @@ describe("runtime — the user Mazes the AI's attacker", () => {
     s = resolveAll(dispatchAction(s, acts[0]));
     const atk = perm(s, "ai", "ATK");
     expect(atk.tapped).toBe(false);
-    expect(atk.noCombatDamageTurn).toBe(6);
+    expect(atk.combatDamageDealtPreventedTurn).toBe(6);
     expect(atk.takesNoCombatDamageTurn).toBe(6);
     expect(perm(s, "user", "MAZE").tapped).toBe(true);
   });
@@ -113,7 +115,7 @@ describe("runtime — the user Mazes the AI's attacker", () => {
     expect(perm(s, "ai", "ATK").damageMarked).toBe(2);
   });
   it("the stamps are per turn: next turn the creature deals and takes damage again", () => {
-    const attacker = { ...bear("ATK", "ai", 3), tapped: true, attackedThisTurn: true, noCombatDamageTurn: 5, takesNoCombatDamageTurn: 5 };
+    const attacker = { ...bear("ATK", "ai", 3), tapped: true, attackedThisTurn: true, combatDamageDealtPreventedTurn: 5, takesNoCombatDamageTurn: 5 };
     const blocker = bear("BLK", "user", 2);
     let s = combatBoard({ atk: "ai", def: "user", attacker, defPerms: [], blockers: [blocker] });
     s = resolveCombatDamage(s);

@@ -221,6 +221,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // taken optional damage deals nothing in either damage step — attacker, sole blocker or divided multi-blocker
     // (every dealer loop passes through here). It still RECEIVES combat damage. Self-expires: next turn's number differs.
     if (perm.noCombatDamageTurn === state.turn) return false;
+    // MAZE OF ITH's "dealt by" half (SHELF-85 V13) — "Prevent all combat damage that would be dealt to and dealt by that creature this
+    // turn": a PREVENTION effect, so under "Combat damage can't be prevented" it prevents nothing (CR 615.12) and the creature deals
+    // its damage. (Laccolith's stamp above is not prevention — that creature assigns no combat damage — and still holds.)
+    if (perm.combatDamageDealtPreventedTurn === state.turn && !unpreventable) return false;
     const fs = permanentHasKeyword(state, perm.id, "First strike");
     const ds = permanentHasKeyword(state, perm.id, "Double strike");
     return firstStrikeStep ? (fs || ds) : (!fs || ds);
@@ -381,11 +385,27 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // AND protection GRANTED by an attached Equipment/Aura (the Captain America Swords) both apply. A
   // prevented blocker/attacker takes NO marked damage, NO -1/-1 counters, and grants NO lifelink — the
   // call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
+  // Protection's damage clause is a PREVENTION effect (CR 702.16e "… is prevented"), so while combat damage can't be prevented it
+  // prevents nothing (CR 615.12 — "Those effects won't prevent any damage"; the Frenzied Baloth class).
   const protectionPrevents = (targetId, sourceColors) => {
+    if (unpreventable) return false;
     // B7 — PROTECTION FROM CREATURES (CR 702.16e): every combat-damage source is a creature, so the class quality
     // prevents the damage outright, beside the color check.
     return protectionApplies(permanentProtectionColors(state, targetId), sourceColors)
       || permanentProtectionClasses(state, targetId).has("creatures");
+  };
+  // MAZE OF ITH's "dealt to" half (SHELF-85 V13): a creature stamped for this turn is dealt no combat damage — a prevention effect,
+  // so not while combat damage can't be prevented (CR 615.12).
+  const mazePrevents = (perm) => perm.takesNoCombatDamageTurn === state.turn && !unpreventable;
+  // A SHIELD COUNTER (CR 122.1c — "If damage would be dealt to this permanent, prevent that damage and remove a shield counter from
+  // it"): it prevents the damage — unless combat damage can't be prevented, when the damage is dealt and the counter is still removed
+  // (CR 615.12 — the prevention effect's additional effect takes place; the bundled ruling: "If a permanent with a shield counter is
+  // dealt unpreventable damage, that damage will be dealt and a shield counter will still be removed."). Returns whether the damage
+  // is prevented; either way the counter is marked for removal.
+  const shieldSpends = (id) => {
+    if (!shieldPrevents(id)) return false;
+    shieldConsumed.add(id);
+    return !unpreventable;
   };
 
   // ===== DAMAGE-REPLACEMENT consult (CR 614 — Wolverine "double all damage", Furnace of Rath …) =====
@@ -478,9 +498,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const lk = findPermanent(state, targetId);
     if (!lk) return true;
     if (protectionPrevents(targetId, sourceColors)) return true;
-    if (lk.permanent.takesNoCombatDamageTurn === state.turn) return true;
-    if (shieldPrevents(targetId)) return true;
+    if (mazePrevents(lk.permanent)) return true;
     if (unpreventable) return false;
+    if (shieldPrevents(targetId)) return true;
     const card = lk.permanent.card;
     if (selfDamagePrevention(card)) return true;
     const cs = counterShieldPrevention(card);
@@ -527,6 +547,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       if (att.defenderPlaneswalkerId) {
         const pw = findPermanent(state, att.defenderPlaneswalkerId);
         if (pw && isPlaneswalker(pw.permanent.card)) {
+          // KW-PROTECTION (CR 702.16e): a planeswalker with protection from the attacker's quality is dealt none of it.
+          if (protectionPrevents(att.defenderPlaneswalkerId, attackerColors)) return 0;
           // DAMAGE-REPLACEMENT (CR 120.3c — loyalty uses the DOUBLED amount; the consult runs BEFORE the
           // loyalty event is constructed). 120.8 zero-guard: doubling never produces 0 from >0, but re-check.
           const amount = consultCombat(rawAmount, lookup.permanent, "planeswalker", att.defenderPlaneswalkerId);
@@ -547,8 +569,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const redirectTo = defender && state.players[defender] ? playerDamageRedirectTarget(state, defender) : null;
       if (redirectTo) {
         if (protectionPrevents(redirectTo, attackerColors)) return 0;
-        if (findPermanent(state, redirectTo).permanent.takesNoCombatDamageTurn === state.turn) return 0;
-        if (shieldPrevents(redirectTo)) { shieldConsumed.add(redirectTo); return 0; }
+        if (mazePrevents(findPermanent(state, redirectTo).permanent)) return 0;
+        if (shieldSpends(redirectTo)) return 0;
         const amount = consultCombat(rawAmount, lookup.permanent, "creature", redirectTo);
         addDmg(redirectTo, amount, deathtouch, attackerMinus);
         recordCreatureDamage(lookup.permanent, redirectTo, amount);
@@ -622,13 +644,11 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
         // KW-PROTECTION (CR 702.16e): a blocker with protection from the attacker's color is dealt 0 of its share.
         if (protectionPrevents(blk.permanent.id, attackerColors)) continue;
         // MAZE OF ITH (SHELF-85 V13, CR 615): a blocker stamped "takes no combat damage this turn" is dealt 0 — the protection shape.
-        if (blk.permanent.takesNoCombatDamageTurn === state.turn) continue;
+        if (mazePrevents(blk.permanent)) continue;
         // CR 122.1c — a SHIELD COUNTER on the blocker PREVENTS its share (0 dealt: no mark, no lifelink, no Wolverine/Toxin
-        // combat-damage-to-creature trigger) and removes one shield.
-        if (shieldPrevents(blk.permanent.id)) {
-          shieldConsumed.add(blk.permanent.id);
-          continue;
-        }
+        // combat-damage-to-creature trigger) and removes one shield (shieldSpends — under "can't be prevented" it is dealt, and the
+        // shield still goes).
+        if (shieldSpends(blk.permanent.id)) continue;
         // DAMAGE-REPLACEMENT (CR 614, 702.19b): the share is assigned off normal toughness, un-doubled, and doubled as it is
         // DEALT — the blocker is marked (and lifelink credited) the doubled amount. addDmg's `n > 0` re-guards CR 120.8.
         const dealtToBlocker = consultCombat(give, lookup.permanent, "creature", blk.permanent.id);
@@ -707,11 +727,12 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       // damage back to it is prevented — 0 dealt, and no lifelink for the blocker.
       if (protectionPrevents(att.permanentId, permanentColors(state, blk.permanent.id))) continue;
       // MAZE OF ITH (SHELF-85 V13): an attacker stamped "takes no combat damage this turn" is dealt 0 by its blockers.
-      if (attLookup.permanent.takesNoCombatDamageTurn === state.turn) continue;
+      if (mazePrevents(attLookup.permanent)) continue;
       // CR 122.1c — a SHIELD COUNTER on the ATTACKER (the recipient here) PREVENTS the blocker's damage (0 dealt:
       // no mark, no blocker lifelink, no Wolverine/Toxin trigger) and removes one shield. No trample math applies
-      // to a creature dealing damage back, so this is a clean skip (mirrors the protection skip above).
-      if (shieldPrevents(att.permanentId)) { shieldConsumed.add(att.permanentId); continue; }
+      // to a creature dealing damage back, so this is a clean skip (mirrors the protection skip above). (shieldSpends — under
+      // "can't be prevented" the damage is dealt and the shield still goes.)
+      if (shieldSpends(att.permanentId)) continue;
       // KW-POISON — the BLOCKER is the source here, so its OWN infect/wither reroutes the damage it
       // deals back to the attacker into -1/-1 counters (toxic is player-only, irrelevant blocking).
       const bminus = permanentHasKeyword(state, blk.permanent.id, "Infect") || permanentHasKeyword(state, blk.permanent.id, "Wither");

@@ -678,14 +678,15 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // KW-PROTECTION (CR 702.16b): can't be targeted by a spell/ability of a color it has protection from.
   // QUALITY-based, not controller-based (unlike hexproof/ward) — a red spell can't target a creature with
   // protection from red even if cast by the creature's OWN controller. `sourceColors` is the casting
-  // spell's colors (threaded from the cast-target enumeration); empty for paths not yet threaded (a safe
-  // false-negative — trigger/ability targeting). Read LAYER-AWARE so protection GRANTED by an attached
+  // spell's colors, or an ability's source's (threaded by every cast, activated, loyalty and trigger offer — the trigger offer
+  // since 2026-10-22, effects/targeting.expandTriggerChoices); empty when a source's colours can't be told (a safe
+  // false-negative — a departed source with no record kept). Read LAYER-AWARE so protection GRANTED by an attached
   // Equipment/Aura (the Captain America Swords) is honored, not just printed protection.
   // + PROTECTION FROM COLORLESS (CR 105.2c, 702.16b — Giver of Runes): a source with no colour, when its colours are known.
   if ((sourceColors.length || sourceColorsKnown) && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
   // ④-V TARGET SHIELD BY SOURCE COLOUR (Thrun, Breaker of Silence; Gaea's Revenge — CR 702.11d in all but name): the
   // shield refuses a source that is NOT the named colour, colourless included; Thrun's form only against opponents.
-  // A path that does not thread `sourceColors` (triggers / abilities) is refused outright — an under-offer, never an
+  // A source whose colours aren't threaded (a departed one with no record kept) is refused outright — an under-offer, never an
   // illegal targeting (a colourless spell and an untracked path both read as []; both are refused, both correctly
   // or safely). Read layer-aware off the same continuous-effects board as every other keyword.
   // + the GRANTED form (stage ③ · 35 — Canopy Cover: "Enchanted creature can't be the target of spells or abilities your
@@ -726,8 +727,22 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
  */
 export function resolutionSource(state, stackObject, sourceId) {
   if (stackObject?.kind === "spell") return { colors: characteristicColors(stackObject.source), known: !!stackObject.source };
+  return abilitySource(state, stackObject?.payload?.params?.context, sourceId);
+}
+
+/**
+ * An ABILITY's source as its targeting reads it, `{ colors, known }` — the non-spell half of resolutionSource, shared by the CR 608.2b
+ * re-check and the offers that choose an ability's targets before it has a stack object to read (a triggered ability as it is put on
+ * the stack — gameEngine's trigger flush, CR 603.3d → 601.2c), so the offer refuses exactly what the re-check would. `ctx` is the
+ * ability's context (its own last-known record, a dies trigger's look-back); `sourceId` the source permanent:
+ *   · on the battlefield — its CURRENT colours (layer 5); known.
+ *   · departed — its last known colours (gameState.departedSourceLki, CR 608.2b / 113.7a); known.
+ *   · nothing kept (an ability of a card in a graveyard or hand, a source the engine kept no record of) — `known: false`, no colour:
+ *     never read as colourless, and an empty list makes no target illegal (canBeTargetedBy).
+ */
+export function abilitySource(state, ctx, sourceId) {
   if (sourceId != null && findPermanent(state, sourceId)) return { colors: permanentColors(state, sourceId), known: true };
-  const left = departedSourceLki(state, stackObject?.payload?.params?.context, sourceId);
+  const left = departedSourceLki(state, ctx, sourceId);
   if (left) return { colors: [...left.record.colors], known: true };
   return { colors: [], known: false };
 }
@@ -1692,6 +1707,25 @@ export function dealDamageToPlayer(s, event, dealer, pid, raw) {
 }
 
 /**
+ * THE PLANESWALKER HIT — `dealer` deals `raw` damage to the planeswalker `permId`, one hit of `event`: protection from the dealer
+ * (CR 702.16e — the creature hit's judgment, protectedFromDealer: a colour, colorless, a creature source against protection from
+ * creatures), the damage replacements (CR 614 — loyalty uses the replaced amount), the prevention shields (CR 615), then that many
+ * loyalty counters removed (CR 120.3c — not life; infect does not touch a planeswalker). Every planeswalker hit of applyDamageEffect
+ * goes through here (the single target and both sweeps that reach planeswalkers), so the three can't drift.
+ */
+export function dealDamageToPlaneswalker(s, event, dealer, permId, raw) {
+  if (dealer.silenced) return s;
+  if (protectedFromDealer(s, dealer, permId)) return logEvent(s, { kind: "damage-prevented", targetKind: "planeswalker", targetId: permId, amount: raw, via: "protection" });
+  let dealt = consultDealt(s, event, dealer, raw, "planeswalker", permId);
+  if (dealt > 0) {
+    const pv = consumePreventionShields(s, { targetKind: "planeswalker", targetId: permId, amount: dealt });
+    s = pv.state; dealt = pv.amount;
+  }
+  if (dealt > 0) { s = adjustLoyalty(s, { permanentId: permId, delta: -dealt }); tallyDealt(event, dealer, dealt); } // SL-1
+  return s;
+}
+
+/**
  * A DAMAGE EVENT'S SETTLEMENT — what its hits owe once every one of them is dealt, before the lethal-damage pass (the
  * abilities trigger as the damage is dealt, CR 120.4b, and bind while their sources are still on the battlefield):
  *   1. DEALS DAMAGE TO A PLAYER / TO A CREATURE (2026-10-20 — Curiosity, Niv-Mizzet, Matsu-Tribe Sniper, Sword of Kaldra): each
@@ -1829,13 +1863,8 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
           if (permanentHasCardType(state, perm.id, "Creature")) { next = hitCreature(next, perm.id); continue; } // a creature NOW (the type-line audit)
           if (!walkersToo) continue;
           if (!permanentHasCardType(state, perm.id, "Planeswalker")) continue; // its face that is up (the type-line audit)
-          // The single-target loyalty path, reused: damage replacement → prevention shields → loyalty removal.
-          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", perm.id);
-          if (dealt > 0) {
-            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
-            next = pv.state; dealt = pv.amount;
-          }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); tallyDealt(event, dealer, dealt); }
+          // The single-target loyalty path, reused (dealDamageToPlaneswalker): protection → damage replacement → prevention shields → loyalty removal.
+          next = dealDamageToPlaneswalker(next, event, dealer, perm.id, amount);
         }
       }
     } else if (targetType === "eachCreatureAndPlaneswalker") {
@@ -1847,9 +1876,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // works. The planeswalker half deliberately does NOT: a creature predicate ("without flying") says
       // nothing about a planeswalker, and Magmaquake hits every walker regardless.
       //
-      // ⭐ THE LOYALTY PATH IS THE SINGLE-TARGET ONE, REUSED RATHER THAN REIMPLEMENTED — damage replacement
-      // (consultDealt), then prevention shields (CR 615), then loyalty removal (CR 120.3c). Writing a second
-      // loyalty path here is how the two would drift.
+      // ⭐ THE LOYALTY PATH IS THE SINGLE-TARGET ONE, REUSED RATHER THAN REIMPLEMENTED (dealDamageToPlaneswalker) — protection
+      // (CR 702.16e), damage replacement (consultDealt), then prevention shields (CR 615), then loyalty removal (CR 120.3c).
+      // Writing a second loyalty path here is how the two would drift.
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
           if (permanentHasCardType(state, perm.id, "Creature") && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id); // a creature NOW (the type-line audit)
@@ -1859,12 +1888,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         for (const perm of [...next.players[pid].battlefield]) {
           // a planeswalker NOW, its face that is up (the type-line audit — a front-up Nissa, Vastwood Seer is a creature, not a walker)
           if (!permanentHasCardType(next, perm.id, "Planeswalker")) continue;
-          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", perm.id);
-          if (dealt > 0) {
-            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
-            next = pv.state; dealt = pv.amount;
-          }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); tallyDealt(event, dealer, dealt); }
+          next = dealDamageToPlaneswalker(next, event, dealer, perm.id, amount);
         }
       }
     } else if (targetType === "eachCreatureAndPlayer") {
@@ -1896,16 +1920,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         else if (t.type === "creature" && findPermanent(next, t.id)) next = hitCreature(next, t.id);
         // PW-6: damage to a planeswalker removes that many loyalty counters (CR 120.3c), not life. Infect
         // doesn't touch planeswalkers (it replaces damage to creatures/players only) — loyalty as normal.
-        // DAMAGE-REPLACEMENT (CR 120.3c): loyalty uses the DOUBLED amount.
-        else if (t.type === "planeswalker" && findPermanent(next, t.id)) {
-          let dealt = consultDealt(next, event, dealer, amount, "planeswalker", t.id);
-          // PV-1 (CR 615): a prevention shield on a planeswalker consumes before the loyalty hit.
-          if (dealt > 0) {
-            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: t.id, amount: dealt });
-            next = pv.state; dealt = pv.amount;
-          }
-          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt }); tallyDealt(event, dealer, dealt); } // SL-1
-        }
+        // DAMAGE-REPLACEMENT (CR 120.3c): loyalty uses the DOUBLED amount. PV-1 (CR 615): a prevention shield on a
+        // planeswalker consumes before the loyalty hit. Protection from the dealer prevents it all (CR 702.16e).
+        else if (t.type === "planeswalker" && findPermanent(next, t.id)) next = dealDamageToPlaneswalker(next, event, dealer, t.id, amount);
       }
     }
   }

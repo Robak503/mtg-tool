@@ -98,9 +98,12 @@ export function applyTapEffect(state, atom, ctx, tap) {
     if (!atom?.lockOnly) next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
     // MAZE OF ITH (SHELF-85 V13): "Prevent all combat damage that would be dealt to and dealt by that creature this
     // turn" — both halves stamped on the just-untapped creature for THIS turn number (self-expiring): the dealer gate
-    // every combat dealer loop already honours, and the receiver gate combat resolution honours like protection.
+    // (combatDamageDealtPreventedTurn) every combat dealer loop honours, and the receiver gate (takesNoCombatDamageTurn) combat
+    // resolution honours like protection. Both are PREVENTION, so neither holds while combat damage can't be prevented (CR 615.12 —
+    // combatResolution); the dealer half is its own stamp, apart from Laccolith's noCombatDamageTurn (assigns no combat damage — not
+    // prevention), so the two can't be told apart wrongly.
     if (!tap && atom?.preventCombatDamageTurn) {
-      next = updatePermanentSafe(next, t.id, (p) => ({ ...p, noCombatDamageTurn: next.turn, takesNoCombatDamageTurn: next.turn }));
+      next = updatePermanentSafe(next, t.id, (p) => ({ ...p, combatDamageDealtPreventedTurn: next.turn, takesNoCombatDamageTurn: next.turn }));
     }
     if (tap && atom?.lockActivated) {
       next = addContinuousEffect(next, {
@@ -1556,7 +1559,7 @@ export function combatKeywordClauseParser(clause) {
   // SHELF-85 V13 (2026-09-04 — Maze of Ith): the folded "untap target [attacking] creature and prevent all combat damage
   // that would be dealt to and dealt by that creature this turn" (the ④-AE peel has already lifted "attacking" into the
   // combat restriction). ONE atom: the untap, plus preventCombatDamageTurn — applyTapEffect stamps the target's
-  // dealer half (noCombatDamageTurn, the ④-AU gate) AND receiver half (takesNoCombatDamageTurn) for this turn.
+  // dealer half (combatDamageDealtPreventedTurn) AND receiver half (takesNoCombatDamageTurn) for this turn.
   if (/^untap target creature and prevent all combat damage that would be dealt to and dealt by that creature this turn$/.test(t)) {
     return { op: "untap", targetType: "creature", preventCombatDamageTurn: true };
   }

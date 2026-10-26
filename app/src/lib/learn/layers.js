@@ -2258,13 +2258,17 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
  * staticEffectsOf bonus is keyed on attachedTo). Short-circuits to the printed set on an effect-free board.
  * The set may also hold "C" — protection from COLORLESS, granted only by "protection from colorless or from the color of your choice"
  * (Giver of Runes' choice); protection.protectionApplies reads it against a source with no colour (CR 105.2c).
+ * `skipEffect(e)` — optional: a granted effect it answers true for is left out (the attachment state-based action's reading of
+ * "This effect doesn't remove this Aura" — sba.js). `ownPrintedOnly` — read only the card's OWN printed protection clauses
+ * (protection.parseProtectionColors `ownOnly`: not a Sword's "Equipped creature … has protection from …"), the same state-based action.
  */
-export function permanentProtectionColors(state, permanentId) {
+export function permanentProtectionColors(state, permanentId, skipEffect = null, ownPrintedOnly = false) {
   const perm = findPerm(state, permanentId);
   if (!perm) return new Set();
-  const set = new Set(parseProtectionColors(perm.card));
+  const set = new Set(parseProtectionColors(perm.card, { ownOnly: ownPrintedOnly }));
   const l6 = l6IndexOf(state).protection;
   for (const e of l6) {
+    if (skipEffect && skipEffect(e)) continue;
     if (!effectAffects(e, perm, state)) continue;
     // GATED-PROTECTION (2026-08-12 — Mystic Familiar's threshold grant): an addProtection op may carry a
     // `gate`; skip it while the gate is closed, mirroring the layer-4/6/7c gate reads. Without this check

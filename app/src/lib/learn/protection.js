@@ -4,16 +4,20 @@
  * "Protection from [quality]" is DEBT: the permanent can't be Damaged by / Enchanted-or-Equipped by /
  * Blocked by / Targeted by a source with the quality. The colour qualities are WUBRG and COLORLESS ("C" — a source with no
  * colour, CR 105.2c; only ever granted, by "protection from colorless or from the color of your choice": protectionApplies).
- * For the common quality (a color), THREE of the four sub-rules are enforced:
- *   - DAMAGE (702.16e): combat damage from a source of the stated color is PREVENTED → 0 dealt.
+ * For the common quality (a color), all four sub-rules are enforced:
+ *   - DAMAGE (702.16e): damage from a source of the stated color is PREVENTED → 0 dealt — combat damage (combatResolution, an attacked
+ *                       planeswalker included; not while "combat damage can't be prevented", CR 615.12) and spell / ability damage
+ *                       to a creature or a planeswalker (spellEffects.protectedFromDealer).
  *   - BLOCK  (702.16f): an ATTACKING creature with protection from a color can't be blocked by a
  *                       creature of that color.
- *   - TARGET (702.16b): can't be targeted by a spell of that color (the spell's color is threaded into
- *                       the targeting check via legalChoices → enumerateTargets → canBeTargetedBy).
- * The ENCHANT/EQUIP axis (702.16c/d) is enforced where an attachment is made — an Aura's hosts (auraEntry.mayBeEnchantedBy, the
- * Aura spell's targeting), Equip's targeting, a card returned attached (effects/atoms/zones) — but the state-based action that
- * drops an Aura or unattaches an Equipment whose host GAINS the protection (CR 704.5m, 704.5n) is not applied (sba.js reads no
- * protection; a safe false-negative). Non-color qualities (artifacts, creatures,
+ *   - TARGET (702.16b): can't be targeted by a spell of that color, or an ability from a source of it (the source's colors are
+ *                       threaded into the targeting check via legalChoices / the trigger flush → enumerateTargets → canBeTargetedBy:
+ *                       every cast, activated, loyalty and triggered ability offer, and the CR 608.2b re-check).
+ *   - ENCHANT/EQUIP (702.16c/d): enforced where an attachment is made — an Aura's hosts (auraEntry.mayBeEnchantedBy, the Aura
+ *                       spell's targeting), Equip's targeting, a card returned attached (effects/atoms/zones) — and by the state-based
+ *                       action when a host GAINS the protection (CR 704.5m, 704.5n — sba.protectionRemovesAttachment: the Aura to
+ *                       its owner's graveyard, the Equipment unattached; "This effect doesn't remove this Aura" honoured).
+ * Non-color qualities (artifacts, creatures,
  * "everything", a card name, instants/sorceries, a dynamic "chosen"/"commander color identity") are NOT
  * parsed here → unenforced, also safe.
  *
@@ -47,7 +51,32 @@ function protectionSentence(oracle, index) {
   return oracle.slice(start, ends.length ? Math.min(...ends) : oracle.length).toLowerCase();
 }
 
-export function parseProtectionColors(card) {
+// The words a keyword-list item can't contain: a clause naming a SUBJECT or a verb is not a list of the card's own keywords.
+const NOT_A_KEYWORD_ITEM_RE = /\b(?:have|has|gets?|gains?|with|you|your|creatures?|permanents?|equipped|enchanted|fortified|target|each|all|other|tokens?|it|they)\b|[+\-\d/{}"“]/;
+
+/**
+ * Is the "protection from" clause at `index` of `oracle` the card's OWN protection? Read positively (anything unplaced is not):
+ *   · a keyword line or keyword list — nothing before it in its sentence, or only keyword-like items joined by commas / "and"
+ *     ("Protection from black", "First strike, protection from red", "Flying and protection from …");
+ *   · the card itself as the subject — "This creature has protection from …", "<its name> has …", "… gets +1/+1 and has …".
+ * parseProtectionColors also reads a clause whose subject is ANOTHER object as the card's own — "Equipped creature gets +2/+2 and has
+ * protection from red and from blue" (the Swords read as protected from red and blue themselves), "Enchanted creature has …" (the
+ * Wards), "Creatures you control have …" (Akroma's Memorial), "… creature tokens with protection from black" (Hunted Horror). The
+ * attachment state-based action reads only the own clauses (`ownOnly`), so a misread host never knocks an attachment off.
+ */
+function isOwnProtectionClause(oracle, index, name) {
+  const start = Math.max(oracle.lastIndexOf(".", index), oracle.lastIndexOf("\n", index)) + 1;
+  const prefix = oracle.slice(start, index).toLowerCase().replace(/\s+/g, " ").trim();
+  if (prefix === "") return true;
+  const items = prefix.split(/,|\band\b/).map((s) => s.trim());
+  if (items.length > 1 && items.every((s) => s === "" || !NOT_A_KEYWORD_ITEM_RE.test(s))) return true;
+  const lower = String(name || "").toLowerCase();
+  const names = [lower, lower.split(",")[0]].filter(Boolean);
+  const subject = prefix.match(/^(.+?) (?:has|gets [^.;]*? and has)$/);
+  return !!subject && (/^this (?:creature|permanent|artifact|land|enchantment)$/.test(subject[1]) || names.includes(subject[1]));
+}
+
+export function parseProtectionColors(card, { ownOnly = false } = {}) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
   const set = new Set();
   // Capture the quality phrase up to a sentence/clause boundary — stop at a comma so "protection from
@@ -69,6 +98,7 @@ export function parseProtectionColors(card) {
     // stays caught — it is inside the same sentence slice. The sentence ENDS at a line break too
     // (protectionSentence — stage ③ · 28).
     if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue;
+    if (ownOnly && !isOwnProtectionClause(oracle, m.index, card?.name)) continue; // another object's protection (isOwnProtectionClause)
     const tail = m[1].toLowerCase().trim();
     if (/^all colors\b/.test(tail) || /^each color\b/.test(tail)) {
       for (const c of ALL_COLORS) set.add(c);

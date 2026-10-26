@@ -496,12 +496,49 @@ either KNOWN (an empty list is then colourless) or not known (never read as colo
   attachment is made (`auraEntry.mayBeEnchantedBy`, the Aura and Equip targeting, a card returned attached). The AI's save preview
   and a person's suggestion read colourless and departed threats now (`protectionThreats`; `pickSaveInResponse`: colorless saves
   from a harm whose source has no colour).
-- **Not done (FN-safe)** — trigger and loyalty-ability target offers thread no source colours (protection by colour is judged at
-  the re-check only: the `gameEngine` trigger offers, the `legalChoices` loyalty lane); the state-based action that drops an Aura or
-  unattaches an Equipment whose host GAINS the protection (CR 704.5m, 704.5n — `sba.sweepAttachmentLegality` reads no
-  protection, for any quality); damage to a planeswalker checks no protection (Angelic Intervention's grant to a planeswalker —
-  not native); a departed source with no record (an LTB trigger's, a graveyard card's ability) stays unknown. Witness:
-  `protectionLastKnownColorless.test.js`.
+- **Not done (FN-safe)** — a departed source with no record (an LTB trigger's, a graveyard card's ability) stays unknown. (The
+  trigger and loyalty offers, the attachment state-based action and planeswalker damage this paragraph listed as not done are done —
+  the next paragraph.) Witness: `protectionLastKnownColorless.test.js`.
+
+**Protection: attachments, planeswalkers, the trigger and loyalty offers, and unpreventable combat damage** (2026-10-22, CR 702.16b–e,
+704.5m, 704.5n, 615.12). Four places protection was not enforced, each a false positive:
+- **Attachments** — `sba.sweepAttachmentLegality` reads protection (`protectionRemovesAttachment`): an Aura or Equipment whose host
+  has protection from a quality it has (CR 702.16c — "Such Auras attached to the permanent or player with protection will be put
+  into their owners' graveyards as a state-based action."; CR 702.16d — Equipment "become unattached … but remain on the
+  battlefield") is illegal — the Aura to its owner's graveyard, the Equipment unattached (log `reason: "protection"`). The host's
+  protection is `layers.permanentProtectionColors` (granted, and printed — but only the card's OWN printed clauses, `ownPrintedOnly` /
+  `protection.parseProtectionColors({ ownOnly })`: the printed reader also reads "Equipped creature … has protection from red and
+  from blue" as the Sword's own protection, "… tokens with protection from black" as Hunted Horror's, and an Aura on such a card
+  must not fall off for it; colorless included — protectionApplies), less a grant whose source says it doesn't remove the attachment
+  (`grantSparesAttachment` — the optional `skipEffect` argument):
+  "This effect doesn't remove this Aura" (White Ward, the Ward cycle) spares only that Aura; any other "doesn't remove" wording
+  (Spectra Ward, Benevolent Blessing — neither emits a grant today) spares every attachment. The attachment's colours are its
+  current ones when known (`permanentColorsIfKnown`). Colour qualities only; a bestowed Aura stays exempt (its CR 702.103f exit is
+  not this sweep's). Fortification isn't modelled (no fortify).
+- **Planeswalker damage** — `spellEffects.dealDamageToPlaneswalker`, the one planeswalker hit (the single target and both
+  planeswalker sweeps — `eachCreatureAndPlaneswalker`, `eachOpponentAndTheirCreaturesPW`): protection from the dealer
+  (`protectedFromDealer`, the creature hit's judgment — CR 702.16e), then the damage replacements, the prevention shields and the
+  loyalty removal as before. Combat: an attacked planeswalker with protection from the attacker's quality is dealt none of it
+  (`combatResolution`'s planeswalker arm reads `protectionPrevents`). No bundled card grants a planeswalker protection natively yet
+  (Angelic Intervention, Faith's Shield, Razor Barrier are Arbiter-routed; Eight-and-a-Half-Tails' grant isn't offered).
+- **The trigger and loyalty offers** — `effects/targeting.expandTriggerChoices` (all four `gameEngine` trigger offers: the
+  intervening-if, plain, modal and reflexive builders) threads the source's colours as the re-check reads them
+  (`spellEffects.abilitySource` — the non-spell half of `resolutionSource`: on the battlefield its current colours, departed its
+  last known ones, nothing kept unknown), with `sourceColorsKnown` when known; the loyalty offer (`legalChoices.actionsActivateLoyalty`)
+  threads the walker's colours like the activated-ability offer. So Flametongue Kavu's trigger is never offered Silver Knight (and,
+  facing only it, must target itself — CR 603.3d), Chandra's −3 isn't either, and Perilous Myr's dies trigger isn't offered a
+  creature with protection from colorless. With colours threaded the colour shields at the trigger offer now judge the colour
+  (Thrun's "nongreen", hexproof from colours) instead of refusing every trigger.
+- **"Combat damage can't be prevented"** (Frenzied Baloth — `combatDamageUnpreventable`) — protection's damage clause, Maze of Ith's
+  two halves and a shield counter are prevention effects, so under it they prevent nothing (CR 615.12 — "Those effects won't
+  prevent any damage, but any additional effects they have will take place."): `protectionPrevents` and `mazePrevents` answer no,
+  and `shieldSpends` lets the damage through while still removing the counter (the bundled shield-counter ruling: "that damage will
+  be dealt and a shield counter will still be removed"). Maze of Ith's dealt-by half is its own stamp,
+  `combatDamageDealtPreventedTurn` (it shared Laccolith's `noCombatDamageTurn` — "assigns no combat damage", not prevention —
+  which still holds under it); the receiver half stays `takesNoCombatDamageTurn`. Teferi's Protection (a player's protection from
+  everything) is not changed here — its life lock would hold the total, but commander damage, poison and lifelink would follow.
+Witness: `protectionAttachWalkerOffer.test.js` (20); `mazeOfIth.test.js` (the dealer stamp's new name); `druidApprenticeSurge.test.js`
+(Warstorm Surge's trigger is no longer offered Kor Firewalker).
 
 **Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
 permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
@@ -930,7 +967,8 @@ and no lethal-first duty without trample; that duty is trample's, CR 702.19b). `
 `shares` — each live blocker, in declaration order, its lethal share (toughness less marked damage; 1 from deathtouch, CR 702.2c),
 exactly the old amounts — then the remainder: with trample to the player as before; without it to ONE blocker, the last in
 declaration order whose damage would not be fully prevented (`combatDealPrevented` — a pure read of protection, a Maze of Ith stamp,
-a shield counter and consultCombat's full-prevention walls; a partial prevent-next-N shield is not full prevention), else the last
+a shield counter and consultCombat's full-prevention walls, none of them while combat damage can't be prevented, CR 615.12; a partial
+prevent-next-N shield is not full prevention), else the last
 blocker. Every blocker already holds its lethal share, so where the remainder goes decides no death, only how much is dealt; the
 choice that deals it is the one lifelink, the "that much" payoffs and a damage-reactive blocker read. Assignment still ignores
 prevention (a protected, Maze-stamped or shielded blocker takes its share, dealt as 0), each share is dealt in one consultCombat

@@ -463,13 +463,15 @@ describe("Warstorm Surge — the entering creature deals damage equal to its pow
       .toEqual({ green: true, greenLeft: true, red: false });
   });
 
-  it("the ABILITY's source is Warstorm Surge: a creature with protection from red is not a target the ability can affect, whatever color entered (CR 702.16b)", () => {
+  it("the ABILITY's source is Warstorm Surge: a creature with protection from red is not a target the ability can be offered, whatever color entered (CR 702.16b) — the trigger aims at the player instead", () => {
+    // Since 2026-10-22 the trigger offer reads its source's colours (effects/targeting.expandTriggerChoices): Kor Firewalker is
+    // never offered, so the engine's pick is the one opposing target left — the AI — rather than the Firewalker it then fizzled on.
     const s0 = surgeBoard({ hand: [cardOf(BEARS, "c-b")], ai: { bf: [perm("kf", KOR_FIREWALKER, "ai")] } });
-    const triggered = enterAimed(s0, "c-b", "kf");
+    const triggered = enterAimed(s0, "c-b", "ai");
     const done = resolveOne(triggered);
-    const row = { walker: [onBattlefield(done, "kf"), findPermanent(done, "kf")?.permanent.damageMarked ?? 0], fizzled: done.log.filter((e) => e.kind === "spell-fizzle").length };
+    const row = { walker: [onBattlefield(done, "kf"), findPermanent(done, "kf")?.permanent.damageMarked ?? 0], fizzled: done.log.filter((e) => e.kind === "spell-fizzle").length, life: life(done) };
     console.log("  WITNESS surgeFirewalker", JSON.stringify(row));
-    expect(row).toEqual({ walker: [true, 0], fizzled: 1 });
+    expect(row).toEqual({ walker: [true, 0], fizzled: 0, life: [40, 38] });
   });
 
   describe("one event removes the creature AND the lord that was pumping it: it is read with the lord still there", () => {

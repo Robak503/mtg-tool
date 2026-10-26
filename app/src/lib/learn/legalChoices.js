@@ -4381,8 +4381,10 @@ function actionsActivateLoyalty(state, playerId) {
       const costLabel = `${ab.costDelta >= 0 ? "+" : ""}${ab.costDelta}`;
       if (ab.modeled) {
         // Thread the walker's id so an "another target …" restriction (notSource) excludes the walker itself
-        // (CR 109.5). A no-op for every non-"another" loyalty ability (they ignore sourceId).
-        const choices = expandCastChoices(state, playerId, ab.program, [], { sourceId: perm.id });
+        // (CR 109.5). A no-op for every non-"another" loyalty ability (they ignore sourceId). And its colours, as the activated-ability
+        // offer threads its source's (a loyalty ability is an activated ability, CR 606.2): a permanent with protection from the walker's
+        // colour is not offered (CR 702.16b) — before, none were threaded and the re-check fizzled it after the cost was paid.
+        const choices = expandCastChoices(state, playerId, ab.program, permanentColors(state, perm.id), { sourceId: perm.id, sourceColorsKnown: true });
         if (choices.length === 0) continue; // a required target has no legal pick → can't activate THIS ability
         for (const ch of choices) {
           actions.push({

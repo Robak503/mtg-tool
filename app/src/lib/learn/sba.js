@@ -18,7 +18,9 @@
  *   - 704.5j   — the LEGEND RULE (applyLegendRule — new in B2; + dies triggers for creatures)
  *   - 704.5m/n — attachment legality: an Equipment on a non-creature (or vanished host) becomes
  *                unattached; an Aura whose host is gone or no longer matches its enchant type, or
- *                that is attached to nothing at all, goes to its owner's graveyard. Player-auras
+ *                that is attached to nothing at all, goes to its owner's graveyard. Either one whose
+ *                host has protection from a quality it has (CR 702.16c/d — protectionRemovesAttachment)
+ *                is illegal too. Player-auras
  *                (enchantedPlayerId — the Curse class) and bestowed permanents are exempt (their
  *                legality is owned by the elimination sweep and the bestow exit transform
  *                respectively).
@@ -48,7 +50,8 @@ import {
   updatePermanentSafe,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
-import { permanentIsCreature, permanentHasCardType } from "./layers.js";
+import { permanentIsCreature, permanentHasCardType, permanentColorsIfKnown, permanentProtectionColors } from "./layers.js";
+import { protectionApplies } from "./protection.js"; // CR 702.16c/d — the one quality matcher (colours and colorless)
 import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
 import { isRoleCard } from "./auraEntry.js"; // the one reading of "a Role" (CR 303.7) — the entry choice and the token copy share it
 
@@ -64,6 +67,42 @@ const MAX_PASSES = 10;
 function attachedToNothing(perm) {
   if (perm.attachedTo || perm.enchantedPlayerId || perm.enchantedGraveyardCard || perm.bestowed) return false;
   return /\bAura\b/.test(String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0]);
+}
+
+// "This effect doesn't remove this Aura." (White Ward, the other Wards, Floating Shield, Cho-Manno's Blessing); "This effect doesn't remove
+// Auras." (Spectra Ward); "This effect doesn't remove Auras and Equipment you control that are already attached to it." (Benevolent
+// Blessing) — read off the card whose static or resolution GRANTED the protection.
+const DOESNT_REMOVE_RE = /\bdoesn['’]t remove\b/i;
+const DOESNT_REMOVE_THIS_AURA_RE = /\bdoesn['’]t remove this Aura\b/i;
+
+/** Does the protection grant `effect` say it doesn't remove the attachment `attachmentId`? "This Aura" spares only the granting Aura
+ * itself; any other "doesn't remove" wording spares every attachment (read broadly — a kept attachment is the safe side). */
+function grantSparesAttachment(state, effect, attachmentId) {
+  const sourceId = effect.source?.permanentId;
+  if (sourceId == null) return false;
+  const card = findPermanent(state, sourceId)?.permanent?.card;
+  const text = String(card?.oracle || card?.oracle_text || "");
+  if (!DOESNT_REMOVE_RE.test(text)) return false;
+  return DOESNT_REMOVE_THIS_AURA_RE.test(text) ? sourceId === attachmentId : true;
+}
+
+/**
+ * CR 702.16c — "Such Auras attached to the permanent or player with protection will be put into their owners' graveyards as a
+ * state-based action."; CR 702.16d — "Such Equipment or Fortifications become unattached from that permanent as a state-based
+ * action, but remain on the battlefield." Is the attachment `attachmentId` of a quality its host `hostId` has protection from —
+ * a colour it has, or colorless when it has none (CR 105.2c — protectionApplies)? The host's protection is read layer-aware
+ * (printed and granted — an equipped Sword of War and Peace, Giver of Runes' choice), less a grant that says it doesn't remove
+ * this attachment (grantSparesAttachment); the printed part is the host's OWN protection only (`ownPrintedOnly` — the printed reader
+ * also reads a clause about another object, "Equipped creature … has protection from red", as the card's own, and an Aura on a
+ * Sword must not fall off for it). The attachment's colours are its current ones, and only when they are known
+ * (permanentColorsIfKnown — a card shape with no colours recorded is never read as colourless). Colour qualities only: the
+ * qualities the layer engine doesn't read stay unenforced here, as at every other protection site.
+ */
+function protectionRemovesAttachment(state, hostId, attachmentId) {
+  if (permanentProtectionColors(state, hostId, null, true).size === 0) return false; // the common case — no protection at all
+  const colors = permanentColorsIfKnown(state, attachmentId);
+  if (colors == null) return false;
+  return protectionApplies(permanentProtectionColors(state, hostId, (e) => grantSparesAttachment(state, e, attachmentId), true), colors);
 }
 
 /** CR 704.5m/n — attachment legality. One pass; returns the same state when nothing is illegal. */
@@ -87,14 +126,16 @@ function sweepAttachmentLegality(state) {
       if (isEquipment) {
         // CR 704.5n — attached to an illegal permanent (or nothing) → becomes unattached, stays on
         // the battlefield. Layer-aware creature-ness: an expired man-land animation is the live case.
-        const hostIsLegal = host?.permanent && permanentIsCreature(next, host.permanent.id);
-        if (!hostIsLegal) {
+        // + CR 702.16d: a host with protection from the Equipment's quality is an illegal permanent for it.
+        const hostIsCreature = host?.permanent && permanentIsCreature(next, host.permanent.id);
+        const protectedFrom = hostIsCreature && protectionRemovesAttachment(next, host.permanent.id, perm.id);
+        if (!hostIsCreature || protectedFrom) {
           const hostId = perm.attachedTo;
           next = updatePermanentSafe(next, perm.id, (p) => ({ ...p, attachedTo: null }));
           if (host?.permanent) {
             next = updatePermanentSafe(next, hostId, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
           }
-          next = logEvent(next, { kind: "equipment-unattached", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba" });
+          next = logEvent(next, { kind: "equipment-unattached", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", ...(protectedFrom ? { reason: "protection" } : {}) });
         }
         continue;
       }
@@ -136,13 +177,16 @@ function sweepAttachmentLegality(state) {
         else if (enchantM[1] === "land") legal = permanentHasCardType(next, host.permanent.id, "Land");
         else legal = true; // "Enchant permanent"
       }
+      // CR 702.16c: a host with protection from the Aura's quality is an illegal object for it.
+      const protectedFrom = legal && protectionRemovesAttachment(next, host.permanent.id, perm.id);
+      if (protectedFrom) legal = false;
       if (!legal) {
         const hostId = perm.attachedTo;
         if (host?.permanent) {
           next = updatePermanentSafe(next, hostId, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
         }
         next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
-        next = logEvent(next, { kind: "aura-falls-off", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba" });
+        next = logEvent(next, { kind: "aura-falls-off", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", ...(protectedFrom ? { reason: "protection" } : {}) });
       }
     }
   }

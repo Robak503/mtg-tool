@@ -15,7 +15,7 @@
  * Leaf-ish: imports only `spellEffects.enumerateTargets`. No gameState, no runner.
  */
 
-import { enumerateTargets, legacyTargetingEffect, resolutionSource } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts); resolutionSource — the source's colours, whether they are known, its creature-ness (a departed source's last known information)
+import { enumerateTargets, legacyTargetingEffect, resolutionSource, abilitySource } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts); resolutionSource — the source's colours, whether they are known, its creature-ness (a departed source's last known information)
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { targetingAtomOf } from "./programQueries.js"; // the enumerated slot of an optional-payment wrapper — shared with programConfidence's target-slot gate
 import { findPermanent } from "../gameState.js";
@@ -587,6 +587,19 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
   const combos = expandAtoms(state, controllerId, program.atoms || [], sourceColors, ctx);
   if (combos === null) return [];
   return combos.map(targets => ({ targets }));
+}
+
+/**
+ * A TRIGGERED ABILITY's target combinations as it is put on the stack (CR 603.3d — chosen as for a spell, CR 601.2c): expandCastChoices
+ * with its SOURCE's colours, read as the CR 608.2b re-check reads them (spellEffects.abilitySource — on the battlefield its current
+ * colours; departed, its last known ones; nothing kept, none and not known). So a permanent with protection from the source's quality
+ * is not offered (CR 702.16b; colorless when the source's colours are known to be none, CR 105.2c), the same refusal the re-check makes —
+ * before, the trigger offers threaded no colours and a protected permanent was offered and then fizzled. `ctx` is the enumeration
+ * context the flush builds, `sourceId` the flush's `context.sourceId ?? source.permanentId` (offerSourceId below).
+ */
+export function expandTriggerChoices(state, controllerId, program, ctx) {
+  const source = abilitySource(state, ctx, ctx?.sourceId ?? null);
+  return expandCastChoices(state, controllerId, program, source.colors, source.known ? { ...ctx, sourceColorsKnown: true } : ctx);
 }
 
 // The source permanent a stack object's targets were offered for: the flush enumeration's (gameEngine.buildTriggerStack —

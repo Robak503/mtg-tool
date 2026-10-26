@@ -94,7 +94,7 @@ import {
   modalChooseOneRoutable,
   atomTargetIntent,
 } from "./effects/parser.js";
-import { expandCastChoices } from "./effects/targeting.js";
+import { expandTriggerChoices } from "./effects/targeting.js"; // expandTriggerChoices — a trigger's offer with its source's colours (protection, CR 702.16b)
 import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep, applySuspendUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
@@ -1667,7 +1667,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
             targets: [],
           };
         }
-        const candidates = expandCastChoices(state, trigger.controller, condProgram, [], {
+        const candidates = expandTriggerChoices(state, trigger.controller, condProgram, {
           ...(trigger.context || {}),
           sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
         });
@@ -1756,7 +1756,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // SOURCE THREADING (skeptic-caught FP): excludeSource/notSource restrictions ("another target ...")
       // were inert on the TRIGGER path — ctx carried no sourceId, so Prowler's counter landed on Prowler.
       // Thread the trigger's source permanent (the same id baseParams carries) into the enumeration ctx.
-      const candidates = expandCastChoices(state, trigger.controller, program, [], {
+      const candidates = expandTriggerChoices(state, trigger.controller, program, {
         ...(trigger.context || {}),
         sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
       });
@@ -1807,7 +1807,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         modalChooseOneRoutable(program)) &&
       combatDamageReferentSatisfied(program, trigger.descriptor?.event)
     ) {
-      let candidates = expandCastChoices(state, trigger.controller, program, [], {
+      let candidates = expandTriggerChoices(state, trigger.controller, program, {
         ...(trigger.context || {}),
         sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
       });
@@ -1910,7 +1910,7 @@ function buildReflexiveTriggerStack(state, trigger, chooseTargets) {
   const program = trigger.reflexiveProgram;
   const sourceId = trigger.source?.permanentId ?? null;
   const params = { program, controller: trigger.controller, context: trigger.context, sourceId, xValue: trigger.xValue ?? null };
-  const candidates = expandCastChoices(state, trigger.controller, program, [], { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? sourceId });
+  const candidates = expandTriggerChoices(state, trigger.controller, program, { ...(trigger.context || {}), sourceId: trigger.context?.sourceId ?? sourceId });
   if (candidates.length === 0) return null;
   const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
   if (picked === ASK_CONTROLLER) return { payload: { resolver: "effect-program", params: { ...params, targets: [] } }, targets: [], ask: { candidates } };
