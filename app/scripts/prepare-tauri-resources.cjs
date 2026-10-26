@@ -19,6 +19,8 @@
  *   resources/knowledge/mtg-engine/L*.md, META_*.md             (rules codex)
  *   resources/data/scryfall-bulk/oracle-index.json              (slim 29MB card index)
  *   resources/licenses/fonts/<family>-OFL.txt                   (SIL OFL 1.1 text of each vendored UI font)
+ *   resources/node/node.exe                                     (portable Node runtime, from download-portable-node.cjs)
+ *   resources/licenses/node-LICENSE.txt                         (Node's LICENSE, from the same verified archive)
  *   resources/server/                                           (Next.js standalone, populated by copy-tauri-assets.cjs)
  *
  * Total expected: ~10MB for rules codex + ~29MB oracle index + standalone bundle.
@@ -283,14 +285,28 @@ for (const family of fs.readdirSync(fontsSrc, { withFileTypes: true })) {
   }
 }
 
-// 6. Portable node.exe. Downloaded earlier in the pipeline by
-// scripts/download-portable-node.cjs. Lets the Tauri shell spawn the
-// Next.js server without depending on the user having Node installed.
+// 6. Portable node.exe and its license. Both are extracted earlier in the
+// pipeline by scripts/download-portable-node.cjs from the one SHA-verified
+// official archive. node.exe lets the Tauri shell spawn the Next.js server
+// without depending on the user having Node installed. The archive's LICENSE
+// (the Node.js MIT license, whose notice is to be "included in all copies or
+// substantial portions of the Software", and the licenses of the third-party
+// code built into node.exe) is staged as resources/licenses/node-LICENSE.txt.
+// node.exe without its LICENSE fails the staging in every mode, like a font
+// without its OFL.txt: the script that downloads one extracts the other.
 const portableNodeSrc = path.join(APP_ROOT, "src-tauri", "node", "node.exe");
+const portableNodeLicense = path.join(APP_ROOT, "src-tauri", "node", "LICENSE");
 if (fs.existsSync(portableNodeSrc)) {
+  if (!fs.existsSync(portableNodeLicense)) {
+    throw new Error(
+      "prepare-tauri-resources: src-tauri/node/node.exe has no LICENSE beside it — the installer must carry " +
+        "Node's license with the binary. Run `npm run download:node` (it extracts both from the verified archive).",
+    );
+  }
   copyFile(portableNodeSrc, path.join(RESOURCES, "node", "node.exe"));
+  copyFile(portableNodeLicense, path.join(RESOURCES, "licenses", "node-LICENSE.txt"));
   const size = fs.statSync(portableNodeSrc).size;
-  console.log(`Bundled portable node.exe (${(size / 1024 / 1024).toFixed(1)} MB)`);
+  console.log(`Bundled portable node.exe (${(size / 1024 / 1024).toFixed(1)} MB) + licenses/node-LICENSE.txt`);
 } else {
   console.warn("  (no src-tauri/node/node.exe — run `npm run download:node`)");
 }

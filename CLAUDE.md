@@ -166,7 +166,7 @@ mtg-tool.exe                              ← Rust Tauri shell
 
 | Path | Contents | Writable? |
 |---|---|---|
-| `<install>\mtg-tool.exe` | Tauri shell binary | No |
+| `<install>\mtg-tool.exe` | Tauri shell binary; the loading screen (`src-tauri/frontend-placeholder/`, tauri.conf.json `build.frontendDist`) is compiled into it, not installed as a folder | No |
 | `<install>\resources\node\node.exe` | Bundled Node 24 (~90 MB) | No |
 | `<install>\resources\server\` | Next.js standalone bundle | No |
 | `<install>\resources\knowledge\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
@@ -174,7 +174,7 @@ mtg-tool.exe                              ← Rust Tauri shell
 | `<install>\resources\data\` | Bundled reference data snapshot | No |
 | `<install>\resources\scripts\` | Sync scripts (Scryfall, Spellbook, salt) | No |
 | `<install>\resources\licenses\fonts\` | SIL OFL 1.1 license of each bundled UI font (`<family>-OFL.txt`) | No |
-| `<install>\resources\frontend-placeholder\` | Loading screen | No |
+| `<install>\resources\licenses\node-LICENSE.txt` | Node's LICENSE for the bundled `node.exe`, from the same SHA-verified archive | No |
 | `%APPDATA%\com.colton.mtg-tool\data\` | User decks, chats, feedback, games | **Yes** |
 | `%APPDATA%\com.colton.mtg-tool\data\.first-launch-marker.json` | Wizard completion sentinel | Yes |
 | `%APPDATA%\com.colton.mtg-tool\launch.log` | Rust shell log (rotates at 1MB) | Yes |

@@ -187,16 +187,19 @@ a Mac?" — unused exceptions fail the suite and must be deleted.
 `beforeBuildCommand` = `build:tauri-standalone`, which chains:
 1. `download-portable-node.cjs` — Node v24.22.1 (keep at CURRENT LTS: Cloudflare
    fingerprints the TLS handshake and 403'd the outdated v22.12.0 bundle —
-   Moxfield import broke 2026-08-02), **SHA-256 verified**, idempotent.
+   Moxfield import broke 2026-08-02), **SHA-256 verified**, idempotent; extracts
+   `node.exe` and the zip's `LICENSE` together into `src-tauri/node/`.
 2. `next build` (standalone output).
 3. `strip-standalone-bloat.cjs` — remove traced `data/`+`knowledge/` from the
    standalone (they're bundled separately as resources, not traced copies).
 4. `copy-tauri-assets.cjs` — put `.next/static` + `public/` back.
 5. `prepare-tauri-resources.cjs` — **wipe and restage** `src-tauri/resources/`:
    the judge CR JSON + RulesGuru md, the engine `L*/META_*.md`, a ~19-file `data/`
-   allowlist (~1 GB), the sync/index scripts, `node.exe`, the standalone server.
-   Ships a **strict mode** (`CI=true` / `--strict`) that hard-fails if a REQUIRED
-   bundle file is missing (the guard that stops a silently-gutted .exe).
+   allowlist (~1 GB), the sync/index scripts, the third-party licenses
+   (`licenses/fonts/<family>-OFL.txt`, `licenses/node-LICENSE.txt`), `node.exe`, the
+   standalone server. Ships a **strict mode** (`CI=true` / `--strict`) that hard-fails
+   if a REQUIRED bundle file is missing (the guard that stops a silently-gutted .exe);
+   a font without its OFL.txt or a `node.exe` without its LICENSE fails in every mode.
 
 `build-signed-release.cjs` (via `npm run tauri:build:release`) loads the minisign
 key from `~/.tauri/` (or env), flips `createUpdaterArtifacts:true` through a

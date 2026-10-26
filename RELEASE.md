@@ -63,8 +63,9 @@ but everything else does — fine for iterating UI.
    A stale pin is a live user-facing hazard, not hygiene: Cloudflare fingerprints
    the TLS handshake, and the two-year-old pin broke every Moxfield import inside
    the packaged app (2026-08-02, fixed in v0.150.1). Bumping it is a one-line
-   change; the script re-downloads and SHA-verifies automatically. A MAJOR bump
-   (22 → 24 on 2026-10-21) also moves `node-version` in `ci.yml`, `release.yml`
+   change; the script re-downloads, SHA-verifies, and extracts `node.exe` with the
+   archive's `LICENSE` automatically. A MAJOR bump (22 → 24 on 2026-10-21) also
+   moves `node-version` in `ci.yml`, `release.yml`
    (both jobs) and `sync-spellbook.yml`, and is proven before it ships: the suite
    under the new binary, a Moxfield GET with it through the app's import code
    (`src/lib/server/deckUrlFetch.js`; `scripts/probe-deck-fetch.mjs` sends the
@@ -84,7 +85,9 @@ but everything else does — fine for iterating UI.
    `next/font/local`, so the next/font Google Fonts failure that cost v0.164.0 and v0.165.0 a re-run cannot recur,
    and the build step no longer retries; a failed build is a real failure. Each font folder's `OFL.txt` ships in
    the installer as `resources/licenses/fonts/<family>-OFL.txt`; `prepare-tauri-resources.cjs` fails the build
-   if a font folder lacks its license)
+   if a font folder lacks its license. Likewise the bundled `node.exe`: `download-portable-node.cjs` extracts it
+   and Node's `LICENSE` from the one SHA-verified official zip, the license ships as
+   `resources/licenses/node-LICENSE.txt`, and the staging fails the build if `node.exe` has no `LICENSE` beside it)
 5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`
 6. Open MTG Tool, click "⟳ Updates" in the header, click "Check for updates"
 7. The "Download & install" button appears; click it; app restarts on

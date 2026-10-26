@@ -1,12 +1,18 @@
 /**
  * download-portable-node.cjs
  *
- * Fetches the Windows x64 Node.js portable archive from nodejs.org
- * and extracts only node.exe to src-tauri/node/node.exe. That binary
+ * Fetches the Windows x64 Node.js portable archive from nodejs.org,
+ * verifies it against the official SHASUMS256.txt, and extracts two
+ * files from it into src-tauri/node/: node.exe and LICENSE. The binary
  * gets bundled by prepare-tauri-resources.cjs and used by the Tauri
  * shell so the .exe doesn't depend on the user having Node on PATH.
+ * LICENSE is Node's own license file (the Node.js MIT license and the
+ * licenses of the third-party code built into node.exe); the MIT terms
+ * ask that the notice be included in all copies, so the staging ships
+ * it beside the binary as resources/licenses/node-LICENSE.txt. Both
+ * come from the one verified archive, or neither is extracted.
  *
- * Idempotent: if the expected node.exe already exists with the right
+ * Idempotent: if node.exe and its LICENSE already exist with the right
  * version recorded in src-tauri/node/VERSION, skip the download.
  *
  * Standalone use: `npm run download:node` or invoked from the build
@@ -42,8 +48,11 @@ const SHASUMS_URL = `https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt`;
 const APP_ROOT = path.resolve(__dirname, "..");
 const NODE_DIR = path.join(APP_ROOT, "src-tauri", "node");
 const NODE_EXE = path.join(NODE_DIR, "node.exe");
+const NODE_LICENSE = path.join(NODE_DIR, "LICENSE");
 const VERSION_FILE = path.join(NODE_DIR, "VERSION");
 const ARCHIVE_PATH = path.join(NODE_DIR, ARCHIVE_NAME);
+// The files taken from the archive's root folder, each copied to src-tauri/node/<name>.
+const ARCHIVE_FILES = ["node.exe", "LICENSE"];
 
 function log(msg) { console.log(`[download-portable-node] ${msg}`); }
 
@@ -52,14 +61,20 @@ if (process.platform !== "win32") {
   process.exit(0);
 }
 
-// Idempotency check
+// Idempotency check. A node.exe without its LICENSE (extracted by a version of this
+// script that took only the binary) is re-fetched so the license comes from the same
+// verified archive as the binary.
 if (fs.existsSync(NODE_EXE) && fs.existsSync(VERSION_FILE)) {
   const have = fs.readFileSync(VERSION_FILE, "utf8").trim();
-  if (have === NODE_VERSION) {
-    log(`Already have node.exe at ${NODE_VERSION}.`);
+  if (have === NODE_VERSION && fs.existsSync(NODE_LICENSE)) {
+    log(`Already have node.exe and its LICENSE at ${NODE_VERSION}.`);
     process.exit(0);
   }
-  log(`Have ${have}, want ${NODE_VERSION} — re-downloading.`);
+  if (have === NODE_VERSION) {
+    log(`Have node.exe at ${NODE_VERSION} but not its LICENSE — re-downloading to extract both.`);
+  } else {
+    log(`Have ${have}, want ${NODE_VERSION} — re-downloading.`);
+  }
 }
 
 fs.mkdirSync(NODE_DIR, { recursive: true });
@@ -136,10 +151,11 @@ function expectedHashFor(sumsText, archiveName) {
   return null;
 }
 
-function extractNodeExeFromZip(zipPath, outNodeExe) {
+function extractFromZip(zipPath, outDir) {
   // Use PowerShell's Expand-Archive to avoid bringing in a zip lib
-  // dependency. Only spawn a child process to extract, then move the
-  // node.exe and rm the temp dir.
+  // dependency. Only spawn a child process to extract, then copy the
+  // ARCHIVE_FILES out and rm the temp dir. Every file is checked before
+  // any is copied, so node.exe never lands without its LICENSE.
   return new Promise((resolve, reject) => {
     const extractTo = path.join(NODE_DIR, "tmp-extract");
     // Force clean state
@@ -166,11 +182,17 @@ function extractNodeExeFromZip(zipPath, outNodeExe) {
       if (!rootName) {
         return reject(new Error("Could not find node-X.Y.Z-win-x64 dir in archive"));
       }
-      const src = path.join(extractTo, rootName, "node.exe");
-      if (!fs.existsSync(src)) {
-        return reject(new Error(`node.exe not found at ${src}`));
+      const missing = ARCHIVE_FILES.filter((name) => !fs.existsSync(path.join(extractTo, rootName, name)));
+      if (missing.length) {
+        fs.rmSync(extractTo, { recursive: true, force: true });
+        return reject(new Error(
+          `${missing.join(" and ")} not found in ${rootName}/ of the archive — ` +
+            "node.exe and its LICENSE are extracted together or not at all.",
+        ));
       }
-      fs.copyFileSync(src, outNodeExe);
+      for (const name of ARCHIVE_FILES) {
+        fs.copyFileSync(path.join(extractTo, rootName, name), path.join(outDir, name));
+      }
       fs.rmSync(extractTo, { recursive: true, force: true });
       resolve();
     });
@@ -201,14 +223,17 @@ function extractNodeExeFromZip(zipPath, outNodeExe) {
     }
     log(`SHA-256 verified (${actual.slice(0, 16)}...)`);
 
-    await extractNodeExeFromZip(ARCHIVE_PATH, NODE_EXE);
+    await extractFromZip(ARCHIVE_PATH, NODE_DIR);
     fs.writeFileSync(VERSION_FILE, NODE_VERSION);
     fs.unlinkSync(ARCHIVE_PATH);
     const size = fs.statSync(NODE_EXE).size;
-    log(`Extracted node.exe (${(size / 1024 / 1024).toFixed(1)} MB) at ${NODE_VERSION}`);
+    log(`Extracted node.exe (${(size / 1024 / 1024).toFixed(1)} MB) and LICENSE at ${NODE_VERSION}`);
   } catch (err) {
     log(`ERROR: ${err.message || err}`);
-    log(`Hint: download ${URL} manually, extract node.exe to ${NODE_EXE}, write "${NODE_VERSION}" to ${VERSION_FILE}.`);
+    log(
+      `Hint: download ${URL} manually, check it against ${SHASUMS_URL}, extract node.exe and LICENSE ` +
+        `to ${NODE_DIR}, write "${NODE_VERSION}" to ${VERSION_FILE}.`,
+    );
     process.exit(1);
   }
 })();
