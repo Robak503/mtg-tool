@@ -6,8 +6,8 @@
  * (advanceUntilDecision on the pure, deserialized state), but sourced from the
  * puzzle store and NOT sharing the original game's session id (so re-attempting a
  * puzzle never collides with a live game or a save). Same response envelope as
- * /start + /resume so the client reuses one code path, plus a `puzzle` block the
- * UI needs for the goal check.
+ * /start + /resume so the client reuses one code path (deck names included — the
+ * captured game's meta), plus a `puzzle` block the UI needs for the goal check.
  *
  * NB: this is a NEW route — the default deck-based /api/learn/start path is
  * untouched, so it stays byte-identical (the engine trajectory can't move).
@@ -31,6 +31,7 @@ import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { getPuzzle } from "../../../../lib/server/puzzleStore.js";
 import { finishGame } from "../../../../lib/server/learnPersistence.js";
+import { deckNamesOf } from "../../../../lib/server/learnDeckNames.js"; // the deck names the header shows, however the game was opened
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
@@ -83,6 +84,7 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(advanced.session),
     table: tableSnapshot(advanced.session.state),
     board: boardSnapshot(advanced.session.state),
+    ...deckNamesOf(advanced.session),
     puzzle: { id: loaded.doc.id, goal: loaded.doc.goal, startTurn: loaded.doc.startTurn },
     ...(saveFailure ? { saveFailure } : {}),
   });

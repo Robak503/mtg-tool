@@ -280,7 +280,7 @@ export function observe(state, seat) {
 //   "game-over"              — terminal; session.status holds the verdict.
 //   "dispatch-error" / "engine-stuck" — surfaced honestly, never swallowed; the session is unchanged
 //                              (pick a different answer) or honestly stuck (stop). A guard's engine-stuck
-//                              names it in `guard` (v1.8.0).
+//                              names it in `guard` (v1.8.0), and so do the two engine faults (v1.9.0).
 //
 // VERSIONING: PLAY_API_VERSION is semver. The exported names + decision vocabulary + answer shapes
 // are the contract surface — breaking any of them bumps the MAJOR and is announced on memory/COMMS.md
@@ -353,7 +353,14 @@ export function observe(state, seat) {
 //   - session.status gains "engine-stopped": the Academy ends a guard-stopped game with
 //     learnSession.endEngineStoppedGame (the session also carries `engineStop`). Like "abandoned", the driver
 //     never sets it; a session in that status answers { kind: "game-over", reason: "engine-stopped" }.
-export const PLAY_API_VERSION = "1.8.0";
+// 1.9.0 (additive MINOR — the engine faults' stop, 2026-10-22):
+//   - The driver's two engine-fault exits carry `guard` like the guards: a step that throws —
+//     { type: "engine-error", message } — and a seat holding priority with no legal action whose fallback pass (or
+//     decline) throws — { type: "no-legal-action", seat, message }. Their `reason` text and the session (still
+//     "active") are unchanged; each error is logged with its stack. The Academy ends both games like a guard's
+//     (status "engine-stopped"); the pending-choice failsafe's engine-stuck still carries no `guard`.
+//   - learnSession.abandon also ends a session at its opening-hand mulligans (status "mulligan").
+export const PLAY_API_VERSION = "1.9.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

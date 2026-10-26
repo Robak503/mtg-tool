@@ -188,6 +188,16 @@ export function learnStartPicks({ savedDecks, userDeckId, oppIds, oppCount }) {
   return { userDeck, oppDecks, ready: Boolean(userDeck) && oppDecks.every(Boolean) };
 }
 
+/**
+ * The header title of a game in play: the decks the GAME carries (start, resume and resume-puzzle answer them —
+ * useLearnSession `userDeckName` / `opponentDeckNames`), never the deck pickers, which are empty after a restart and
+ * may name other decks than a resumed game's (until 2026-10-22 a resumed game read "You vs Opponent").
+ */
+export function academyTitle({ mode, userDeckName, opponentDeckNames }) {
+  if (mode === "commander") return "Commander 4P pod";
+  return `${userDeckName || "You"} vs ${opponentDeckNames?.[0] || "Opponent"}`;
+}
+
 export default function LearnView({
   savedDecks,
   initialUserDeckId = null,
@@ -294,11 +304,28 @@ export default function LearnView({
     }
   };
 
-  const handleAbandon = () => {
+  // Back to the deck picker with a clean slate — the end card's "New game", and leaving a game that is over.
+  const handleNewGame = () => {
     setDebrief([]);
     setPuzzleMsg(null);
     setPuzzleDismissed(false);
     session.reset();
+  };
+
+  // "Abandon game": a game in progress (being played, or still at its mulligans) is ended on the server — status
+  // "abandoned", its record kept and its save dropped, so it leaves "Continue a game" — and its end card follows; a game
+  // already over has nothing left to end. Until 2026-10-22 this only reset the page and the game stayed resumable.
+  const handleAbandon = () => {
+    if (session.status === "ended") return handleNewGame();
+    return session.abandon(session.sessionId);
+  };
+
+  // A puzzle verdict's "Back to Academy": a missed attempt still in progress (the turn passed without the win) is
+  // ended like "Abandon game" first, so it is not left under "Continue a game"; then back to the deck picker. When the
+  // abandon could not end it, the hook is already back at the deck picker (with the error, if one).
+  const handleLeavePuzzle = async () => {
+    if (session.status !== "ended" && !(await session.abandon(session.sessionId))) return;
+    handleNewGame();
   };
 
   // Saved-game list for the "Continue a game" panel on the idle screen.
@@ -663,9 +690,7 @@ export default function LearnView({
       <header style={{ ...headerStyle(), justifyContent: "space-between" }}>
         <span>
           The Academy ·{" "}
-          {session.mode === "commander"
-            ? "Commander 4P pod"
-            : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}
+          {academyTitle({ mode: session.mode, userDeckName: session.userDeckName, opponentDeckNames: session.opponentDeckNames })}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
           {session.puzzle && (
@@ -745,7 +770,7 @@ export default function LearnView({
           step={session.step}
           status={session.status}
           difficulty={session.difficulty}
-          onNewGame={handleAbandon}
+          onNewGame={handleNewGame}
           debrief={debrief}
         />
       ) : (
@@ -1180,7 +1205,7 @@ export default function LearnView({
               <button className="btn btn-secondary" onClick={() => setPuzzleDismissed(true)}>
                 Keep playing
               </button>
-              <button className="btn btn-ghost" onClick={handleAbandon}>
+              <button className="btn btn-ghost" onClick={handleLeavePuzzle}>
                 Back to Academy
               </button>
             </div>

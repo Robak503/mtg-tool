@@ -143,10 +143,19 @@ the Academy shows as a dismissible notice. A finished game (`persistAfterPlay` �
 `finishGame`, every play route, and resume when the re-derived decision ends it) keeps
 its record (`learn-records.json`, read by RecordsView / the Crucible home), leaves
 memory and drops its save. A game one of the engine's guards stops (runaway size,
-per-turn tick budget, safety cap) ENDS on every route and on resume
+per-turn tick budget, safety cap) or one of its two faults stops (a step that throws,
+`engine-error`; a seat with no legal action whose pass throws, `no-legal-action` — the
+error logged with its stack) ENDS on every route and on resume
 (`learnSession.endEngineStoppedGame`): status `engine-stopped`, a game-log line saying
 what stopped it, a record, no save — so "Continue a game" never offers a game that
 can't go on; the end screen says the engine stopped it and nobody won or lost.
+"Abandon game" ends a game in progress (or at its mulligans) through
+`POST /api/learn/abandon` (`learnSession.abandon` → `finishGame`): status `abandoned`, a
+record, no save; on a game already over it is just "New game". Start, resume and
+resume-puzzle answer the game's deck names (`userDeckName`, `opponentDeckNames`, from
+its meta — `learnDeckNames.js`), which the header shows; a record's table
+(`RecordsView.seatLine`) reads that meta (`userDeckName`, `opponentNames`), and its result
+label (`recordStatusLabel`) is shared by the Crucible home and Teferi's rail.
 **SelfPlayPanel /
 SimCenter** drive `/api/self-play`. Reference client-mutation pattern worth
 copying: `CollectionView`'s optimistic stepper (`collectionRef` + per-row seq +

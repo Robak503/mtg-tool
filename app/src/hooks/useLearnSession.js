@@ -36,6 +36,8 @@ const INITIAL_STATE = {
   board: null, // full board view model (hands/permanents/zones/stack) for LearnBoard
   decisionLogTail: [],
   puzzle: null, // P9: { id, goal, startTurn } when this session is a puzzle attempt; null otherwise
+  userDeckName: null, // the deck names the game carries (start / resume / resume-puzzle answer them — deckNamesFrom)
+  opponentDeckNames: [],
   saveFailure: null, // { kind: "autosave" | "game-record", detail } from the last play response; null = kept on disk
   saveFailureDismissed: false, // the player closed the notice (until a save succeeds again)
   error: null,
@@ -52,6 +54,55 @@ export function nextSaveNotice(prev, data) {
   return {
     saveFailure: data.saveFailure,
     saveFailureDismissed: prev?.saveFailure ? !!prev.saveFailureDismissed : false,
+  };
+}
+
+/**
+ * The deck names a game-opening response (start / resume / resume-puzzle / abandon) carries, for the header: your deck's
+ * name (null when the game has none) and each opponent's. Until 2026-10-22 resume answered none and the header read the
+ * deck pickers, which are empty after a restart ("You vs Opponent"). Pure, so it is tested without React.
+ */
+export function deckNamesFrom(data) {
+  return {
+    userDeckName: typeof data?.userDeckName === "string" && data.userDeckName ? data.userDeckName : null,
+    opponentDeckNames: Array.isArray(data?.opponentDeckNames) ? data.opponentDeckNames.filter((n) => typeof n === "string") : [],
+  };
+}
+
+/** The deck picker's error line when abandoning a game failed (the game was not ended). */
+function abandonFailureText(detail) {
+  const reason = String(detail || "unknown error").replace(/[.\s]+$/, "");
+  return `The game could not be abandoned: ${reason}. It may still be listed under “Continue a game”.`;
+}
+
+/**
+ * The hook's state once POST /api/learn/abandon has answered (`httpStatus`, its JSON `data`), from the state before it:
+ *   - ended (2xx): the game is over — its end decision ({ kind: "game-over", reason: "abandoned" }), the board as it
+ *     stood, and the end card ("Game abandoned. You ended the game early."); the deck names stay;
+ *   - nothing left to end (404 — no game in play or saved with that id; 409 — the game is already over): back to the
+ *     deck picker;
+ *   - any other failure: back to the deck picker with the error shown there — never left on a game that can't be left
+ *     (a server that is gone would fail every abandon).
+ * Pure, so it is tested without React.
+ */
+export function stateAfterAbandon(prev, httpStatus, data) {
+  if (httpStatus === 404 || httpStatus === 409) return INITIAL_STATE;
+  if (!(httpStatus >= 200 && httpStatus < 300)) {
+    return { ...INITIAL_STATE, error: abandonFailureText(data?.error || `Abandon failed: ${httpStatus}`) };
+  }
+  return {
+    ...prev,
+    sessionId: data.sessionId ?? prev.sessionId,
+    decision: data.decision,
+    status: "ended",
+    turn: data.turn,
+    activePlayer: data.activePlayer,
+    step: data.step,
+    table: data.table || prev.table,
+    board: data.board || prev.board,
+    decisionLogTail: data.decisionLogTail || prev.decisionLogTail,
+    ...nextSaveNotice(prev, data),
+    error: null,
   };
 }
 
@@ -185,6 +236,7 @@ export default function useLearnSession() {
           table: data.table || [],
           board: data.board || null,
           decisionLogTail: data.decisionLogTail || [], // a game over at once (the engine stopped it) has its log line
+          ...deckNamesFrom(data),
           ...nextSaveNotice(INITIAL_STATE, data),
           error: null,
         };
@@ -1747,6 +1799,7 @@ export default function useLearnSession() {
         table: data.table || [],
         board: data.board || null,
         decisionLogTail: data.decisionLogTail || [], // the game's recent actions — and the log line of a game resume ended
+        ...deckNamesFrom(data), // the header names the decks after a restart
         ...nextSaveNotice(INITIAL_STATE, data),
         error: null,
       };
@@ -1771,6 +1824,37 @@ export default function useLearnSession() {
       return response.ok;
     } catch {
       return false;
+    }
+  }, []);
+
+  /**
+   * Abandon a game in progress by id ("Abandon game"): the server ends it early (status "abandoned"), keeps its record
+   * and drops its save, so it leaves "Continue a game"; the end-of-game card follows ("Game abandoned. You ended the game
+   * early."). What each answer leaves on screen is `stateAfterAbandon`. Returns the game-over decision, or null (nothing
+   * was left to end, or it failed — the deck picker either way). Until 2026-10-22 the button only reset the page
+   * (`reset`), and the game stayed resumable.
+   */
+  const abandon = useCallback(async (sessionId) => {
+    if (inFlightRef.current) return null;
+    if (!sessionId) {
+      setState(INITIAL_STATE);
+      return null;
+    }
+    inFlightRef.current = true;
+    try {
+      const response = await fetch("/api/learn/abandon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setState((prev) => stateAfterAbandon(prev, response.status, data));
+      return response.ok ? (data.decision ?? null) : null;
+    } catch (error) {
+      setState({ ...INITIAL_STATE, error: abandonFailureText(error.message || "network error") });
+      return null;
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 
@@ -1843,6 +1927,7 @@ export default function useLearnSession() {
         table: data.table || [],
         board: data.board || null,
         decisionLogTail: data.decisionLogTail || [],
+        ...deckNamesFrom(data),
         puzzle: data.puzzle || null,
         ...nextSaveNotice(INITIAL_STATE, data),
         error: null,
@@ -1904,6 +1989,7 @@ export default function useLearnSession() {
     dismissSaveFailure,
     listSaves,
     resume,
+    abandon,
     deleteSave,
     saveAsPuzzle,
     listPuzzles,

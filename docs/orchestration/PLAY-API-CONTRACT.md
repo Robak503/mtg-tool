@@ -10,7 +10,20 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.8.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.9.0"`
+
+> **v1.9.0 (additive MINOR, 2026-10-22 — the engine faults' stop):**
+> - The driver's two engine-fault exits name themselves in `guard` like the three guards: a step that throws —
+>   `{ type: "engine-error", message }` — and a seat holding priority with no legal action whose fallback pass (or
+>   decline) throws — `{ type: "no-legal-action", seat, message }`; `message` is the error's. The `reason` text
+>   (the error's message / "no legal action and no pass available") and the `"active"` session are unchanged, so
+>   `nextDecision` / `act` answer as before plus the field, and the self-play result stays `"engine-stuck"`. Each
+>   error is now logged with its stack (`console.error`; the second used to be dropped). The pending-choice failsafe's
+>   engine-stuck is the only one left with no `guard` (it clears the choice, so the game can go on). MINOR: an
+>   additive field on an existing decision (§5); a consumer that read "has `guard`" as "one of the three guards" now
+>   also sees these two — switch on `guard.type`.
+> - `learnSession.abandon` also ends a session still at its opening-hand mulligans (status `"mulligan"`, the Academy's
+>   human London mulligan); it was a no-op there. The status it sets and the fields it adds are unchanged.
 
 > **v1.8.0 (additive MINOR, 2026-10-22 — the guards' stop):**
 > - An `"engine-stuck"` decision raised by one of the driver's three guards names it in `guard`:
@@ -240,11 +253,12 @@ An `ask` decision is `{ kind: "ask", prompt, options, metadata }` with
 - The turn-limit stalemate exit sets `"draw"` with the clock OFF (legacy, byte-identical) and
   `"timeout"` ONLY when `timePressure` was on — the honest, label-free fourth outcome
   (`trainingWeight: 0` downstream; never relabeled as a W/L).
-- `"abandoned"` is set only by `abandon(session)` (the server route's explicit user exit; the
-  driver never sets it). `abandonReason` rides the session.
+- `"abandoned"` is set only by `abandon(session)` (the person's "Abandon game" — `POST /api/learn/abandon`,
+  2026-10-22 — on a game being played or still at its mulligans; the driver never sets it). `abandonReason`
+  rides the session.
 - `"engine-stopped"` (v1.8.0) is set only by `endEngineStoppedGame({ session, decision })` — the
-  Academy routes' end for a game one of the driver's guards stopped (an `"engine-stuck"` decision
-  with `guard`); the driver never sets it. `engineStop` `{ guard, reason, turn, detail, message }`
+  Academy routes' end for a game one of the driver's guards — or, v1.9.0, one of its two engine faults —
+  stopped (an `"engine-stuck"` decision with `guard`); the driver never sets it. `engineStop` `{ guard, reason, turn, detail, message }`
   rides the session, and the routes answer `{ kind: "game-over", reason: "engine-stopped", guard,
   message, detail }`.
 - **status↔gameStatus:** on `"user-wins"`/`"ai-wins"`/`"draw"` the two agree; `"timeout"`,

@@ -23,10 +23,10 @@
  *       ("user-wins" | "ai-wins" | "draw" | "timeout" | "abandoned" | "engine-stopped")
  *
  *   abandon(session)
- *     → marks status and returns the final session.
+ *     → ends a game in progress early (status "abandoned") and returns the final session.
  *
  *   endEngineStoppedGame({ session, decision })
- *     → ends a game one of the driver's guards stopped (status "engine-stopped").
+ *     → ends a game one of the driver's guards or engine faults stopped (status "engine-stopped").
  *
  * Pure: no fetches, no React. The /api/learn routes (PR6.3) wrap
  * this; the UI (PR6.4) consumes the routes.
@@ -1349,6 +1349,11 @@ export function runawaySize(state, limits = RUNAWAY_LIMITS) {
  * the self-play harnesses count the decision as their "engine-stuck" result. The Academy ends the game with
  * endEngineStoppedGame (status "engine-stopped"), so a stopped game is never left to be resumed into its guard again.
  * `turnTickBudget`, `runawayLimits` and `safetyCap` are injectable for tests; the defaults are the shipped limits.
+ * TWO ENGINE FAULTS end the advance the same way (2026-10-22): moving to the next step throws —
+ * { type: "engine-error", message } — or a seat holds priority with no legal action and its pass throws —
+ * { type: "no-legal-action", seat, message } (`message` is the error's). Re-deriving the same state throws again, so
+ * neither game can go on; each error is logged with its stack (console.error — server.err.log in the exe). The
+ * pending-choice failsafe's engine-stuck has no `guard`: it clears the choice, and the next advance can go on.
  *
  * OPT-IN OBSERVER (Learn-to-Play Track-1a): `onTurnStart` is a read-only callback
  * invoked `onTurnStart(state, turnNumber)` once each time the game enters a NEW
@@ -2668,9 +2673,12 @@ export function advanceUntilDecision(
         current = { ...current, state: nextStep(state) };
         continue;
       } catch (error) {
+        // An engine fault: the same state throws again on every re-derive, so `guard` names it and the Academy ends the
+        // game (endEngineStoppedGame). Logged with its stack — the only place the error itself is seen.
+        console.error(`[learn] the engine threw moving game ${current.id} on from turn ${state.turn} (${state.phase} / ${state.step}):`, error);
         return {
           session: current,
-          decision: { kind: "engine-stuck", reason: error.message },
+          decision: { kind: "engine-stuck", reason: error.message, guard: { type: "engine-error", message: error?.message || String(error) } },
         };
       }
     }
@@ -2704,7 +2712,10 @@ export function advanceUntilDecision(
       };
       try {
         current = { ...current, state: dispatchAction(state, fallback) };
-      } catch {
+      } catch (error) {
+        // An engine fault: the seat can do nothing and the same state throws again on every re-derive, so `guard` names
+        // it and the Academy ends the game (endEngineStoppedGame). Logged with its stack — until 2026-10-22 it was dropped.
+        console.error(`[learn] ${actor} held priority in game ${current.id} (turn ${state.turn}, ${state.phase} / ${state.step}) with no legal action, and its ${fallback.kind} threw:`, error);
         return {
           session: current,
           decision: {
@@ -2712,6 +2723,7 @@ export function advanceUntilDecision(
             reason: "no legal action and no pass available",
             ticks,
             maxTurnTicks,
+            guard: { type: "no-legal-action", seat: actor, message: error?.message || String(error) },
           },
         };
       }
@@ -4620,8 +4632,14 @@ export function applyPendingChoice(session, choice, opts = {}) {
 
 // ─── Termination ─────────────────────────────────────────────────────────────
 
+/**
+ * The person ends a game early ("Abandon game" — POST /api/learn/abandon): status "abandoned", `abandonReason`,
+ * `endedAt`. A game in progress can be abandoned — one being played ("active") or one still at its opening-hand
+ * mulligans ("mulligan", 2026-10-22: start saves it, so it too is offered under "Continue a game"). A game already over
+ * comes back unchanged (the same object). Pure; the route keeps the record and drops the save (learnPersistence.finishGame).
+ */
 export function abandon(session, reason = "user-abandoned") {
-  if (session.status !== "active") return session;
+  if (session.status !== "active" && session.status !== "mulligan") return session;
   return {
     ...session,
     status: "abandoned",
@@ -4635,9 +4653,11 @@ export const ENGINE_STOPPED = "engine-stopped";
 
 /**
  * End a game one of the driver's three guards stopped (the per-turn tick budget, the runaway size guard, the safety
- * cap — advanceUntilDecision's `guard`). The driver only reports the stop: its session is still "active", and a game
- * left that way was autosaved and offered under "Continue a game", where resuming it hit the same guard at once — the
- * person could not leave it. The Academy's play routes pass every engine result through here, so the game ENDS:
+ * cap — advanceUntilDecision's `guard`), or one of its two engine faults stopped (a step that throws, "engine-error";
+ * a seat with no legal action whose pass throws, "no-legal-action" — 2026-10-22). The driver only reports the stop: its
+ * session is still "active", and a game left that way was autosaved and offered under "Continue a game", where resuming
+ * it hit the same stop at once — the person could not leave it. The Academy's play routes pass every engine result
+ * through here, so the game ENDS:
  *   - status "engine-stopped" (terminal — not "abandoned": the person ended nothing), `endedAt`, and `engineStop`
  *     { guard, reason, turn, detail, message } for the game's record;
  *   - a game-log line (decisionLog, the feed and the record read it) with no seat as its actor:

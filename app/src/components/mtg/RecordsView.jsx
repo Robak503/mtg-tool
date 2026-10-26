@@ -10,12 +10,30 @@
 import { useEffect, useState } from "react";
 import { LearnLogEntry, groupLogByTurn } from "./LearnLogEntry.jsx";
 
-// Shared with the Crucible home + Teferi's rail — ONE interpretation of a record's seats.
+// Shared with the Crucible home + Teferi's rail — ONE interpretation of a record's seats. An Academy record carries the
+// deck names start captured into the game's meta — `userDeckName` and `opponentNames` — read as your deck, then each
+// opponent's; `seatNames` is the self-play game meta's shape. Until 2026-10-22 this read `seatNames` and
+// `deckName` / `oppName`, which no record carries (no writer has ever written the last two), so every table read "—".
 export const seatLine = (meta) => {
   if (!meta) return "—";
+  const yours = typeof meta.userDeckName === "string" && meta.userDeckName ? meta.userDeckName : null;
+  const opponents = Array.isArray(meta.opponentNames) ? meta.opponentNames.filter((n) => typeof n === "string" && n) : [];
+  if (yours || opponents.length) return [yours || "You", ...opponents].join(" vs ");
   if (Array.isArray(meta.seatNames) && meta.seatNames.length) return meta.seatNames.join(" vs ");
-  if (meta.deckName) return meta.oppName ? `${meta.deckName} vs ${meta.oppName}` : meta.deckName;
   return "—";
+};
+
+// A record's result in words — the Crucible home and Teferi's rail read it here, so a new ending is named once.
+// `unknown` is what a status with no words reads as (each surface keeps its own).
+export const recordStatusLabel = (status, unknown = "—") => {
+  switch (status) {
+    case "user-wins": return "You won";
+    case "ai-wins": return "The engine won";
+    case "draw": return "Draw";
+    case "abandoned": return "Abandoned (no result)";
+    case "engine-stopped": return "Stopped (no result)";
+    default: return unknown;
+  }
 };
 const when = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") : "—");
 const statusColor = (s) =>

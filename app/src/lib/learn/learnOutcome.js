@@ -16,11 +16,16 @@ import { seatLabel } from "./seatLabels.js";
 
 const count = (n) => (Number.isFinite(n) ? n.toLocaleString("en-US") : String(n));
 const steps = (n) => `${count(n)} step${n === 1 ? "" : "s"}`;
+// An error's message as the end of a sentence: one line, ending in a full stop.
+const sentence = (message) => {
+  const line = String(message || "no message").replace(/\s+/g, " ").trim();
+  return /[.!?]$/.test(line) ? line : `${line}.`;
+};
 
 /**
  * What stopped a game, in words, from the driver's `guard` (learnSession.advanceUntilDecision): which guard, the size,
- * whose board. endEngineStoppedGame puts it after "The engine stopped the game: " in the game log, and the end screen
- * shows it under its title.
+ * whose board — or, for an engine fault, what failed and the error's message. endEngineStoppedGame puts it after
+ * "The engine stopped the game: " in the game log, and the end screen shows it under its title.
  */
 export function engineStopDetail(guard) {
   switch (guard?.type) {
@@ -33,6 +38,11 @@ export function engineStopDetail(guard) {
       return `turn ${guard.turn} went past the engine's limit of ${steps(guard.limit)} for one turn without ending — a loop it could not get out of.`;
     case "safety-cap":
       return `it took the engine's limit of ${steps(guard.limit)} without coming to a choice for you — a loop it could not get out of.`;
+    // The two engine faults (2026-10-22): the error itself is the reason — a bug in the engine, not in the game.
+    case "engine-error":
+      return `moving the game to its next step failed with an engine error — ${sentence(guard.message)}`;
+    case "no-legal-action":
+      return `${seatLabel(guard.seat) || "A player"} had priority with no legal action, and moving the game on failed with an engine error — ${sentence(guard.message)}`;
     default:
       return "it could not go on.";
   }

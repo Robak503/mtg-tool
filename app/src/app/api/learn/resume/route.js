@@ -3,7 +3,8 @@
  *
  * Re-hydrates a saved game into the in-memory store and re-derives the current
  * decision via advanceUntilDecision. Same response envelope as /api/learn/start
- * so the client reuses one code path. Phase-7 PR-4a.
+ * so the client reuses one code path. Phase-7 PR-4a. The deck names (userDeckName, opponentDeckNames) come from the
+ * save's meta like start's, so the header names the decks after a restart (2026-10-22; before, "You vs Opponent").
  *
  * A save whose game can't go on ends here (2026-10-22): when the re-derived decision is one of the engine's guards
  * stopping it — a save written before then, when a stopped game was left active and autosaved — the game ends as
@@ -28,6 +29,7 @@ import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { loadSave } from "../../../../lib/server/learnSaveStore.js";
 import { finishGame } from "../../../../lib/server/learnPersistence.js";
+import { deckNamesOf } from "../../../../lib/server/learnDeckNames.js"; // the deck names the header shows, however the game was opened
 import { migrate, isResumable } from "../../../../lib/server/learnSaveSchema.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
@@ -97,6 +99,7 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(advanced.session),
     table: tableSnapshot(advanced.session.state),
     board: boardSnapshot(advanced.session.state),
+    ...deckNamesOf(advanced.session),
     resumed: true,
     ...(saveFailure ? { saveFailure } : {}),
   });

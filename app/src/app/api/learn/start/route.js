@@ -22,7 +22,8 @@
  *   }
  *
  * Response:
- *   { sessionId, decision, status, decisionLogTail, saveFailure? }
+ *   { sessionId, decision, status, decisionLogTail, userDeckName, opponentDeckNames, saveFailure? }
+ *   userDeckName / opponentDeckNames: the deck names the game carries (session.meta) — resume answers them the same way.
  *   saveFailure ({ kind: "autosave" | "game-record", detail }) is present only when the new game could
  *   not be saved, or a game that ended at once could not be recorded (learnPersistence.js) — play goes
  *   on and the Academy shows a notice.
@@ -56,6 +57,7 @@ import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { persistAfterPlay } from "../../../../lib/server/learnPersistence.js";
+import { deckNamesOf } from "../../../../lib/server/learnDeckNames.js"; // the deck names the header shows, however the game was opened
 import { enrichDeck, enrichDecks } from "../../../../lib/server/learnDeckEnrich.js";
 import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
@@ -180,6 +182,7 @@ export async function POST(request) {
     decisionLogTail: filteredDecisionLogTail(session),
     table: tableSnapshot(session.state),
     board: boardSnapshot(session.state),
+    ...deckNamesOf(session),
     ...(saveFailure ? { saveFailure } : {}),
   });
 }

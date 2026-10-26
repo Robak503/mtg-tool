@@ -1,5 +1,5 @@
 /**
- * learnPersistence.js — what the Academy's play routes (start, step, choose, continue, mulligan) do with disk
+ * learnPersistence.js — what the Academy's play routes (start, step, choose, continue, mulligan, abandon) do with disk
  * after a move: autosave a game in progress; when it ends, keep its record and drop its in-flight save.
  *
  * None of it may block play, and none of it may fail silently (CLAUDE.md §1.2 / §8). Until 2026-10-21 each route
@@ -18,7 +18,7 @@
  * "engine-stopped") — goes through `finishGame`, which keeps its record, frees the session and drops its save, so a
  * game that can't go on is never left in "Continue a game"; a game in progress is autosaved. The resume routes call
  * `finishGame` when the re-derived decision ends the game (a save from before 2026-10-22 whose game a guard had
- * stopped).
+ * stopped), and the abandon route calls it for a game the person ends early (status "abandoned") — one way out of play.
  */
 
 import { autosaveSession, deleteSave } from "./learnSaveStore.js";
