@@ -786,17 +786,41 @@ function stampVoidCounter(state, ownerId, cardId) {
 }
 
 /**
- * P·27 — split cards bound for `ownerId`'s graveyard into those that get there and those the exile-instead replacement sends to
- * exile (CR 614.1a). The DIRECT graveyard writes — surveil, a graveyard-disposing dig, mill, a resolved or countered spell — put
- * `toGraveyard` there (recording only its events) and `toExile` into the owner's exile; moveCardToZone does the same for one card.
+ * P·27 — split cards bound for `ownerId`'s graveyard into those that get there, those the exile-instead replacement sends to
+ * exile (CR 614.1a), and those whose OWN replacement shuffles them into their owner's library instead (`toLibrary` — Blightsteel
+ * Colossus, Progenitus, Nexus of Fate; shufflesIntoLibraryInsteadOfGraveyard, asked first, the precedence moveCardToZone applies).
+ * The DIRECT graveyard writes from a library — surveil, a graveyard-disposing dig, mill — put `toGraveyard` there (recording only
+ * its events), `toExile` into the owner's exile and `toLibrary` back into the library they came from (shuffleIntoLibraryInstead);
+ * moveCardToZone does the same for one card. All three are cards of `ownerId`'s own library, so every zone named is theirs.
  */
 export function splitGraveyardBound(state, ownerId, cards) {
-  const verdicts = cards.map((c) => graveyardExileFor(state, c, ownerId));
+  const toLibrary = cards.filter((c) => shufflesIntoLibraryInsteadOfGraveyard(c));
+  const rest = toLibrary.length ? cards.filter((c) => !toLibrary.includes(c)) : cards;
+  const verdicts = rest.map((c) => graveyardExileFor(state, c, ownerId));
   return {
-    toGraveyard: cards.filter((_, i) => !verdicts[i]),
+    toGraveyard: rest.filter((_, i) => !verdicts[i]),
     // P·28 — a card Dauthi Voidwalker's replacement exiles carries its void counter into exile.
-    toExile: cards.flatMap((c, i) => (verdicts[i] ? [verdicts[i].voidCounter ? { ...c, _voidCounter: true } : c] : [])),
+    toExile: rest.flatMap((c, i) => (verdicts[i] ? [verdicts[i].voidCounter ? { ...c, _voidCounter: true } : c] : [])),
+    toLibrary,
   };
+}
+
+/**
+ * SHUFFLE-INSTEAD, MANY CARDS AT ONCE (CR 614.1a): `cards`, each bound for `playerId`'s graveyard and each replacing that with
+ * "reveal it and shuffle it into its owner's library instead", go into `playerId`'s library — already taken out of the zone they
+ * were leaving (a mill's or a surveil's top cards; a spell leaving the stack) — and that library is shuffled with the threaded seed
+ * (CR 701.24a), one "shuffle-instead-of-graveyard" event per card, as moveCardToZone logs one. `keepTop` cards on top of the
+ * library stay there in their order: a surveil's kept cards are put on top as the others are shuffled in, and a shuffle at the same
+ * time as cards are put into a position leaves those cards in that position (CR 701.24g). No card → the same state.
+ */
+export function shuffleIntoLibraryInstead(state, playerId, cards, { keepTop = 0 } = {}) {
+  if (!cards.length || !state.players[playerId]) return state;
+  const top = state.players[playerId].library.slice(0, keepTop);
+  let next = withPlayer(state, playerId, (p) => ({ ...p, library: [...p.library.slice(keepTop), ...cards] }));
+  next = shuffleSeededLibrary(next, playerId);
+  if (top.length) next = withPlayer(next, playerId, (p) => ({ ...p, library: [...top, ...p.library] }));
+  for (const card of cards) next = logEvent(next, { kind: "shuffle-instead-of-graveyard", playerId, cardName: card.name || null });
+  return next;
 }
 
 /**
@@ -866,6 +890,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // "d1" while the graveyard held "c-d1" and the gate never matched.
     if (fromZone === "battlefield") state = { ...state, fromBattlefieldThisTurn: { ...(state.fromBattlefieldThisTurn || {}), [moving?.id || cardId]: state.turn } };
     if (moving && shufflesIntoLibraryInsteadOfGraveyard(moving)) {
+      // From a LIBRARY (Entomb's fetch, manifest dread's other card, a revealed top card) this is a same-zone move — the card is
+      // already in its owner's library (CR 400.3) and stays in it as that library is shuffled (CR 701.24c). The same-zone
+      // placement below keeps one copy; before 2026-10-26 it wrote the card back a second time (a duplicated card).
       const tucked = moveCardToZone(state, { playerId, fromZone, toZone: "library", cardId });
       // Shuffle the OWNER's library — the same destination routing the move just used, so a stolen
       // permanent shuffles into the library it actually went to.
@@ -934,8 +961,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       ? permanent.owner : playerId;
     let nextDest;
     if (toZone === "battlefield") {
-      // Permanent moves to battlefield from battlefield — weird but possible (blinks).
-      nextDest = [...player[toZone], permanent];
+      // Permanent moves to battlefield from battlefield — weird but possible (blinks). A SAME-zone move: the destination is
+      // built from the source without the permanent, or the two writes below (one key) would keep it twice.
+      nextDest = [...nextSource, permanent];
     } else if (card?.token) {
       // TOKEN CEASES-TO-EXIST (CR 111.7 / 704.5d) — a token that leaves the battlefield to ANY other zone
       // (graveyard via death, hand via bounce, exile, library via tuck) ceases to exist as a state-based
@@ -995,9 +1023,10 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   // GY-EVENT (SHELF S7): a card leaving/entering a graveyard through the generic single-card move —
   // graveyard→hand (Raise Dead), graveyard→library (Reclaim), graveyard→exile, graveyard→command
   // (CR 903.9a), graveyard→battlefield (becomePermanent), hand→graveyard (every discard), etc.
-  // fromZone===toZone can't reach here (the same card can't be removed and re-added meaningfully),
-  // so at most ONE of the two records.
-  const gyEvent = fromZone === "graveyard" ? [{ dir: "leave", card, gyOwner: playerId, zone: toZone }]
+  // At most ONE of the two records; a SAME-zone move (a library card put on the bottom of that library) records neither — the
+  // card never left the zone.
+  const gyEvent = fromZone === toZone ? null
+    : fromZone === "graveyard" ? [{ dir: "leave", card, gyOwner: playerId, zone: toZone }]
     : toZone === "graveyard" ? [{ dir: "enter", card, gyOwner: playerId, zone: fromZone }]
     : null;
   if (toZone === "battlefield" && becomePermanent) {
@@ -1014,7 +1043,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     return gyEvent ? recordGraveyardEvents(moved, gyEvent) : moved;
   }
 
-  const nextDest = placeInList(player[toZone], card, toTop, toZone === "library" ? libraryIndex : null);
+  // A SAME-zone move places the card into the source list it was just taken out of: `fromZone` and `toZone` are one key below,
+  // so a destination built from the untouched zone would win the write and hold the card twice (a duplicated card).
+  const nextDest = placeInList(fromZone === toZone ? nextSource : player[toZone], card, toTop, toZone === "library" ? libraryIndex : null);
   const moved = withPlayer(state, playerId, p => ({
     ...p,
     [fromZone]: nextSource,
@@ -1170,6 +1201,8 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
   let surveilled = []; // the cards a surveil puts into the graveyard — GY-EVENT (SHELF S7)
+  let shuffledBack = []; // the binned cards whose own replacement shuffles them into the library instead (CR 614.1a)
+  let keptCount = 0;
   const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
@@ -1181,11 +1214,15 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
     }
     const moved = top.filter(c => !seen.has(c.id)); // not kept → bottom (scry) / graveyard (surveil)
     if (mode !== "surveil") return { ...player, library: [...kept, ...rest, ...moved] };
-    const { toGraveyard, toExile } = splitGraveyardBound(state, playerId, moved); // P·27 — exile instead (CR 614.1a)
+    const { toGraveyard, toExile, toLibrary } = splitGraveyardBound(state, playerId, moved); // P·27 — exile instead (CR 614.1a)
     surveilled = toGraveyard;
+    shuffledBack = toLibrary;
+    keptCount = kept.length;
     return { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...toGraveyard], exile: [...(player.exile || []), ...toExile] };
   });
-  return recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  // A binned Blightsteel Colossus is shuffled into the library under the kept cards, which stay on top (CR 701.24g).
+  const recorded = recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  return shuffleIntoLibraryInstead(recorded, playerId, shuffledBack, { keepTop: keptCount });
 }
 
 /**
@@ -1204,6 +1241,7 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
   // "kept nothing", which is the clean reveal-nothing path the filtered dig relies on.
   const keepSet = new Set((chosenIds && chosenIds.length ? chosenIds : [chosenId]).filter((x) => x != null));
   let discarded = []; // the non-chosen cards a graveyard-disposing dig puts into the GY — GY-EVENT (SHELF S7)
+  let shuffledBack = []; // those whose own replacement shuffles them into the library instead (CR 614.1a)
   const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
@@ -1220,20 +1258,22 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
     }
     const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
     const split = restTo === "graveyard" ? splitGraveyardBound(state, playerId, others) : null; // P·27 — exile instead (CR 614.1a)
-    if (split) discarded = split.toGraveyard;
+    if (split) { discarded = split.toGraveyard; shuffledBack = split.toLibrary; }
     // K7 (Make Your Own Luck "Put the rest into your hand"): a HAND rest — the non-chosen looked-at cards join the hand.
     if (restTo === "hand") return { ...player, hand: [...hand, ...others], library: [...rest] };
     return split
       ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...split.toGraveyard], exile: [...(player.exile || []), ...split.toExile] }
       : { ...player, hand, library: [...rest, ...others] };
   });
-  return recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  const recorded = recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  return shuffleIntoLibraryInstead(recorded, playerId, shuffledBack);
 }
 
 /**
  * Mill (CR 701.17) — put the top `count` cards of a player's library into their graveyard, top
  * first. Bounded by the library size (milling an empty/short library is a clean no-op). A removed/
- * stale player resolves to a no-op (never a throw). Pure.
+ * stale player resolves to a no-op (never a throw). The graveyard replacements apply to each milled card
+ * (splitGraveyardBound): exile instead, or its own shuffle back into this library. Pure.
  */
 export function millCards(state, { playerId, count }) {
   assertPlayer(playerId);
@@ -1242,16 +1282,20 @@ export function millCards(state, { playerId, count }) {
   const n = Math.min(Math.max(0, count || 0), lib.length);
   if (n === 0) return state;
   const milled = lib.slice(0, n);
-  const milledIds = milled.map((c) => c.id);
   // P·27 — a milled card the exile-instead replacement catches is exiled (CR 614.1a); it is still a milled card (CR 701.17c).
-  const { toGraveyard, toExile } = splitGraveyardBound(state, playerId, milled);
+  // A milled card whose own replacement shuffles it into its owner's library instead (Blightsteel Colossus, Progenitus, Nexus of
+  // Fate) never reaches the graveyard: it goes back into this library, which is shuffled (shuffleIntoLibraryInstead).
+  const { toGraveyard, toExile, toLibrary } = splitGraveyardBound(state, playerId, milled);
+  // The ledger names the milled cards a public zone holds (CR 701.17c): a card shuffled back into the library is in none.
+  const milledIds = (toLibrary.length ? milled.filter((c) => !toLibrary.includes(c)) : milled).map((c) => c.id);
   let next = withPlayer(state, playerId, player => ({
     ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...toGraveyard], exile: [...(player.exile || []), ...toExile],
   }));
   // GY-EVENT (SHELF S7): every milled card that reached it enters its owner's graveyard from the library.
   next = recordGraveyardEvents(next, toGraveyard.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  next = shuffleIntoLibraryInstead(next, playerId, toLibrary);
   // MILLED-THIS-TURN ledger (Tato Farmer "…that was milled this turn"; the Raul cast-permission class):
-  // every milled card id → the turn it was milled, stamped HERE at the single mill primitive (the
+  // every milled card id (in a public zone) → the turn it was milled, stamped HERE at the single mill primitive (the
   // mill-effect path AND the radiation mill both flow through millCards, so the ledger can't miss a
   // source). Readers key on `=== state.turn`, so stale entries are inert — no cleanup pass. Plain data
   // (serialize-safe); bounded by total library sizes.
@@ -2662,7 +2706,10 @@ export function applyRadiation(state, { playerId }) {
   // replacement doubles it (the doubled nonlands then cost life + rad removal below — the real synergy).
   const toMill = Math.min(rad * millMultiplier(state, playerId), player.library.length);
   if (toMill === 0) return state;
-  const nonland = player.library.slice(0, toMill).filter((c) => !/\bLand\b/.test(frontFaceTypeLine(c))).length;
+  // A milled card is found only in the public zone it moved to (CR 701.17c): one its own replacement shuffled back into the
+  // library (Blightsteel Colossus — millCards) is not a card "milled this way", so it costs no life and removes no rad counter.
+  const nonland = player.library.slice(0, toMill)
+    .filter((c) => !/\bLand\b/.test(frontFaceTypeLine(c)) && !shufflesIntoLibraryInsteadOfGraveyard(c)).length;
   let next = millCards(state, { playerId, count: toMill });
   if (nonland > 0) {
     // RADIATION LIFE-GAIN REPLACEMENT (Strong, the Brutish Thespian — "You gain life rather than lose life

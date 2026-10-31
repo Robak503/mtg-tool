@@ -2306,6 +2306,24 @@ pass fixed four of these; they are the template for what to look for:
   player") reaches no adder but Winding Constrictor's exact "If you would get" template. `isModeledDoublerSentence` (and
   `isPureDoubler` through it) refuses both shapes; the runtime still applies the recipient half. Modelling them needs a
   putter threaded through addCounter's callers and the four player-counter adders. Witness: `counterPutterHonesty.test.js`.
+- **A graveyard replacement asked at one write site and not the others** (fixed 2026-10-26): the card's own "If <this> would
+  be put into a graveyard from anywhere, reveal <this> and shuffle it into its owner's library instead" (Blightsteel / Darksteel
+  Colossus, Progenitus, Nexus of Fate, Legacy Weapon — `shufflesIntoLibraryInsteadOfGraveyard`, CR 614.1a) lived only in
+  `moveCardToZone`, so a milled, surveilled, dug or countered Blightsteel and a resolved Nexus of Fate reached the graveyard,
+  and from the LIBRARY the replacement's own recursion was a same-zone move whose two writes to the one zone key kept the card
+  twice (Entomb's fetch, manifest dread's other card, a revealed top card routed to the graveyard). **The graveyard write
+  sites are six, and each asks both replacements, the card's own shuffle first:** `moveCardToZone` (one card, every zone),
+  `millCards`, `applyScrySurveil` (surveil), `applyImpulseDig` (`restTo: "graveyard"`) — these three through
+  `splitGraveyardBound` (`toGraveyard` / `toExile` / `toLibrary`) and `shuffleIntoLibraryInstead` (the library shuffled with the
+  threaded seed; a surveil's kept cards stay on top, CR 701.24g) — and the stack's two, `runProgram.finishSpellResolution`
+  (resolved, fizzled, a permanent spell that never entered) and `atoms/stack.counterSpellById`. A new direct write to a
+  graveyard array asks `splitGraveyardBound` (or `graveyardExileFor` + the shuffle predicate for one card). `moveCardToZone`
+  places a SAME-zone move (library → library, battlefield → battlefield) into the source it was taken from, so no caller can
+  duplicate a card that way. A milled card shuffled back is in no public zone, so it is neither in the milled-this-turn ledger
+  nor a milled-trigger card or one of "those cards" (`millOnePlayer`), nor a nonland card radiation milled (`applyRadiation`'s
+  life and counter count, and the milled-trigger cards `gameEngine.runStepActions` snapshots for it) — CR 701.17c. Each of
+  these reads the library's top BEFORE the mill; a new reader that does must drop the shuffle-instead cards the same way.
+  Witness: `shuffleInsteadFromLibrary.test.js`.
 
 **The generalizable rule for any new recognizer: validate an emitted
 selector/filter/subtype against a *closed* vocabulary (or corpus reality) before

@@ -28,7 +28,7 @@ import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Ste
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice, setPendingProtectionColorChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f) // + the protection-color pause (CR 608.2d)
 import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d — a person announces the colour of "protection from the color of your choice" as it resolves (call-time binding)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
-import { updatePermanentSafe, graveyardExileFor } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
+import { updatePermanentSafe, graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent; + the shuffle-instead replacement for a spell leaving the stack (Nexus of Fate)
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
@@ -170,6 +170,10 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
     const shuffled = shuffleControllerLibrary(withCard, playerId);
     return logEvent(shuffled, { kind: "spell-to-library-shuffled", playerId, cardName: card.name || null });
   }
+  // SHUFFLE INSTEAD (CR 614.1a — Nexus of Fate: "If Nexus of Fate would be put into a graveyard from anywhere, reveal Nexus of
+  // Fate and shuffle it into its owner's library instead"; the bundled ruling: "including while it's resolving"). The card's own
+  // replacement, asked before the exile-instead below — the precedence moveCardToZone applies. It never enters the graveyard.
+  if (shufflesIntoLibraryInsteadOfGraveyard(card)) return shuffleIntoLibraryInstead(state, playerId, [card]);
   // P·27 — EXILE INSTEAD (CR 614.1a — Rest in Peace and kin): the resolved card bound for its owner's graveyard is exiled
   // instead, and never enters the graveyard (no event). After the self-shuffle above: a spell that shuffles itself away was never
   // going to a graveyard.
@@ -607,8 +611,8 @@ export function resolveTutorChoice(state, cardId) {
       // card is still in it), THEN reposition it to index 0 (the top) so it lands on top AFTER the shuffle
       // (never shuffled back into the deck). A from-hand "to top" is never printed (sourceZone is always
       // "library" here). `topAlreadyShuffled` suppresses the trailing CR 701.24a shuffle below, which would
-      // otherwise re-randomize the card off the top. (moveCardToZone can't do a SAME-zone library→library
-      // move — the spread would re-add the card — so the reposition is an explicit splice-to-front here.)
+      // otherwise re-randomize the card off the top. (The reposition is an explicit splice-to-front; moveCardToZone
+      // places a SAME-zone library→library move correctly only since 2026-10-26 — it used to re-add the card.)
       next = shuffleControllerLibrary(next, pc.controller);
       const shuffledLib = next.players[pc.controller].library;
       const chosen = shuffledLib.find((c) => c.id === cardId);

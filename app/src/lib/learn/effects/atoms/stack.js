@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSource: a copy's own colours for its new-target pick (protection, CR 702.16b; colorless, CR 105.2c)
-import { graveyardExileFor, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
+import { graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
 import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
@@ -99,6 +99,12 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   // infinite-recast FP — or reach a hand to be cast again).
   const flashbackExile = !!params?.spellToGraveyard?.exile;
   let dest = flashbackExile ? "exile" : (counterDest || (exileInstead ? "exile" : "graveyard")); // exileInstead → counterDest:"exile" alias
+  // SHUFFLE INSTEAD (CR 614.1a — a countered Nexus of Fate or Blightsteel Colossus spell): the card's own replacement puts it into
+  // its owner's library, which is shuffled; asked before the exile-instead below, the precedence moveCardToZone applies.
+  if (dest === "graveyard" && placesCard && shufflesIntoLibraryInsteadOfGraveyard(card)) {
+    const shuffled = shuffleIntoLibraryInstead({ ...state, stack: newStack }, ownerId, [card]);
+    return logEvent(shuffled, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, dest: "library", ...(via && { via }) });
+  }
   // P·27 — a countered spell bound for a graveyard the exile-instead replacement covers is exiled instead (CR 614.1a).
   const exileVerdict = dest === "graveyard" && isSpell ? graveyardExileFor(state, card, ownerId) : null;
   if (exileVerdict) dest = "exile";

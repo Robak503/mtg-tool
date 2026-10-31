@@ -48,6 +48,7 @@ import {
   mintId,
   opponentsOf,
   applyRadiation,
+  shufflesIntoLibraryInsteadOfGraveyard, // a radiation-milled card its own replacement shuffles back is no milled card (CR 701.17c)
   addCounter,
   moveCardToZone,
   findPermanent,
@@ -828,9 +829,11 @@ export function runStepActions(state) {
         // mills `rad` cards — CR 728.1). applyRadiation lives in gameState.js, which can't import triggers.js
         // (cycle), so the milled-trigger bind fires HERE at the caller. Snapshot the cards it WILL mill (top
         // N, bounded by library size — the same Math.min applyRadiation uses) BEFORE the mill so their
-        // front-face types are readable, then fire the bind for the active player's mill event after.
+        // front-face types are readable, then fire the bind for the active player's mill event after. A card its own
+        // replacement shuffles back into the library instead (Blightsteel Colossus — millCards) is in no public zone, so it
+        // is not a milled card (CR 701.17c) and triggers nothing — the filter millOnePlayer applies to every other mill.
         const libBefore = state.players[state.activePlayer]?.library || [];
-        const radMilled = libBefore.slice(0, Math.min(radBefore, libBefore.length));
+        const radMilled = libBefore.slice(0, Math.min(radBefore, libBefore.length)).filter((c) => !shufflesIntoLibraryInsteadOfGraveyard(c));
         next = applyRadiation(next, { playerId: state.activePlayer });
         if (radBefore > 0)
           next = logEvent(next, {

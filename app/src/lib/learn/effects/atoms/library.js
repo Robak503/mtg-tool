@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
 import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
@@ -919,7 +919,10 @@ export function millOnePlayer(state, playerId, count) {
   const instructed = Math.max(0, count || 0) * millMultiplier(state, playerId);
   const n = Math.min(instructed, (player.library || []).length);
   if (n === 0) return state;
-  const milledCards = player.library.slice(0, n); // captured pre-move (top N → graveyard)
+  // Captured pre-move (top N → graveyard). A milled card is found only in the public zone it moved to (CR 701.17c), so a card its
+  // own replacement shuffled back into the library (Blightsteel Colossus — millCards) is neither a milled-trigger card nor one of
+  // "those cards".
+  const milledCards = player.library.slice(0, n).filter((c) => !shufflesIntoLibraryInsteadOfGraveyard(c));
   const next = millCards(state, { playerId, count: n });
   // MILLED-REFERENT stamp (Ripples of Undeath "…from among THOSE cards", 2026-08-15): the freshest
   // mill's card ids, for a FOLLOWING pick atom in the same program (the _impulseExiledTypes state-stamp
@@ -1754,10 +1757,10 @@ export function applyRevealTopConditional(state, atom, ctx) {
     return logEvent(r.state, { kind: "spell-effect", effect: "reveal-top-conditional", controller, revealed: top.name, toBattlefield: r.entered });
   }
   // Non-creature → take the optional "put that card on the bottom of your library" (a legal choice; leave-on-top
-  // is the strictly weaker alternative and skips no instruction — see the header note). A same-zone move can't go
-  // through moveCardToZone (its fromZone/toZone patch would collide on the "library" key), so splice the top off
-  // and append it to the bottom directly: library index 0 is the TOP (drawCardEffect slices from the front), so
-  // the last element is the bottom.
+  // is the strictly weaker alternative and skips no instruction — see the header note). The top is spliced off and
+  // appended to the bottom directly (moveCardToZone places a same-zone move correctly since 2026-10-26, but this
+  // splice predates that): library index 0 is the TOP (drawCardEffect slices from the front), so the last element
+  // is the bottom.
   const bottomLib = [...lib.slice(1), top];
   const next = {
     ...state,
