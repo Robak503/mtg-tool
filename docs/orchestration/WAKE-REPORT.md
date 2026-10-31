@@ -9,8 +9,8 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-22 ~02:10Z) — v0.168.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **934 / 1,000**; top 2,500 **1,885 / 2,500
-> (75.4%) → +365 to 90%**; corpus 15,882 (45.9%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> **NOW (2026-10-31 ~23:30Z) — v0.169.0 TAGGED · PHASE 2 RUNNABLE.** Top 1,000 **935 / 1,000**; top 2,500 **1,904 / 2,500
+> (76.2%) → +346 to 90%**; corpus 15,957 (46.1%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. **Decided (Colton, 10-21):** the automatic payment holds back
 > restricted-line lands (Cavern of Souls, Mech Hangar — 27) — spent last, "play with reason", until reasoned mana tapping exists.
@@ -74,6 +74,27 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-10-31 — **v0.169.0 TAGGED** (release run watching) — 33 commits since v0.168.0, every push CI green
+
+> **The release (+128 cards; the Academy whole again; a run of rules fixes):** **Academy games are saved as you play again** (no
+> game had been written to disk since v0.161.0, and the failure was silent); **"Abandon game" really ends the game**, and **a game the
+> engine has to stop now ends**, its record kept, instead of trapping you under "Continue a game"; **every saved deck can be picked
+> again** (decks without an internal id could not start a game); records and the header **name the decks**. Rules: **Blightsteel
+> Colossus, Progenitus, Nexus of Fate and kin go back into their owner's library from anywhere and are never duplicated** (a library
+> could hold two Blightsteels); **protection** knocks off Auras and Equipment, protects planeswalkers, is no longer offered as a target,
+> stops an ability whose source is gone, and you **choose the colour** for "protection from the color of your choice"; **"combat
+> damage can't be prevented"** beats protection, Maze of Ith and shield counters; **an extra combat begins once** (its beginning-of-
+> combat triggers fired twice) and a combat with no first striker has **no empty first-strike step**; **a blocked creature deals all
+> its combat damage** to its blockers; **Essence Sliver** counts all Sliver damage; ward finished (re-targets, channel and graveyard
+> abilities, Diffusion Sliver), with the active player first after a ward; "until your next turn" ends as that turn begins; the
+> game-ending **sacrifice-for-mana crash** and the **double tap** are gone. The AI: instant-speed windows (saves in response, pumps
+> after blocks, end-step draws), defends with trample and double strike counted, pumps and blinks, spares its creatures when paying,
+> holds Cavern of Souls and Mech Hangar back; the Squirrel Girl runaways are closed. Play-weighted #15–#18 and the slices around them:
+> +133 gained, −5 false credit removed. Corpus **15,957 / 34,620 (46.1%)**; top 1,000 **935**; top 2,500 **1,904**; shelf 29 / 30.
+> **Build:** the first **Node 24** exe (v24.22.1; Node 22 reaches end of life 2027-04-30); the four fonts vendored (no font fetch at
+> build); the installer now carries the fonts' OFL texts and Node's own LICENSE. PLAY_API 1.9.0. Omnath's self-play epoch cut moves
+> to this tag.
 
 ## 🚀 2026-10-20 — **v0.168.0 RELEASED** (published 2026-10-20T19:25:32Z) — 20 commits since v0.167.0, every push CI green
 
