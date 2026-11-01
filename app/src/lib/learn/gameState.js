@@ -1338,7 +1338,15 @@ export function attachPermanent(state, { equipId, targetId }) {
     // this attachment holds no control over the old host.
     next = endControlAuraOn(next, equipId, prev);
   }
-  next = updatePermanentSafe(next, equipId, p => ({ ...p, attachedTo: targetId }));
+  // A NEW TIMESTAMP EACH TIME IT BECOMES ATTACHED (CR 613.7e, 701.3c — 2026-11-01): attaching to an object it isn't already attached to
+  // restamps the Aura or Equipment, and with it every continuous effect its static abilities generate (CR 613.7a — staticEffectsOf
+  // reads the permanent's timestamp), so an Equipment moved onto a creature applies after the effects already on it. Attaching to
+  // the object it is already attached to does nothing (CR 701.3b) and keeps its timestamp. Until 2026-11-01 an attachment kept the
+  // timestamp it entered with.
+  const restamp = prev !== targetId;
+  const ts = next.timestampCounter || 0;
+  next = updatePermanentSafe(next, equipId, p => (restamp ? { ...p, attachedTo: targetId, timestamp: ts } : { ...p, attachedTo: targetId }));
+  if (restamp) next = { ...next, timestampCounter: ts + 1 };
   next = updatePermanentSafe(next, targetId, p => ({ ...p, attachments: [...(p.attachments || []).filter(id => id !== equipId), equipId] }));
   // CONTROL AURA (CR 613.1b) — "You control enchanted creature." (Mind Control / Control Magic / Treachery).
   // Applied HERE because this is the only function that forms an attachment link, so every route by which a
@@ -2212,9 +2220,18 @@ export function addCounter(state, { permanentId, type, amount = 1, placedBy = nu
   // Thread the recipient permanent id so a self-excluding "another creature you control" replacement (CR 109.5,
   // Benevolent Hydra) is skipped when THIS permanent is the replacement's own source.
   const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount, permanentId) : amount;
+  // COUNTER TIMESTAMPS (CR 613.7c — "Each counter receives a timestamp as it's put on an object … If that object … already has a counter
+  // of that kind on it, each counter of that kind receives a new timestamp identical to that of the new counter"): one stamp per KIND,
+  // `counterTimestamps[type]`, rewritten on every placement. The stamp is the timestamp counter's current value, not a new one, so no
+  // other timestamp moves: an effect created after the placement takes the same value, which reads the counter as the older of the two
+  // (layers' keyword-counter seed counts a counter only when its stamp is strictly newer than a loss — CR 613.1f), and an effect
+  // created before it took a smaller one. Read only by the ability-loss seeds today; a counter without a stamp (one written outside
+  // addCounter, a state saved before 2026-11-01) reads as older than every effect.
+  const stamp = state.timestampCounter || 0;
   const next = updatePermanent(state, permanentId, p => ({
     ...p,
     counters: { ...p.counters, [type]: (p.counters[type] || 0) + placed },
+    ...(placed > 0 ? { counterTimestamps: { ...(p.counterTimestamps || {}), [type]: stamp } } : {}),
   }));
   // COUNTERS-PUT-ON event queue (CR 122.6) — record the placement so a "Whenever one or more +1/+1 counters
   // are put on this creature" watcher can fire. Recorded as a PLAIN JSON row rather than fired here: this
@@ -2242,6 +2259,11 @@ export function removeCounter(state, { permanentId, type, amount = 1 }) {
     const nextCounters = { ...p.counters };
     if (next === 0) delete nextCounters[type];
     else nextCounters[type] = next;
+    // The last counter of a kind gone, its stamp goes with it (CR 613.7c — the next one of that kind is stamped as it's put on).
+    if (next === 0 && p.counterTimestamps && type in p.counterTimestamps) {
+      const { [type]: _gone, ...stamps } = p.counterTimestamps;
+      return { ...p, counters: nextCounters, counterTimestamps: stamps };
+    }
     return { ...p, counters: nextCounters };
   });
 }

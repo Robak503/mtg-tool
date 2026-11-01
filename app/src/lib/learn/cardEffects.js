@@ -57,13 +57,20 @@ const REGISTRY = {
  * Colors whose mana should NOT empty for this player at step/phase end,
  * aggregated across every registered permanent they control. Default: none
  * (all mana empties per CR 500.4).
+ *
+ * `cardOf(perm)` — the card whose name the registry is read by (default: the printed card). The engine passes
+ * layers.withAbilityLoss, so a permanent that lost its abilities (CR 613.1f) reads as its stripped view — flagged
+ * `abilitiesLost` — and the registry speaks for it no more: an Omnath under a "loses all abilities" effect keeps no
+ * green. Injected rather than imported: this module stays a leaf.
  */
-export function manaDoesNotEmpty(state, playerId) {
+export function manaDoesNotEmpty(state, playerId, cardOf = null) {
   const player = state?.players?.[playerId];
   if (!player) return [];
   const keep = new Set();
   for (const perm of player.battlefield || []) {
-    const effect = REGISTRY[perm?.card?.name];
+    const card = cardOf ? cardOf(perm) : perm?.card;
+    if (card?.abilitiesLost) continue;
+    const effect = REGISTRY[card?.name];
     if (effect?.manaDoesNotEmpty) {
       for (const color of effect.manaDoesNotEmpty) keep.add(color);
     }

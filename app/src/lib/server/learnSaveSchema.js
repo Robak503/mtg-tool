@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -115,6 +115,16 @@ export const MIGRATIONS = {
       ? { ...doc, schemaVersion: 6, session: { ...session, state: { ...state, humanSeats: ["user"] } } }
       : { ...doc, schemaVersion: 6 };
   },
+
+  // v6 → v7 — the ability-loss core (2026-11-01) added two per-permanent TIMESTAMPS: `counterTimestamps` ({ [counter kind]: stamp },
+  // written by gameState.addCounter — CR 613.7c) and `suspectedTimestamp` (written as a creature becomes suspected). The layer engine
+  // reads them only to decide whether a keyword counter or the suspected designation is newer than a "loses all abilities" effect, and
+  // an ABSENT stamp already has its meaning there: older than every effect — exactly what a counter put on before the save was: no
+  // effect created after the resume can be older than it, and no v6 save holds a loss (no build before v7 emits one). So a v6 save
+  // needs no backfill (backfilling 0 would say the same thing in
+  // more bytes, and a live v7 game holds unstamped counters too — those written outside addCounter); this migration only stamps the
+  // version forward, as v2→v3 and v4→v5 do. (CONTRACT-MIG.)
+  6: (doc) => ({ ...doc, schemaVersion: 7 }),
 };
 
 export class SaveMigrationError extends Error {

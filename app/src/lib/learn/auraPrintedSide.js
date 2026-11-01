@@ -43,6 +43,7 @@
  */
 import { faceUpView } from "./faceUp.js";
 import { auraEnchantSubject } from "./staticAbilityParser.js";
+import { abilityLossShape } from "./abilityLossShapes.js"; // the ability-loss shape registry's one predicate (a zero-import leaf; every stage off answers null — ABILITY-LOSS-PROGRAM.md §2)
 
 const OWN = "own";
 const ENEMY = "enemy";
@@ -401,6 +402,10 @@ function auraActivatedSide(cost, effect) {
 
 /** One sentence → OWN / ENEMY / NEUTRAL / MIXED / UNKNOWN. */
 function sentenceSide(raw) {
+  // THE ABILITY-LOSS SHAPES (abilityLossShapes.js): an enabled shape answers the side of its sentence; with every stage off this is
+  // null and the sentence reads as before.
+  const lossShaped = abilityLossShape(raw, "side");
+  if (lossShaped) return lossShaped;
   // Mask quoted granted abilities so their punctuation and verbs never split the sentence they sit in.
   const quotes = [];
   const sentence = raw.replace(/"([^"]*)"/g, (_, q) => `@q${quotes.push(q) - 1}@`).trim();

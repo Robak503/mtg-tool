@@ -35,7 +35,10 @@ export function applySuspect(state, atom, ctx) {
     const lk = findPermanent(next, t.id);
     if (!lk || !permanentIsCreature(next, t.id)) continue; // only creatures are suspected (CR 701.60a) — the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
     if (lk.permanent.suspected) continue;                    // can't become suspected again (CR 701.60d)
-    next = updatePermanentSafe(next, t.id, (p) => ({ ...p, suspected: true }));
+    // `suspectedTimestamp` — when it became suspected (the timestamp counter's current value, as a counter is stamped — gameState.addCounter):
+    // the menace and "can't block" the designation gives (CR 701.60c) are removed by a "loses all abilities" effect only when it
+    // became suspected first (CR 613.1f, 613.7 — layers' keyword seeds read it).
+    next = updatePermanentSafe(next, t.id, (p) => ({ ...p, suspected: true, suspectedTimestamp: next.timestampCounter || 0 }));
     next = logEvent(next, { kind: "spell-effect", effect: "suspect", permanentId: t.id, name: lk.permanent.card?.name || null, controller: ctx.controller });
   }
   return next;
@@ -51,7 +54,7 @@ export function applyUnsuspectAll(state, atom, ctx) {
   let next = state;
   for (const pid of Object.keys(next.players || {})) {
     for (const perm of next.players[pid]?.battlefield || []) {
-      if (perm.suspected) next = updatePermanentSafe(next, perm.id, (p) => ({ ...p, suspected: false }));
+      if (perm.suspected) next = updatePermanentSafe(next, perm.id, ({ suspectedTimestamp: _stamp, ...p }) => ({ ...p, suspected: false }));
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: "unsuspect-all", controller: ctx.controller });

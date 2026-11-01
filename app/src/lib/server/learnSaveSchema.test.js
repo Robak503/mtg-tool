@@ -11,6 +11,7 @@ import {
   migrate,
   isResumable,
   SaveMigrationError,
+  MIGRATIONS,
 } from "./learnSaveSchema.js";
 
 function sampleSession() {
@@ -287,6 +288,50 @@ describe("migrate", () => {
     const upgraded = migrate(v5("beginner"));
     expect({ version: upgraded.schemaVersion, turn: upgraded.session.state.turn, rngSeed: upgraded.session.state.rngSeed, resumable: isResumable(upgraded) })
       .toEqual({ version: CURRENT_SCHEMA_VERSION, turn: 4, rngSeed: 7, resumable: true });
+  });
+
+  // CONTRACT-MIG (the ability-loss core, 2026-11-01): v7 permanents may carry `counterTimestamps` (CR 613.7c) and `suspectedTimestamp`.
+  // A v6 save has neither; an absent stamp reads as older than every effect (layers' keyword-counter and suspicion seeds), which is
+  // what a counter put on before the save is, so the migration stamps the version only. The round trip: the v6 game resumes, a
+  // "loses all abilities" effect created after the resume removes the old flying counter and the suspicion, and a flying counter put
+  // on after the loss counts; a v7 game's stamps survive save → JSON → migrate untouched.
+  it("carries a v6 save forward to v7 (stamp-only; an unstamped counter or suspicion reads as older than a loss made after the resume)", async () => {
+    const { permanentHasKeyword, addContinuousEffect } = await import("../learn/layers.js");
+    const { addCounter } = await import("../learn/gameState.js");
+    const bear = { id: "perm-1", card: { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user", tapped: false,
+      summoningSick: false, counters: { flying: 1 }, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, suspected: true };
+    const v6 = {
+      schemaVersion: 6,
+      kind: "learn-session-save",
+      savedAt: "2026-11-01T00:00:00.000Z",
+      sessionId: "learn-v6",
+      serializable: true,
+      session: {
+        id: "learn-v6", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4,
+          players: { user: { life: 20, battlefield: [bear], hand: [], graveyard: [], exile: [], library: [] }, ai: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] } } },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[6]).toBe("function"); // the v6 → v7 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[6](JSON.parse(JSON.stringify(v6)))).toEqual({ ...v6, schemaVersion: 7 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v6)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded) }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true });
+    expect(upgraded.session.state.players.user.battlefield[0]).toEqual(bear); // no field added: absent is the v7 meaning of "older"
+    let s = upgraded.session.state;
+    expect(["flying", "menace"].map((k) => permanentHasKeyword(s, "perm-1", k))).toEqual([true, true]);
+    s = addContinuousEffect(s, { layer: 6, op: { layerOp: "loseAllAbilities" }, affects: { mode: "fixed", permanentIds: ["perm-1"] }, duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: null, controller: "ai" } }).state;
+    expect(["flying", "menace"].map((k) => permanentHasKeyword(s, "perm-1", k))).toEqual([false, false]);
+    s = addCounter(s, { permanentId: "perm-1", type: "flying" });
+    expect(permanentHasKeyword(s, "perm-1", "flying")).toBe(true);
+    // a v7 game's stamps round-trip: save → JSON → migrate keeps them as they were
+    const v7 = { ...v6, schemaVersion: CURRENT_SCHEMA_VERSION, session: { ...v6.session, state: s } };
+    expect(isSerializable(v7.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v7)));
+    expect(back.session.state.players.user.battlefield[0].counterTimestamps).toEqual(s.players.user.battlefield[0].counterTimestamps);
+    expect(back.session.state.players.user.battlefield[0].counterTimestamps.flying).toBe(5);
+    expect(permanentHasKeyword(back.session.state, "perm-1", "flying")).toBe(true);
   });
 
   // A game serialized mid-tutor-search (a paused pendingChoice + its resume continuation)

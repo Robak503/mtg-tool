@@ -85,7 +85,7 @@ import {
   checkEnterTriggers, // the enters-trigger preview fires the entering permanent's enters triggers exactly as enterPermanent does
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword } from "./layers.js"; // + the forced pick's survival read
+import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword, withAbilityLoss } from "./layers.js"; // + withAbilityLoss: the card-name mana registry reads a permanent that lost its abilities as its stripped view (CR 613.1f) // + the forced pick's survival read
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // the finished Saga's sacrifice (CR 714.4) — THE sacrifice outside a resolution
 import {
   parseEffectClause,
@@ -258,7 +258,7 @@ function openCleanupPriorityWindow(state) {
 export function emptyManaPools(state) {
   const nextPlayers = {};
   for (const pid of Object.keys(state.players)) {
-    const keep = manaDoesNotEmpty(state, pid);
+    const keep = manaDoesNotEmpty(state, pid, (perm) => withAbilityLoss(state, perm));
     const toColorless = lostManaTurnsColorless(state, pid);
     const pool = state.players[pid].manaPool;
     // MANA-HOLD — the SECOND, bounded preservation: mana printed as outliving the step that made it

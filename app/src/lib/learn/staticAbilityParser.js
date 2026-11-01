@@ -35,6 +35,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed cr
 // a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
 // the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
 import { COUNT_SUBTYPE, TARGET_SUBTYPES, parseCountSource } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word; parseCountSource: the cast-cost lane's board counts (costScale)
+import { abilityLossShape } from "./abilityLossShapes.js"; // the ability-loss shape registry's one predicate (a zero-import leaf; every stage off answers null — ABILITY-LOSS-PROGRAM.md §2)
 import { chosenCardTypeReducer, spellHasChosenCardType } from "./chosenCardType.js"; // CLOUD KEY — the chosen-card-type reducer's reader + spell match (a leaf over the zero-import choicePolicy)
 
 // The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
@@ -2198,6 +2199,10 @@ function termFor(word, excludeSelf) {
 }
 
 function parseClause(clause, out, selfName, selfType) {
+  // THE ABILITY-LOSS SHAPES (abilityLossShapes.js): an enabled static shape ("All creatures lose all abilities …") answers the clause;
+  // with every stage off this is null and the clause reads as before.
+  const lossShaped = abilityLossShape(clause, "static", { selfName, selfType });
+  if (lossShaped) { out.push(...lossShaped); return; }
   // ⭐ GRAVEYARD STATIC (the play-weighted program, P·24 — the Incarnations: Anger, Wonder, Brawn, Filth, Valor; CR 113.6b):
   // "As long as this card is in your graveyard and <condition>, <effect>" functions only while the card is in a graveyard.
   // The rest parses as the ordinary static "as long as <condition>, <effect>", and every descriptor it yields is tagged
@@ -6518,6 +6523,10 @@ function parseAttachedClause(c, subject, noun = "creature") {
 }
 
 function parseAttachedClauseCore(c, subject, noun = "creature") {
+  // THE ABILITY-LOSS SHAPES (abilityLossShapes.js): an enabled "Enchanted creature loses all abilities …" shape answers the whole
+  // clause; with every stage off this is null and the clause reads as before.
+  const lossShaped = abilityLossShape(c, "attached", { subject, noun });
+  if (lossShaped) return lossShaped;
   let rest = c.replace(new RegExp(`^${subject} ${noun}\\s+`), "").trim();
   const out = [];
 

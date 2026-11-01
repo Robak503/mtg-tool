@@ -30,6 +30,7 @@ import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffec
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS, YOU_AND_ATTACKING_OPPONENTS_INNER_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
 import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, stripCycleSelfTriggerLine, rewriteAmountX, readSpree, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
+import { abilityLossShape } from "../abilityLossShapes.js"; // the ability-loss shape registry's one predicate (a zero-import leaf; every stage off answers null — ABILITY-LOSS-PROGRAM.md §2)
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget, atomTargetSlotsKnown, programTriggerTargetsResolvable } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
@@ -675,6 +676,10 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
 }
 
 function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = false) {
+  // THE ABILITY-LOSS SHAPES (abilityLossShapes.js): an enabled spell shape ("… target creature loses all abilities …") answers the
+  // clause with its atom; with every stage off this is null and the clause reads as before.
+  const lossShaped = abilityLossShape(clause, "spell", { cardType, hasX, sourceScoped });
+  if (lossShaped) return lossShaped;
   // "each of your opponents" ≡ "each opponent" (SHELF-TAIL SH5) — from the controller's own perspective the
   // two phrasings name the identical player set (CR 102.2), and the whole damage/life-loss/etc. vocabulary is
   // written against "each opponent". Normalize the longer form up front so every downstream matcher (deal N

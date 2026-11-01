@@ -34,7 +34,8 @@ import {
   counterPowerDelta,
   counterToughnessDelta,
 } from "./ptPrimitive.js";
-import { hasKeyword, printedKeywordsOf, COMBAT_KEYWORDS } from "./keywords.js";
+import { hasKeyword, printedKeywordsOf, COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS } from "./keywords.js";
+import { subtypeFamilyOf } from "./subtypeFamilies.js"; // CR 205.3c — which card type each subtype is correlated to (setCardTypes, CR 205.1a); a zero-import leaf
 import { faceUpTypeLine, faceUpView, characteristicTypeLine, frontFaceColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the type line the derive reads, the face-up card the host-keyword gate reads, and a double-faced permanent's front-face colours (permanentPrintedColors)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
@@ -178,11 +179,17 @@ const _chosenTypePredicateInProgress = new Set();
  */
 function permHasChosenTypeLayer(card, chosenType, state = null, candidateId = null) {
   if (!chosenType || !card) return false;
-  if (hasKeyword(card, "changeling")) return true;
+  const onBoard = state && candidateId ? findPerm(state, candidateId) : null;
+  if (hasKeyword(card, "changeling")) {
+    if (!onBoard || !effectiveTypeIdentity(onBoard, state).changelingOverridden) return true;
+  }
   const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const line = typeLineOf(card);
   const dash = line.indexOf("—");
-  if (dash !== -1 && new RegExp(`\\b${esc}\\b`).test(line.slice(dash + 1))) return true;
+  // The printed subtypes answer at once — unless the board sets or replaces subtypes (review F2): a printed Elf made a Treefolk is no
+  // Elf, so the layer-aware read below decides.
+  const printedAnswers = !(onBoard && boardSetsSubtypes(state));
+  if (printedAnswers && dash !== -1 && new RegExp(`\\b${esc}\\b`).test(line.slice(dash + 1))) return true;
   if (!state || !candidateId) return false;                       // no board context → printed answer stands
   // P·39 — every creature type by a layer-4 effect (Mutavault, Mirror Entity): the recursion-free identity read.
   const candidate = findPerm(state, candidateId);
@@ -205,15 +212,21 @@ const _allTypesBoardMemo = new WeakMap();
 function boardHasAllCreatureTypesEffect(state) {
   let has = _allTypesBoardMemo.get(state);
   if (has === undefined) {
-    has = collectContinuousEffects(state).some((e) => e.op?.allCreatureTypes);
+    has = rawContinuousEffects(state).some((e) => e.op?.allCreatureTypes);
     _allTypesBoardMemo.set(state, has);
   }
   return has;
 }
 function countsAsCreatureType(state, p, needle) {
   if (!CR_CREATURE_TYPES.has(String(needle || "").toLowerCase())) return false;
-  if (hasKeyword(p.card, "changeling")) return true;
+  if (changelingCounts(state, p)) return true;
   return !!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType;
+}
+/** Does `p`'s printed Changeling make it every creature type right now? Unless a later layer-4 effect replaced its creature types or
+ *  took away the card types they belong to (effectiveTypeIdentity's changelingOverridden — the characteristic-defining ability is
+ *  applied first, CR 613.3, 205.1a). Recursion-free. */
+function changelingCounts(state, p) {
+  return hasKeyword(p.card, "changeling") && !(state && effectiveTypeIdentity(p, state).changelingOverridden);
 }
 
 // THE CREATURE TYPES OF `p`, INSIDE A DERIVE (Coat of Arms' shared-type count): { every, types } — `every` for a changeling (CR
@@ -223,7 +236,7 @@ function countsAsCreatureType(state, p, needle) {
 // another card type's subtype and never a creature type. The same identity the tribal lords and the host-subtype gate read; a type
 // added by a dynamic layer-4 effect is not in it — their documented under-read.
 function creatureTypesInDerive(state, p) {
-  const every = hasKeyword(p.card, "changeling") || (!!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType);
+  const every = changelingCounts(state, p) || (!!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType);
   const words = [...new Set(effectiveTypeIdentity(p, state).subtypes)];
   const types = words.filter((w) => CR_CREATURE_TYPES.has(w));
   for (let i = 0; i + 1 < words.length; i++) {
@@ -248,8 +261,9 @@ const _cardTypeChangeMemo = new WeakMap();
 function boardChangesCardTypes(state) {
   let has = _cardTypeChangeMemo.get(state);
   if (has === undefined) {
-    has = collectContinuousEffects(state).some((e) => e.layer === 4 && ((e.op?.types || []).length > 0
-      || e.op?.layerOp === "removeCardType" || e.op?.layerOp === "removeTypeWhileDevotionBelow"));
+    has = rawContinuousEffects(state).some((e) => e.layer === 4 && ((e.op?.types || []).length > 0
+      || e.op?.layerOp === "removeCardType" || e.op?.layerOp === "removeTypeWhileDevotionBelow"
+      || e.op?.layerOp === "setCardTypes" || e.op?.layerOp === "replaceCreatureTypes"));
     _cardTypeChangeMemo.set(state, has);
   }
   return has;
@@ -258,11 +272,41 @@ function hasCardTypeInDerive(state, p, word) {
   if (!state || !boardChangesCardTypes(state)) return cardTypesOf(p.card).includes(word); // the same base types the derive starts from
   return effectiveTypeIdentity(p, state).types.includes(word);
 }
-/** A count needle on a permanent, inside a derive: a card type or supertype through hasCardTypeInDerive, a subtype off the
- *  printed line as before. (Every creature type for a creature-type needle is the callers' countsAsCreatureType — P·39.) */
+/**
+ * SUBTYPES SET OR REPLACED (review F2): does the board carry a `setCardTypes` or `replaceCreatureTypes` effect? Those take subtypes AWAY
+ * (CR 205.1a — a Treefolk-ed Sliver is no Sliver, an Equipment that is only a creature is no Equipment), so the subtype counts inside
+ * the derive must read the identity's subtypes there instead of the printed line, or they over-count — the forbidden direction. On
+ * every other board (all of today's — no parser emits either op) the printed line answers, exactly as before. Memoized per state (the
+ * raw layer-4 list's scan, once), the last state asked kept beside it: an identity test per call.
+ */
+const _subtypeSetMemo = new WeakMap();
+let _lastSubtypeSetState = null;
+let _lastSubtypeSet = false;
+function boardSetsSubtypes(state) {
+  if (state === _lastSubtypeSetState) return _lastSubtypeSet;
+  let has = _subtypeSetMemo.get(state);
+  if (has === undefined) {
+    has = layer4EffectsOf(state).some((e) => e.op?.layerOp === "setCardTypes" || e.op?.layerOp === "replaceCreatureTypes");
+    _subtypeSetMemo.set(state, has);
+  }
+  _lastSubtypeSetState = state;
+  _lastSubtypeSet = has;
+  return has;
+}
+/** Does `p` have the subtype `needle` (one word, or a two-word creature type), INSIDE a derive? The printed line — word-bounded, as
+ *  the counts always read it — unless the board sets or replaces subtypes (boardSetsSubtypes), when the recursion-free identity's
+ *  subtypes answer (effectiveTypeIdentity: the face that is up, the fixed layer-4 adds, the set and replace ops). */
+function hasSubtypeInDerive(state, p, needle) {
+  if (!state || !boardSetsSubtypes(state)) return new RegExp(`\\b${needle}\\b`).test(typeLineOf(p.card));
+  const want = String(needle).toLowerCase().split(/\s+/).filter(Boolean);
+  const subs = effectiveTypeIdentity(p, state).subtypes;
+  return subs.some((_, i) => want.every((w, k) => subs[i + k] === w));
+}
+/** A count needle on a permanent, inside a derive: a card type or supertype through hasCardTypeInDerive, a subtype through
+ *  hasSubtypeInDerive. (Every creature type for a creature-type needle is the callers' countsAsCreatureType — P·39.) */
 function countsAsNeedleInDerive(state, p, needle) {
   if (CARD_TYPE_OR_SUPERTYPE.has(needle)) return hasCardTypeInDerive(state, p, needle);
-  return new RegExp(`\\b${needle}\\b`).test(typeLineOf(p.card));
+  return hasSubtypeInDerive(state, p, needle);
 }
 
 // TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
@@ -346,7 +390,10 @@ function countSelfSpecOnBoard(state, perm, spec) {
     const needle = spec.subtype;
     if (!needle) return 0;
     const re = new RegExp(`\\b${needle}\\b`);
-    const is = (p) => re.test(typeLineOf(p.card)) || countsAsCreatureType(state, p, needle); // P·39 — a changeling, an every-creature-type creature
+    // The printed line on every board that sets or replaces no subtype, else the identity's subtypes (hasSubtypeInDerive — a Sliver made
+    // a Treefolk is no Sliver for Sliver Legion, review F2); P·39 — a changeling, an every-creature-type creature.
+    const viaIdentity = !!state && boardSetsSubtypes(state);
+    const is = (p) => (viaIdentity ? hasSubtypeInDerive(state, p, needle) : re.test(typeLineOf(p.card))) || countsAsCreatureType(state, p, needle);
     let n = 0;
     for (const pl of Object.values(state?.players || {})) {
       for (const p of pl.battlefield || []) if (is(p)) n += 1;
@@ -702,7 +749,8 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "hostHasPrintedKeyword") {
     const kw = String(gate.keyword || "").toLowerCase();
     if (!kw) return false;
-    const host = faceUpView(perm.card); // the face that is up (CR 712.8d): a back face's keyword is not the host's
+    // the face that is up (CR 712.8d): a back face's keyword is not the host's; a host that lost its abilities has none (CR 613.1f)
+    const host = faceUpView(withAbilityLoss(state, perm));
     if ((host?.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
     return new RegExp("(^|\\n)" + kw.replace(/ /g, "\\s+") + "\\b", "i").test(String(host?.oracle || ""));
   }
@@ -715,7 +763,7 @@ function gateMet(state, perm, gate) {
   // inside it. A type added by a SELF or dynamic layer-4 effect (Metallic Mimic's chosen type) is not in that read: a
   // documented under-read, the safe direction — the host goes without the bonus.
   if (gate.kind === "hostHasSubtype") {
-    if (hasKeyword(perm.card, "changeling")) return true;
+    if (changelingCounts(state, perm)) return true;
     const { subtypes, everyCreatureType } = effectiveTypeIdentity(perm, state);
     if (everyCreatureType) return true; // P·39 — every creature type by a layer-4 effect (Mutavault, Mirror Entity)
     return (gate.subtypes || []).some((s) => subtypes.includes(String(s).toLowerCase()));
@@ -987,7 +1035,7 @@ function latestCopySource(copyEffects) {
  * consulted here; the derive would still apply it.
  */
 function boardCountColors(state, perm) {
-  const board = collectContinuousEffects(state);
+  const board = rawContinuousEffects(state); // layer 5 only — the loss filter never removes one
   return applyColorLayer(permanentPrintedColors(copyBaseOf(state, perm).card), board.filter((e) => e.layer === 5 && effectNamesPermanent(e, perm)));
 }
 
@@ -1002,7 +1050,7 @@ function effectNamesPermanent(e, perm) {
  *  it — the pick deriveCharacteristics makes (latestCopySource) — or the permanent itself when nothing copies. Recursion-free:
  *  every layer-1 copy effect the engine emits names its permanent (becomeCopy — self). */
 function copyBaseOf(state, perm) {
-  const copySource = latestCopySource(collectContinuousEffects(state)
+  const copySource = latestCopySource((state ? rawContinuousEffects(state) : []) // layer 1 only — the loss filter never removes one
     .filter((e) => e.layer === 1 && e.op === "copy" && e.copiableCard && effectNamesPermanent(e, perm)));
   return copySource ? { ...perm, card: copySource } : perm;
 }
@@ -1229,10 +1277,39 @@ export function graveyardEffectsOf(card, owner) {
  * board-level result shared across all permanents (and the empty-board fast path
  * cheap). Memoized by state identity (immutable state ⇒ key changes iff state
  * changes). Pure.
+ *
+ * ABILITY LOSS (CR 613.1f, 613.6): on a board with a `loseAllAbilities` effect, the collection leaves out the layer-6-and-later
+ * effects (and the non-layer markers) whose STATIC source is a permanent that has lost its abilities — see withoutLostStatics.
+ * On every other board (the board fast path) it is the raw collection itself, the same array.
  */
 export function collectContinuousEffects(state) {
   if (!state) return [];
-  if (_boardMemo.has(state)) return _boardMemo.get(state);
+  // A read made WHILE a loss is being decided (a dynamic selector's keyword or colour read — abilityLossOf) sees the raw collection,
+  // unmemoized: deciding the filter there would decide other permanents' losses from inside this one (unbounded nesting), and the
+  // dependency between two losses (CR 613.8) is not modelled. Tested BEFORE the memo is read, so the answer never depends on whether
+  // the filtered collection happened to be built first — the same query gives the same answer in either order (the layer-6 index
+  // and the derive read their memos the same way).
+  if (_lossDepth > 0) return rawContinuousEffects(state);
+  const memo = _boardMemo.get(state);
+  if (memo !== undefined) return memo;
+  const raw = rawContinuousEffects(state);
+  const effects = _lossBoardMemo.get(state).length === 0 ? raw : withoutLostStatics(state, raw);
+  _boardMemo.set(state, effects);
+  return effects;
+}
+
+/**
+ * Every continuous effect on the board, before the ability-loss filter: the statics of every permanent (staticEffectsOf), the
+ * emblems' and the graveyard cards' statics, and the stored resolution effects. Memoized by state identity; the `loseAllAbilities`
+ * effects among them are kept beside it in timestamp order (_lossBoardMemo — an empty array on the board fast path).
+ *
+ * The readers that look only at layers 1–5 read this collection (copyBaseOf, boardCountColors, effectiveTypeIdentity, the two
+ * board scans): the loss filter never removes a layer-1–5 effect, so the answer is the same, and reading the raw collection keeps
+ * them recursion-free while a loss is being decided (abilityLossOf → a dynamic selector → effectiveTypeIdentity).
+ */
+function rawContinuousEffects(state) {
+  const memo = _rawBoardMemo.get(state);
+  if (memo !== undefined) return memo;
   _layerStats.collectRuns += 1;
   const effects = [];
   for (const perm of eachPermanent(state)) {
@@ -1252,8 +1329,258 @@ export function collectContinuousEffects(state) {
     }
   }
   for (const e of state.continuousEffects || []) effects.push(e);
-  _boardMemo.set(state, effects);
+  let losses = null;
+  for (const e of effects) if (e.layer === 6 && e.op?.layerOp === LOSE_ALL_ABILITIES) (losses ??= []).push(e);
+  _rawBoardMemo.set(state, effects);
+  _lossBoardMemo.set(state, losses ? losses.sort(byTimestamp) : NO_LOSSES);
   return effects;
+}
+
+// ─── ABILITY LOSS — "loses all abilities" (CR 613.1f, 113.10) ───────────────────────────────────────────────────────────────────
+//
+// THE OP. A layer-6 `{ layerOp: "loseAllAbilities", exceptMana? }` continuous effect (CR 613.1f — "ability-removing effects" apply in
+// layer 6, in timestamp order with the ability-adding ones, CR 613.3, 613.7): every permanent it affects (self / fixed / dynamic, read
+// like any other effect) loses every ability it has at that point of layer 6 — its printed abilities, its keyword counters' abilities,
+// and every ability an earlier effect granted it. A grant with a LATER timestamp still applies (CR 613.7: the earlier effect is
+// applied first; the bundled rulings of Lignify, Kenrith's Transformation, Turn to Frog and Darksteel Mutation: "abilities it gains
+// after … work"). `exceptMana` keeps the mana abilities (CR 605.1a — Blood Sun's "except mana abilities"). A grant made by the SAME
+// effect as the loss (Darksteel Mutation's indestructible, Imprisoned in the Moon's "{T}: Add {C}") is a sibling descriptor marked
+// `grantedWith`: the loss's id (a stored effect), or `true` beside a loss from the same static source with the same timestamp.
+// No parser emits the op yet (the ability-loss program's shapes are all off — abilityLossShapes.js); addContinuousEffect stores it.
+//
+// WHAT IT DOES NOT TOUCH (CR 613.6, 613.1): layers 1–5 are applied before layer 6, so an effect of the permanent's own static
+// abilities in those layers keeps applying (a God's "isn't a creature", Changeling's every creature type, a Devoid colour, an
+// Urborg's Swamp type); and the permanent's characteristics stay as they are — name, mana cost, colours, types, P/T, loyalty.
+//
+// THE CONSULT POINTS IN THIS MODULE:
+//   · abilityLossOf(state, id)   — the losses affecting a permanent, memoized per state, with the BOARD FAST PATH;
+//   · withoutLostStatics         — the collection without a lost permanent's own layer ≥ 6 statics and markers;
+//   · effectAffects              — the grant cutoff (grantCutByLoss);
+//   · the keyword / protection / gate seeds — read the stripped view (strippedCardView), counters and suspicion by their stamps.
+// Every reader OUTSIDE this module routes through abilityCardOf / withAbilityLoss (the program's S0b stage).
+
+export const LOSE_ALL_ABILITIES = "loseAllAbilities";
+const NO_LOSSES = Object.freeze([]);
+const _rawBoardMemo = new WeakMap();  // state -> every continuous effect, before the ability-loss filter
+const _lossBoardMemo = new WeakMap(); // state -> the loseAllAbilities effects among them, timestamp order (NO_LOSSES when none)
+const _lossMemo = new WeakMap();      // state -> Map(permanent id -> loss | null)
+const _lossInProgress = new Map();    // state -> Set(id) of each permanent whose loss is being decided right now (the re-entry guard)
+let _lossDepth = 0;                   // how many loss decisions are in flight; while > 0 no derived memo is written
+
+/** The board's loseAllAbilities effects in timestamp order (an empty array on the board fast path). The last state asked is kept
+ *  beside the WeakMap (an identity test, the hot path's whole cost): a state object is never changed in place, so its answer is
+ *  fixed. */
+let _lastLossState = null;
+let _lastLossList = NO_LOSSES;
+function boardLossEffects(state) {
+  if (!state) return NO_LOSSES;
+  if (state === _lastLossState) return _lastLossList;
+  let memo = _lossBoardMemo.get(state);
+  if (memo === undefined) { rawContinuousEffects(state); memo = _lossBoardMemo.get(state); }
+  _lastLossState = state;
+  _lastLossList = memo;
+  return memo;
+}
+
+/** A stored effect's id, else (a static's descriptor carries none) its source — the key a `grantedWith` sibling names. */
+function lossKeyOf(e) {
+  return e.id ?? (e.source?.permanentId != null ? `${e.source.kind}:${e.source.permanentId}` : null);
+}
+
+/**
+ * THE LOSSES AFFECTING PERMANENT `permanentId` RIGHT NOW (CR 613.1f), or null: `{ timestamp, keep, losses }` — `losses` each
+ * `{ key, timestamp, exceptMana, sourceKey }` in timestamp order, `timestamp` the latest of them, `keep` "mana" when every one of them
+ * keeps the mana abilities (an earlier plain loss has already removed them), else "none".
+ *
+ * BOARD FAST PATH: a board with no loseAllAbilities effect answers null at once — one memo read — so every consult point is a no-op
+ * there and every game without the effect plays exactly as before.
+ *
+ * Decided off the RAW collection (rawContinuousEffects), never the filtered one, so it never waits on itself. A loss with a dynamic
+ * selector reads matchesSelector, which may read this permanent's keywords (a "with flying" selector) and so come back here: the
+ * RE-ENTRY GUARD answers null for a permanent whose loss is being decided (the nested read sees it unaffected — the codebase's
+ * FN-safe bail for a CR 613.8 dependency it does not model); while any loss is being decided the collection reads raw (every
+ * permanent's statics, lost or not — collectContinuousEffects) and no derived memo (this one, the layer-6 index, the derive) is
+ * written, so no partial answer is ever served later.
+ * Not modelled (no static emits the op yet — the program's S3): a static loss whose own source has lost its abilities to another
+ * loss (CR 613.8 — Humility facing Humility); every loss on the board applies.
+ */
+export function abilityLossOf(state, permanentId) {
+  if (permanentId == null) return null;
+  const losses = boardLossEffects(state);
+  if (losses.length === 0) return null;
+  let memo = _lossMemo.get(state);
+  if (memo?.has(permanentId)) return memo.get(permanentId);
+  const perm = findPerm(state, permanentId);
+  if (!perm) return null;
+  let inFlight = _lossInProgress.get(state);
+  if (inFlight?.has(permanentId)) return null;
+  if (!inFlight) { inFlight = new Set(); _lossInProgress.set(state, inFlight); }
+  inFlight.add(permanentId);
+  _lossDepth += 1;
+  let result = null;
+  try {
+    const hits = [];
+    for (const e of losses) {
+      if (!effectSelects(e, perm, state)) continue;
+      hits.push(Object.freeze({ key: lossKeyOf(e), timestamp: tsOf(e), exceptMana: !!e.op.exceptMana, sourceKey: sourceKeyOf(e) }));
+    }
+    if (hits.length) {
+      result = Object.freeze({
+        timestamp: hits[hits.length - 1].timestamp,
+        keep: hits.every((h) => h.exceptMana) ? "mana" : "none",
+        losses: Object.freeze(hits),
+      });
+    }
+  } finally {
+    _lossDepth -= 1;
+    inFlight.delete(permanentId);
+    if (inFlight.size === 0) _lossInProgress.delete(state);
+  }
+  if (_lossDepth === 0) {
+    if (!memo) { memo = new Map(); _lossMemo.set(state, memo); }
+    memo.set(permanentId, result);
+  }
+  return result;
+}
+
+function tsOf(e) {
+  return Number.isFinite(e?.timestamp) ? e.timestamp : 0;
+}
+function sourceKeyOf(e) {
+  return e.source?.permanentId != null ? `${e.source.kind}:${e.source.permanentId}` : null;
+}
+
+/**
+ * THE COLLECTION WITHOUT A LOST PERMANENT'S OWN ABILITIES (CR 613.1f, 613.6). A static ability's effect exists only while the ability
+ * does; a permanent that lost its abilities in layer 6 has none from that layer on — so its own layer-6 and layer-7 effects (a
+ * keyword it grants itself or others, an anthem, a characteristic-defining P/T, Omnath's STATIC_REGISTRY pump) and its non-layer
+ * markers (a Teysa trigger multiplier, a Leyline's player hexproof, a legend-rule exemption) are left out. Its layer 1–5 effects
+ * stay: they were applied before the ability was removed (CR 613.6 — an effect that began to apply keeps applying in the later
+ * layers; the Theros-God ruling: its type ability still applies).
+ */
+function withoutLostStatics(state, raw) {
+  return raw.filter((e) => !(e.source?.kind === "static" && !appliesBeforeLayer6(e) && abilityLossOf(state, e.source.permanentId)));
+}
+function appliesBeforeLayer6(e) {
+  return Number.isFinite(e.layer) && e.layer >= 1 && e.layer <= 5;
+}
+
+/**
+ * The kind of ABILITY a layer-6 effect grants — the grants a loss with a later timestamp removes (grantCutByLoss): "keyword" (a real
+ * keyword ability — the GRANTABLE_STATIC_KEYWORDS vocabulary every grant path is gated on — protection, ward, a crew grant), "mana"
+ * (a granted mana ability, CR 605.1a), "ability" (a granted activated or triggered ability) — or null for everything that is NOT an
+ * ability: the rules-effect pseudo-keywords the engine rides on the same op (cantBlock, cantAttack, mustAttack, goaded, unblockable,
+ * activatedAbilitiesLocked, attacksIgnoringDefender, blockCapOne, assignsCombatDamageAsUnblocked, cantBlockSource:*,
+ * mustBlockSource:*, cantBeBlockedExceptBy:*), a target shield, a keyword removal, the inert markers. CR 113.12: an effect that states a
+ * quality ("can't be blocked") grants no ability — a loss never removes one.
+ */
+const REAL_KEYWORD_GRANTS = new Set([...GRANTABLE_STATIC_KEYWORDS].map((k) => String(k).toLowerCase()));
+function grantKindOf(op) {
+  switch (op?.layerOp) {
+    case "addKeyword": return REAL_KEYWORD_GRANTS.has(String(op.keyword || "").toLowerCase()) ? "keyword" : null;
+    case "addAbility": return op.grant?.kind === "mana" ? "mana" : "ability";
+    case "addProtection":
+    case "addWard":
+    case "crewOverride": return "keyword";
+    default: return null;
+  }
+}
+
+/**
+ * THE GRANT CUTOFF (CR 613.7, 613.9): a grant of kind `kind` is removed by a loss whose timestamp is at or after the grant's — unless
+ * it is that loss's own sibling (`grantedWith`), or it is a mana ability and the loss keeps them (exceptMana). A grant newer than every
+ * loss applies.
+ */
+function grantCutByLoss(loss, effect, kind) {
+  const ts = tsOf(effect);
+  for (const l of loss.losses) {
+    if (l.timestamp < ts) continue;
+    if (effect.grantedWith != null && (effect.grantedWith === l.key || (effect.grantedWith === true && l.timestamp === ts && l.sourceKey != null && l.sourceKey === sourceKeyOf(effect)))) continue;
+    if (kind === "mana" && l.exceptMana) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * THE STRIPPED VIEW of a card for a permanent that lost its abilities: the card with its rules text replaced by what the loss keeps —
+ * nothing, or for an exceptMana loss its mana-ability lines (manaAbilityTextOf) — and `keywords: []` (keywords.hasKeyword reads that
+ * array live, outside its text memo), each face's text blanked, and `abilitiesLost: true` (+ `manaAbilitiesKept: true`) for the
+ * name-keyed tables (manaModel's KNOWN_ROCKS / BASIC_LAND_MANA and its intrinsic land-type mana, cardEffects' REGISTRY). Every other
+ * field — name, type line, mana cost, colours, P/T, loyalty, layout, token / commander flags — is kept: the permanent is still what
+ * it was (CR 613.1f changes abilities only).
+ *
+ * ONE VIEW PER (base card, keep, kept text), memoized per base card object like classLevels' level views, so the caches keyed by the
+ * card object (parseStaticAbilities, detectTriggers, manaProduction) or by its text (hasKeyword, the protection reads) stay correct
+ * and warm. The key carries `keep` as well as the kept text: an exceptMana loss whose card has no mana-ability line keeps the same
+ * text ("") as a plain loss, and the two views differ in `manaAbilitiesKept` — one view for both would hand a land that lost every
+ * ability its basic-type mana, or take it from one whose mana abilities stay (review F1). The base card is never written: a copy of
+ * the permanent copies its printed card, not its lost state (CR 707.2).
+ */
+const _lossViewMemo = new WeakMap(); // base card -> Map(keep + "\u0000" + kept text -> view)
+function strippedCardView(card, keep) {
+  if (!card || typeof card !== "object") return card;
+  const kept = keep === "mana" ? manaAbilityTextOf(card) : "";
+  let byKey = _lossViewMemo.get(card);
+  if (!byKey) { byKey = new Map(); _lossViewMemo.set(card, byKey); }
+  const key = `${keep}\u0000${kept}`;
+  let view = byKey.get(key);
+  if (view === undefined) {
+    view = { ...card, oracle: kept, oracle_text: kept, keywords: [], abilitiesLost: true };
+    if (keep === "mana") view.manaAbilitiesKept = true;
+    if (Array.isArray(card.card_faces)) view.card_faces = card.card_faces.map((f) => (f && typeof f === "object" ? { ...f, oracle_text: "" } : f));
+    byKey.set(key, view);
+  }
+  return view;
+}
+
+/**
+ * The mana-ability lines of a card's face-up text (CR 605.1a — an activated ability that could add mana, has no target and is not a
+ * loyalty ability): "[ability word — ]<cost>: Add …" with no quote in it and no "target", and the same line as a whole-line reminder
+ * (a land's "({T}: Add {G}.)" — the intrinsic ability its basic land type gives it, CR 305.6). Anything else is dropped — a triggered
+ * mana ability (CR 605.1b) included: an under-read, never an ability kept that the loss removed. A LOYALTY line is refused in both
+ * printed forms — the bracketed "[+1]: …" (the cost's character class) and the bare "+1: Add {R}{R}." of the bundled text
+ * (LOYALTY_COST_LINE_RE — Chandra, Torch of Defiance; review F4): a loyalty ability is never a mana ability (CR 605.1a).
+ */
+const MANA_ABILITY_LINE_RE = /^(?:[A-Z][A-Za-z' -]*? — )?[^:"[\]]+: Add\b[^"]*$/;
+const LOYALTY_COST_LINE_RE = /^[+−-]?(?:\d+|X)\s*:/;
+function manaAbilityTextOf(card) {
+  const face = faceUpView(card);
+  return String(face?.oracle ?? face?.oracle_text ?? "").split("\n").map((l) => l.trim()).filter((l) => {
+    const inner = /^\((.*)\)$/.exec(l)?.[1] ?? l;
+    return MANA_ABILITY_LINE_RE.test(inner) && !LOYALTY_COST_LINE_RE.test(inner) && !/\btargets?\b/i.test(inner);
+  }).join("\n");
+}
+
+/**
+ * `card` as the readers of permanent `perm`'s abilities must see it: the stripped view when `perm` has lost its abilities
+ * (abilityLossOf), else `card` itself — the same object, so a board without a loss is untouched. `card` defaults to the printed
+ * card; a reader that parses another base (a Class level view, a copy's copiable card, a face) passes that base, and the stripped
+ * view is built over it.
+ */
+export function withAbilityLoss(state, perm, card = perm?.card) {
+  if (!perm || perm.id == null) return card;
+  const loss = abilityLossOf(state, perm.id);
+  return loss ? strippedCardView(card, loss.keep) : card;
+}
+
+/**
+ * THE CARD A PERMANENT'S ABILITY READERS PARSE (the ability-loss program's chokepoint for the readers outside this module — S0b): the
+ * card it is after layer 1 (its latest copy effect's copiable card, CR 613.1a, 707.2 — the pick manaModel.manaCardOf makes, read
+ * recursion-free through copyBaseOf), its Class level view (CR 716.2a — classLiveCard), and then the stripped view when it has lost
+ * its abilities. A permanent with no copy effect, no Class levels and no loss reads its own card object.
+ */
+export function abilityCardOf(state, perm) {
+  if (!perm) return null;
+  return withAbilityLoss(state, perm, classLiveCard(copyBaseOf(state, perm)));
+}
+
+function counterStampNewerThan(perm, kind, ts) {
+  const s = perm?.counterTimestamps?.[kind];
+  return Number.isFinite(s) && s > ts;
+}
+function suspectStampNewerThan(perm, ts) {
+  return Number.isFinite(perm?.suspectedTimestamp) && perm.suspectedTimestamp > ts;
 }
 
 // ─── Affect-spec evaluation (does effect E apply to permanent P?) ───────────────
@@ -1270,18 +1597,54 @@ export function collectContinuousEffects(state) {
 // kept original-case (the cardTypes check uses substring inclusion like the printed path); subtypes lowercased.
 // The one dynamic every-creature-type selector the identity read honors — staticAbilityParser's Maskwood Nexus arm, verbatim.
 const YOUR_CREATURES_SELECTOR = JSON.stringify({ cardTypes: ["Creature"], controllerScope: "you" });
+// TIMESTAMP ORDER IN LAYER 4 (CR 613.3, 613.7 — 2026-11-01): the board's layer-4 effects, characteristic-defining ones first, then
+// by timestamp — the order the derive applies them in (applyTypeColorLayers) and this identity read mirrors. Until 2026-11-01 both
+// applied layer 4 in COLLECTION order (each permanent's statics, then the stored effects), so a stored type change could be applied
+// after a static one with a later timestamp. Read off the raw collection (no layer-4 effect is ever filtered out), once per state.
+const _layer4Memo = new WeakMap();
+function layer4EffectsOf(state) {
+  let l4 = _layer4Memo.get(state);
+  if (l4 === undefined) {
+    l4 = sortLayer4(rawContinuousEffects(state).filter((e) => e.layer === 4));
+    _layer4Memo.set(state, l4);
+  }
+  return l4;
+}
+/** CDAs first (CR 613.3), then timestamp (CR 613.7); a stable sort, so equal timestamps keep their collection order. */
+function sortLayer4(effects) {
+  return effects.slice().sort((a, b) => (Number(!!b.isCDA) - Number(!!a.isCDA)) || byTimestamp(a, b));
+}
 function effectiveTypeIdentity(candidate, state) {
   let types = cardTypesOf(candidate.card);
-  const subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
-  if (!state) return { types, subtypes, everyCreatureType: false };
-  const board = collectContinuousEffects(state);
-  if (!board.length) return { types, subtypes, everyCreatureType: false };
+  let subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
+  if (!state) return { types, subtypes, everyCreatureType: false, changelingOverridden: false };
+  const board = layer4EffectsOf(state);
+  if (!board.length) return { types, subtypes, everyCreatureType: false, changelingOverridden: false };
   // EVERY CREATURE TYPE (P·39), mirrored from the derive (everyCreatureTypeFrom) without recursing: the latest
   // all-creature-types effect that reaches this candidate against the latest creature-type replacement fixed to it.
   let allTs = -Infinity;
   let setTs = -Infinity;
+  let changelingOverridden = false;
   for (const e of board) {
-    if (e.layer !== 4) continue;
+    // SET CARD TYPES / REPLACE EVERY CREATURE TYPE (the ability-loss program's two layer-4 prerequisites — Kenrith's Transformation's
+    // "is a green Elk creature", Lignify's "is a Treefolk", Imprisoned in the Moon's "is a colorless land … loses all other card
+    // types"), mirrored from the derive (applyTypeColorLayers) at their place in the order. Read only when the effect NAMES the
+    // candidate (self or fixed) — a dynamic one would need a selector here (the recursion this read exists to avoid); none is
+    // emitted, and the derive would still apply it.
+    if (e.op?.layerOp === "setCardTypes" || e.op?.layerOp === "replaceCreatureTypes") {
+      if (!effectNamesPermanent(e, candidate)) continue;
+      if (e.op.layerOp === "setCardTypes") {
+        const next = cardTypesSetBy(types, e.op);
+        subtypes = subtypesAfterCardTypeChange(subtypes, types, next).map((st) => st.toLowerCase());
+        types = next;
+        if (!types.includes("Creature") && !types.includes("Kindred") && !types.includes("Tribal")) changelingOverridden = true;
+      } else {
+        subtypes = [...withoutCreatureTypes(subtypes), ...(e.op.subtypes || []).map((st) => String(st).toLowerCase())];
+        setTs = Math.max(setTs, e.timestamp ?? 0);
+        changelingOverridden = true;
+      }
+      continue;
+    }
     // A DYNAMIC grant (P·39b — Maskwood Nexus, "Creatures you control are every creature type") is honored only in its exact
     // printed shape: creatures, scoped to the controller of the permanent that prints it — a plain controller read off that
     // permanent, no selector evaluation, so no recursion. Any other selector is skipped here (a safe under-read; the derive
@@ -1355,7 +1718,7 @@ function effectiveTypeIdentity(candidate, state) {
     // SET-CREATURE-SUBTYPES (the Mistform cycle, 2026-09-30): the derive's replacement, mirrored — drop the creature types
     // the effect replaces (CR 205.1a) before its choice is added below. This read only ever ADDED, so a tribal lord kept
     // matching the type a creature had just stopped being (Lord of the Unreal kept pumping a Mistform Dreamer that had
-    // become a Human), and so did the host-subtype gate. The board lists these in the order they were created, so a later
+    // become a Human), and so did the host-subtype gate. The board is read in timestamp order (layer4EffectsOf), so a later
     // choice replaces an earlier one (CR 613.7).
     if (e.op?.layerOp === "setCreatureSubtypes") {
       const gone = new Set((e.op.replaces || []).map((st) => String(st).toLowerCase()));
@@ -1367,7 +1730,7 @@ function effectiveTypeIdentity(candidate, state) {
   }
   // Only a creature takes a creature type (CR 205.3d): Maskwood's grant reaches every permanent its controller controls in the loop
   // above, so a noncreature artifact beside it must be turned away here.
-  return { types, subtypes, everyCreatureType: types.includes("Creature") && allTs > setTs };
+  return { types, subtypes, everyCreatureType: types.includes("Creature") && allTs > setTs, changelingOverridden };
 }
 
 // P/T-PREDICATE recursion guard (Tetsuko — see the powerOrToughnessAtMost branch below): permanent ids whose
@@ -1465,7 +1828,7 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
     // P·39 — and the same for a permanent a layer-4 effect makes every creature type (Mutavault, Mirror Entity). EVERY
     // CREATURE TYPE matches a wanted CREATURE type only (CR 205.3d): a changeling is not a Vehicle or an Equipment, so
     // "Vehicles you control …" never reaches it (it used to — the old gate skipped the subtype test outright).
-    const everyType = hasKeyword(candidate.card, "changeling") || ident.everyCreatureType;
+    const everyType = (hasKeyword(candidate.card, "changeling") && !ident.changelingOverridden) || ident.everyCreatureType;
     const subs = ident.subtypes;
     // OUTLAW META-TYPE (CR 702.x / 700-series — Vihaan, Goldwaker's "Other outlaws you control"): "outlaw"
     // is NOT a type-line subtype — it's the umbrella for {Assassin, Mercenary, Pirate, Rogue, Warlock}. A
@@ -1646,8 +2009,23 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   return true;
 }
 
-/** Does continuous effect `effect` apply to `candidate` in the current state? */
+/**
+ * Does continuous effect `effect` apply to `candidate` in the current state? Its selection (effectSelects), and then the ability-loss
+ * GRANT CUTOFF: a layer-6 grant of an ability (grantKindOf) to a permanent that lost its abilities to a loss at or after the grant's
+ * timestamp does not apply (grantCutByLoss — CR 613.7). On the board fast path (no loss) the cutoff is one identity test per applying
+ * layer-6 effect (boardLossEffects).
+ */
 function effectAffects(effect, candidate, state) {
+  if (!effectSelects(effect, candidate, state)) return false;
+  if (effect.layer !== 6 || boardLossEffects(state).length === 0) return true; // the board fast path: an identity test
+  const kind = grantKindOf(effect.op);
+  if (kind === null) return true;
+  const loss = abilityLossOf(state, candidate.id);
+  return loss === null || !grantCutByLoss(loss, effect, kind);
+}
+
+/** The affected-set half of effectAffects: does `effect`'s affects spec (self / fixed / dynamic selector) reach `candidate`? */
+function effectSelects(effect, candidate, state) {
   const affects = effect.affects;
   if (!affects) return false;
   switch (affects.mode) {
@@ -1688,7 +2066,9 @@ function byTimestamp(a, b) {
 // preserved — so consulting the index is evaluation-order-identical to the old filter+sort.
 const _l6IndexMemo = new WeakMap();
 function l6IndexOf(state) {
-  let idx = _l6IndexMemo.get(state);
+  // While a loss is being decided the index is built off the raw collection and neither read from nor written to the memo (the
+  // collection's reading — collectContinuousEffects), so it never depends on query order.
+  let idx = _lossDepth === 0 ? _l6IndexMemo.get(state) : undefined;
   if (idx) return idx;
   const byKeyword = new Map();
   const protection = [];
@@ -1707,7 +2087,7 @@ function l6IndexOf(state) {
   }
   for (const list of byKeyword.values()) list.sort(byTimestamp);
   idx = { byKeyword, protection, ward };
-  _l6IndexMemo.set(state, idx);
+  if (_lossDepth === 0) _l6IndexMemo.set(state, idx); // built off a partial collection while a loss is being decided (abilityLossOf)
   return idx;
 }
 
@@ -1886,7 +2266,7 @@ function applyLayer7(state, perm, l7Effects) {
         // means "every X but the SOURCE aura/equipment", invisible to the creature-scoped count: subtract the
         // source iff it's a DISTINCT permanent that itself carries the subtype.
         if (e.op.attachedExcludeSource
-            && cs && cs.id !== perm.id && new RegExp(`\\b${e.op.countSpec.subtype}\\b`).test(typeLineOf(cs.card))) {
+            && cs && cs.id !== perm.id && hasSubtypeInDerive(state, cs, e.op.countSpec.subtype)) { // the count's own subtype read (review F2)
           n = Math.max(0, n - 1);
         }
       }
@@ -1939,8 +2319,10 @@ function printedKeywords(card) {
 export function deriveCharacteristics(state, permanentId) {
   // Memo check first (keyed by the immutable state object) so repeated reads for
   // the same (state, id) skip even the board scan.
+  // (While a loss is being decided the memo is neither read nor written — the derive is computed off the raw collection, as every
+  // read inside a loss decision is: collectContinuousEffects.)
   let permMemo = _charMemo.get(state);
-  if (permMemo?.has(permanentId)) return permMemo.get(permanentId);
+  if (_lossDepth === 0 && permMemo?.has(permanentId)) return permMemo.get(permanentId);
 
   const perm = findPerm(state, permanentId);
   if (!perm) return makeEmptyChars(permanentId); // fresh containers; not memoized (rare)
@@ -1994,7 +2376,7 @@ export function deriveCharacteristics(state, permanentId) {
       baseToughness: printedToughness(permBase),
       powerSized: printedStatIsNumber(permBase, "power"), // a printed "*" with nothing defining it is unsized (applyLayer7)
       toughnessSized: printedStatIsNumber(permBase, "toughness"),
-      keywords: keywordSet(permBase, []),
+      keywords: keywordSet(permBase, [], state), // a permanent a loss reaches never takes this path (the loss is one of its effects)
       types: cardTypesOf(permBase.card),
       subtypes: subtypesOf(permBase.card),
       colors: permanentPrintedColors(permBase.card), // the front face of a double-faced permanent (CR 712.8d)
@@ -2032,7 +2414,7 @@ export function deriveCharacteristics(state, permanentId) {
   // in-flight anthem/grant from its effect set — exact for the P/T or colors the caller wanted, but the rest of
   // the result (keyword set, or the anthem's own P/T buff) would be partial. Don't memoize either partial entry;
   // the next un-guarded derive computes (and caches) the complete one.
-  if (!_ptPredicateInProgress.has(permanentId) && !_selectorColorInProgress.has(permanentId)) permMemo.set(permanentId, result);
+  if (!_ptPredicateInProgress.has(permanentId) && !_selectorColorInProgress.has(permanentId) && _lossDepth === 0) permMemo.set(permanentId, result);
   return result;
 }
 
@@ -2041,11 +2423,34 @@ function cardTypesOf(card) {
 }
 
 /** Layer 4 (type) + layer 5 (color). Type effects ADD types (animate) or, for the GOD-DEVOTION gate,
- * conditionally REMOVE the Creature type while devotion is below the threshold (CR 613.1d). */
-function applyTypeColorLayers(perm, l4, l5, state) {
-  const types = new Set(cardTypesOf(perm.card));
-  const subtypes = new Set(subtypesOf(perm.card));
+ * conditionally REMOVE the Creature type while devotion is below the threshold (CR 613.1d). Layer 4 is applied characteristic-
+ * defining effects first, then in timestamp order (CR 613.3, 613.7 — sortLayer4; collection order until 2026-11-01). */
+function applyTypeColorLayers(perm, l4In, l5, state) {
+  let types = new Set(cardTypesOf(perm.card));
+  let subtypes = new Set(subtypesOf(perm.card));
+  let changelingOverridden = false;
+  const l4 = sortLayer4(l4In);
   for (const e of l4) {
+    // SET CARD TYPES (CR 205.1a — "the new card type(s) replaces any existing card types"): the supertypes stay, and a subtype stays
+    // only while it is correlated with a card type the permanent still has (subtypesAfterCardTypeChange). Imprisoned in the Moon's
+    // Plains is still a Plains; Kenrith's Transformation's Equipment Golem is no Equipment.
+    if (e.op?.layerOp === "setCardTypes") {
+      const before = [...types];
+      const next = cardTypesSetBy(before, e.op);
+      subtypes = new Set(subtypesAfterCardTypeChange([...subtypes], before, next));
+      types = new Set(next);
+      if (!types.has("Creature") && !types.has("Kindred") && !types.has("Tribal")) changelingOverridden = true;
+      continue;
+    }
+    // REPLACE EVERY CREATURE TYPE (CR 205.1a — "the new subtype(s) replaces any existing subtypes from the appropriate set"; CR 205.1b's
+    // "[creature type] artifact creature"): Lignify's "is a Treefolk", Kenrith's Transformation's Elk. Every creature type the
+    // permanent has at this point goes — its printed ones, an earlier effect's, and every creature type its Changeling gave it (a
+    // characteristic-defining ability, applied first — CR 613.3) — and the new ones are added; the other subtypes stay.
+    if (e.op?.layerOp === "replaceCreatureTypes") {
+      subtypes = new Set([...withoutCreatureTypes([...subtypes]), ...(e.op.subtypes || [])]);
+      changelingOverridden = true;
+      continue;
+    }
     // GOD-DEVOTION conditional type-removal: while the controller's devotion to the listed color(s) is BELOW
     // the threshold, strip the named type (Creature) — re-evaluated live every derive, so the 5th green pip
     // entering the battlefield flips the God back into a creature (and the 5th leaving flips it back off).
@@ -2089,7 +2494,45 @@ function applyTypeColorLayers(perm, l4, l5, state) {
   }
   // Layer 5 (CR 613.1e) over the front-face seed — the applier boardCountColors shares.
   const colors = applyColorLayer(permanentPrintedColors(perm.card), l5);
-  return { types: [...types], subtypes: [...subtypes], colors, everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")) };
+  return { types: [...types], subtypes: [...subtypes], colors, everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")), changelingOverridden };
+}
+
+// The supertypes (CR 205.4a) a card-type change keeps.
+const SUPERTYPES = new Set(["Basic", "Legendary", "Ongoing", "Snow", "World"]);
+/** The card types after a setCardTypes op (CR 205.1a): the supertypes `types` carries, then the op's card types. */
+function cardTypesSetBy(types, op) {
+  const out = types.filter((t) => SUPERTYPES.has(t));
+  for (const t of op.types || []) if (!out.includes(t)) out.push(t);
+  return out;
+}
+/**
+ * The subtypes left after a card-type change from `before` to `after` (CR 205.1a): when no card type was removed, all of them; else
+ * each subtype that is correlated with a card type in `after` (CR 205.3c — subtypeFamilies.subtypeFamilyOf; the two-word creature
+ * type "Time Lord" read as one). A subtype no rule lists is removed: kept on a guess, it could match a selector it no longer belongs to.
+ */
+function subtypesAfterCardTypeChange(subtypes, before, after) {
+  if (!before.some((t) => !SUPERTYPES.has(t) && !after.includes(t))) return subtypes;
+  const creatureKept = after.some((t) => t === "Creature" || t === "Kindred" || t === "Tribal");
+  const out = [];
+  for (let i = 0; i < subtypes.length; i++) {
+    if (i + 1 < subtypes.length && CR_CREATURE_TYPES.has(`${subtypes[i]} ${subtypes[i + 1]}`.toLowerCase())) {
+      if (creatureKept) out.push(subtypes[i], subtypes[i + 1]);
+      i += 1;
+      continue;
+    }
+    if (subtypeFamilyOf(subtypes[i]).some((t) => after.includes(t))) out.push(subtypes[i]);
+  }
+  return out;
+}
+/** `subtypes` without its creature types (CR 205.3m — the one two-word type, "Time Lord", included), any case. */
+function withoutCreatureTypes(subtypes) {
+  const out = [];
+  for (let i = 0; i < subtypes.length; i++) {
+    if (i + 1 < subtypes.length && CR_CREATURE_TYPES.has(`${subtypes[i]} ${subtypes[i + 1]}`.toLowerCase())) { i += 1; continue; }
+    if (CR_CREATURE_TYPES.has(String(subtypes[i]).toLowerCase())) continue;
+    out.push(subtypes[i]);
+  }
+  return out;
 }
 
 /**
@@ -2106,7 +2549,7 @@ function everyCreatureTypeFrom(l4, isCreature) {
   let setTs = -Infinity;
   for (const e of l4) {
     if (e.op?.allCreatureTypes) allTs = Math.max(allTs, e.timestamp ?? 0);
-    else if (e.op?.layerOp === "setCreatureSubtypes") setTs = Math.max(setTs, e.timestamp ?? 0);
+    else if (e.op?.layerOp === "setCreatureSubtypes" || e.op?.layerOp === "replaceCreatureTypes") setTs = Math.max(setTs, e.timestamp ?? 0);
   }
   return allTs > setTs;
 }
@@ -2117,12 +2560,16 @@ function everyCreatureTypeFrom(l4, isCreature) {
  * lowercased for case-insensitive membership.
  */
 function keywordSet(perm, l6Effects, state) {
-  const set = printedKeywords(perm.card);
+  // ABILITY LOSS (CR 613.1f): a permanent that lost its abilities seeds from its stripped view (no printed keyword), its keyword
+  // counters count only when put on after the latest loss (CR 613.7c — each kind's counterTimestamps stamp), and its suspicion only
+  // when it became suspected after it (suspectedTimestamp); the layer-6 grants below were already cut by effectAffects.
+  const loss = state ? abilityLossOf(state, perm.id) : null;
+  const set = printedKeywords(loss ? strippedCardView(perm.card, loss.keep) : perm.card);
   // Keyword counters (613.1f), e.g. counters.flying > 0.
   const counters = perm.counters;
   if (counters) {
     for (const kw of COMBAT_KEYWORDS_LOWER) {
-      if ((counters[kw] || 0) > 0) set.add(kw);
+      if ((counters[kw] || 0) > 0 && (!loss || counterStampNewerThan(perm, kw, loss.timestamp))) set.add(kw);
     }
   }
   // SUSPECTED (BLITZ EK-1, CR 701.60c) — a suspected permanent has menace and "This creature can't block"
@@ -2130,7 +2577,7 @@ function keywordSet(perm, l6Effects, state) {
   // "loses menace" removeKeyword still wins (last-wins) exactly as it does over a counter-granted keyword.
   // "cantblock" is the SAME pseudo-keyword the granted "can't block this turn" effects ride — the read
   // combatEvasion.canBlockAttacker already enforces at block legality.
-  if (perm.suspected) { set.add("menace"); set.add("cantblock"); }
+  if (perm.suspected && (!loss || suspectStampNewerThan(perm, loss.timestamp))) { set.add("menace"); set.add("cantblock"); }
   for (const e of l6Effects.slice().sort(byTimestamp)) {
     const kw = String(e.op.keyword || "").toLowerCase();
     if (!kw) continue;
@@ -2248,19 +2695,23 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   const perm = findPerm(state, permanentId);
   if (!perm) return false;
   const kwLower = String(keyword).toLowerCase();
-  const printed = hasKeyword(perm.card, keyword);
-  const fromCounter = (perm.counters?.[kwLower] || 0) > 0;
+  // ABILITY LOSS (CR 613.1f): the stripped view has no printed keyword; a keyword counter or the suspected designation counts only
+  // when newer than the latest loss (their stamps — keywordSet's reading); a kicked keyword (the permanent's own ability, CR 702.33e)
+  // is gone; the grants below were already cut by effectAffects.
+  const loss = abilityLossOf(state, permanentId);
+  const printed = hasKeyword(loss ? strippedCardView(perm.card, loss.keep) : perm.card, keyword);
+  const fromCounter = (perm.counters?.[kwLower] || 0) > 0 && (!loss || counterStampNewerThan(perm, kwLower, loss.timestamp));
   // SUSPECTED (BLITZ EK-1, CR 701.60c) — the suspected designation grants menace + "can't block"
   // ("cantblock" is the pseudo-keyword the granted can't-block reads already use: combatEvasion.
   // canBlockAttacker / attackerHasMenace both come through HERE, so the designation is enforced at the
   // real declare-blockers gate and combat resolution). Seeded like a keyword counter: a later layer-6
   // removeKeyword ("loses menace") still wins below (last-wins), never a hard override.
-  const fromSuspect = !!perm.suspected && (kwLower === "menace" || kwLower === "cantblock");
+  const fromSuspect = !!perm.suspected && (kwLower === "menace" || kwLower === "cantblock") && (!loss || suspectStampNewerThan(perm, loss.timestamp));
   // KICKER keyword grant (BLITZ KK-1, CR 702.33e + 614.12) — "If this creature was kicked, it enters … and
   // with <keyword>" stamps perm.kickedKeywords (resolvers.enterPermanent, only for GRANTABLE_COMBAT_KEYWORDS).
   // Seeded exactly like fromSuspect: a durable per-permanent grant honored by EVERY read that funnels through
   // here (combat damage / evasion / summoning-sickness), overridable by a later layer-6 removeKeyword below.
-  const fromKicked = Array.isArray(perm.kickedKeywords) && perm.kickedKeywords.includes(kwLower);
+  const fromKicked = !loss && Array.isArray(perm.kickedKeywords) && perm.kickedKeywords.includes(kwLower);
   const grants = l6IndexOf(state).byKeyword.get(kwLower);
   if (!grants || grants.length === 0) return printed || fromCounter || fromSuspect || fromKicked;
   let has = printed || fromCounter || fromSuspect || fromKicked;
@@ -2292,7 +2743,8 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
   const perm = findPerm(state, permanentId);
   if (!perm) return 0;
   const kwLower = String(keyword).toLowerCase();
-  let n = Math.max(0, printedCount || 0);
+  // ABILITY LOSS (CR 613.1f): a permanent that lost its abilities has none of its printed instances; a later grant still counts.
+  let n = abilityLossOf(state, permanentId) ? 0 : Math.max(0, printedCount || 0);
   const grants = l6IndexOf(state).byKeyword.get(kwLower);
   if (!grants || grants.length === 0) return n;
   for (const e of grants) {
@@ -2329,7 +2781,7 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
 export function permanentProtectionColors(state, permanentId, skipEffect = null, ownPrintedOnly = false) {
   const perm = findPerm(state, permanentId);
   if (!perm) return new Set();
-  const set = new Set(parseProtectionColors(perm.card, { ownOnly: ownPrintedOnly }));
+  const set = new Set(parseProtectionColors(withAbilityLoss(state, perm), { ownOnly: ownPrintedOnly })); // a lost permanent's printed protection is gone (CR 613.1f)
   const l6 = l6IndexOf(state).protection;
   for (const e of l6) {
     if (skipEffect && skipEffect(e)) continue;
@@ -2369,7 +2821,7 @@ export function permanentProtectionColors(state, permanentId, skipEffect = null,
 export function permanentProtectionClasses(state, permanentId) {
   const perm = findPerm(state, permanentId);
   if (!perm) return new Set();
-  const set = new Set(parseProtectionClasses(perm.card));
+  const set = new Set(parseProtectionClasses(withAbilityLoss(state, perm))); // a lost permanent's printed protection is gone (CR 613.1f)
   const l6 = l6IndexOf(state).protection;
   for (const e of l6) {
     if (!effectAffects(e, perm, state)) continue;
@@ -2452,7 +2904,7 @@ export function permIsEveryCreatureType(state, permanentId) {
   const perm = findPerm(state, permanentId);
   if (!perm) return false;
   const chars = deriveCharacteristics(state, permanentId);
-  return hasKeyword(chars.copiableValues || perm.card, "changeling") || chars.everyCreatureType;
+  return (hasKeyword(chars.copiableValues || perm.card, "changeling") && !chars.changelingOverridden) || chars.everyCreatureType;
 }
 
 /**

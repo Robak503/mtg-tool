@@ -1290,6 +1290,70 @@ their seat in the seat record. Until 2026-10-21 the active leaver's next seat be
 leaver's extra-turn marks (a seat could then take two turns in a row), and a departed anchor sent the rotation on from the active
 player.
 
+**"Loses all abilities" — the ability-loss core (S0a, 2026-11-01; the program: [ABILITY-LOSS-PROGRAM.md](ABILITY-LOSS-PROGRAM.md),
+the inventory: [ABILITY-LOSS-RESEARCH.md](ABILITY-LOSS-RESEARCH.md)).** Built inside the layer system; no parser emits it yet (every
+shape in `abilityLossShapes.js` is off), so no card is credited and no game creates it.
+- **The op.** A layer-6 effect `{ layerOp: "loseAllAbilities", exceptMana? }` (CR 613.1f), any affects mode, injectable through
+  `addContinuousEffect`. A grant made by the same effect is a sibling descriptor with `grantedWith`: the loss's id (a stored effect)
+  or `true` (beside a loss from the same static source with the same timestamp — an Aura's).
+- **`abilityLossOf(state, id)`** → null or `{ timestamp, keep, losses }` (`keep` "mana" only when every loss is exceptMana). The
+  BOARD FAST PATH: the raw collection keeps its `loseAllAbilities` effects beside it (`_lossBoardMemo`); an empty list answers null
+  at once, so every consult point is a no-op on a board without a loss. Decided off the RAW collection (`rawContinuousEffects`) —
+  never the filtered one. Memo: `_lossMemo` (state → Map(id → answer)). Re-entry guard: `_lossInProgress` (state → ids being
+  decided) answers null for a nested read of the same permanent (a dynamic "with flying" selector reads its keywords), and while
+  any loss is being decided (`_lossDepth > 0`) the collection reads RAW (unfiltered — no loss is decided from inside another) and NO
+  derived memo is READ or written — the filtered collection, the l6 index, the derive, the loss memo — the depth tested before the
+  memo read, so a partial answer is never served later and a decision never depends on which memo happened to exist (review F7).
+  Not modelled: CR 613.8 between two losses (Humility facing Humility, a "with flying" loss beside a lost flying-granter) — every
+  loss applies, and a loss decision reads the raw collection (the program's S3).
+- **The collection filter** (`withoutLostStatics`): `collectContinuousEffects` leaves out the effects whose STATIC source is a lost
+  permanent at layer ≥ 6 or with no layer (anthems, keyword grants, 7a CDAs, STATIC_REGISTRY's Omnath pump, the inert markers —
+  Teysa's multiplier, a Leyline's hexproof); layers 1–5 stay (CR 613.6 — a God's "isn't a creature", Urborg's Swamp type,
+  Changeling's every creature type). The layer-1–5 readers (`copyBaseOf`, `boardCountColors`, `effectiveTypeIdentity`, the two
+  board scans) read the raw collection: identical answers, and recursion-free while a loss is decided.
+- **The grant cutoff** (`effectAffects` → `grantKindOf` / `grantCutByLoss`): a layer-6 grant of an ABILITY — a real keyword (the
+  `GRANTABLE_STATIC_KEYWORDS` vocabulary), protection, ward, a crew grant, a granted mana / activated / triggered ability — with a
+  timestamp at or before a loss on its recipient does not apply, unless it is that loss's `grantedWith` sibling or a mana ability
+  under an exceptMana loss (CR 613.7). The rules-effect pseudo-keywords (cantBlock, mustAttack, goaded, unblockable, … — CR 113.12)
+  and the inert ops are never cut. `effectSelects` is the old affected-set half.
+- **The stripped view** (`strippedCardView`, exported through `withAbilityLoss(state, perm, card?)` and `abilityCardOf(state, perm)`):
+  the card with `oracle` / `oracle_text` = the kept text ("" — or the mana-ability lines for exceptMana), `keywords: []` (hasKeyword
+  reads that array live), each face's text blanked, `abilitiesLost: true` (+ `manaAbilitiesKept`); every characteristic kept. One
+  view per (base card object, keep, kept text) in `_lossViewMemo` (a WeakMap on the base card → Map(keep + "\u0000" + kept text →
+  view)): an exceptMana loss with no mana-ability line keeps the same "" a plain loss does, and the two views differ in
+  `manaAbilitiesKept` (review F1 — one view for both made a Dryad Arbor that lost everything tap for {G}). The object- and text-keyed
+  caches stay warm; `perm.card` is never rewritten (CR 707.2). `abilityCardOf` = copy-aware base
+  (`copyBaseOf` — manaCardOf's pick, recursion-free) → `classLiveCard` → the view; on a board without a loss it is the permanent's
+  own card object. **Every ability reader outside layers.js still reads the printed card** — routing them is S0b (the hand-off list
+  is in the research file).
+- **The seeds in layers.js**: `keywordSet`, `permanentHasKeyword`, `keywordInstanceCount` (the printed count is zero), the protection
+  colours / classes, and gateMet's host-printed-keyword gate read the view; a keyword counter counts only when its kind's stamp
+  (`perm.counterTimestamps[kind]`) is newer than the latest loss, the suspected designation likewise (`perm.suspectedTimestamp`), and
+  `kickedKeywords` is dropped.
+- **The name-keyed tables** gate on `abilitiesLost` (unless `manaAbilitiesKept`): manaModel's BASIC_LAND_MANA / KNOWN_ROCKS and its
+  land fallback's intrinsic basic-type mana, `grantedBasicTypeColors` (through abilityLossOf — CR 305.6), cardEffects' REGISTRY
+  (`manaDoesNotEmpty(state, pid, cardOf)` — gameEngine.emptyManaPools passes withAbilityLoss); STATIC_REGISTRY through the filter.
+- **The four prerequisites** (each changes play by itself — CHANGELOG ### Fixed):
+  - attach timestamps (CR 613.7e, 701.3c): `gameState.attachPermanent` gives the attachment a new timestamp (`timestampCounter`, then
+    +1) when it becomes attached to an object it wasn't attached to; re-attaching where it already is changes nothing (CR 701.3b).
+  - layer 4 in timestamp order (CR 613.3, 613.7): `applyTypeColorLayers` sorts its layer-4 effects (CDAs first, then timestamp,
+    stable), and `effectiveTypeIdentity` reads `layer4EffectsOf(state)` — the raw collection's layer-4 effects in that order,
+    memoized per state (`_layer4Memo`). Both used to apply them in collection order.
+  - counter timestamps (CR 613.7c): `gameState.addCounter` writes `counterTimestamps[type]` = the timestamp counter's CURRENT value
+    (no increment — no other timestamp moves; an effect created after it takes the same value, which reads the counter as the
+    older); `removeCounter` drops the stamp with the last counter of its kind. A counter written outside addCounter has no stamp and
+    reads as older than every effect.
+  - two layer-4 ops, mirrored in `effectiveTypeIdentity` when they name the candidate: `{ layerOp: "setCardTypes", types }` (CR 205.1a
+    — supertypes kept, a subtype kept only while correlated with a card type left: `subtypeFamilies.js`, the CR 205.3g–q lists) and
+    `{ layerOp: "replaceCreatureTypes", subtypes }` (every creature type replaced, Changeling's included — `changelingOverridden`, read
+    by every Changeling site in layers.js; a later all-creature-types effect wins again). The subtype counts INSIDE the derive
+    (`countsAsNeedleInDerive`'s subtype branch, `subtypeOnBattlefield`, the Ancestral Mask exclusion, the chosen-type check) read the
+    printed line on every board without either op, and the identity's subtypes (`hasSubtypeInDerive`) on a board that has one —
+    `boardSetsSubtypes(state)`, memoized per state with a last-state identity test (review F2 — Sliver Legion counted a Sliver made a
+    Treefolk). `boardChangesCardTypes` names both ops too.
+  - the save format (learnSaveSchema.js CONTRACT-MIG): `counterTimestamps` / `suspectedTimestamp` are v7 (`CURRENT_SCHEMA_VERSION`
+    7); the v6 → v7 migration stamps the version only — an absent stamp already reads as older than every effect (review F9).
+
 ### 4.7 Mana (`manaModel.js`)
 
 - `manaProduction(card)` → `{colors, amount, sacrifices?, requiresTap?, amountSpec?}`

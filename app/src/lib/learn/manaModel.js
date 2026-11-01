@@ -33,7 +33,7 @@
 import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf, playerLifeLocked } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes } from "./layers.js"; // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, abilityLossOf } from "./layers.js"; // + abilityLossOf: a land that lost its abilities has no intrinsic basic-land-type mana ability (grantedBasicTypeColors, CR 305.6, 613.1f) // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
@@ -2611,10 +2611,15 @@ function manaProductionImpl(card) {
 
   const name = String(card.name || "");
   const baseName = name.replace(/^Snow-Covered\s+/i, "").trim();
-  if (BASIC_LAND_MANA[baseName]) {
+  // THE NAME-KEYED TABLES SPEAK FOR THE PRINTED CARD ONLY (the ability-loss program, CR 613.1f): a card view whose abilities were lost
+  // (layers.abilityCardOf / withAbilityLoss — `abilitiesLost`) has no mana ability its name could vouch for: a Sol Ring or a Forest that
+  // lost its abilities taps for nothing (Imprisoned in the Moon's ruling: the Plains is still a Plains and taps only for the granted
+  // {C}). A loss that keeps the mana abilities (`manaAbilitiesKept` — "except mana abilities") keeps the tables.
+  const namesVouch = !card.abilitiesLost || !!card.manaAbilitiesKept;
+  if (namesVouch && BASIC_LAND_MANA[baseName]) {
     return { colors: [...BASIC_LAND_MANA[baseName]], amount: 1 };
   }
-  if (KNOWN_ROCKS[name]) {
+  if (namesVouch && KNOWN_ROCKS[name]) {
     return { colors: [...KNOWN_ROCKS[name].colors], amount: KNOWN_ROCKS[name].amount };
   }
 
@@ -2863,7 +2868,9 @@ function manaProductionImpl(card) {
     const plain = oracleForAdd.split("\n").map((l) => l.trim()).find((l) => PLAIN_MANA_LINE_RE.test(l));
     if (plain && plain !== oracleForAdd.trim()) return manaProductionImpl({ ...card, oracle: plain, oracle_text: plain });
     const tl = typeLineOf(card);
-    const intrinsic = Object.entries(BASIC_LAND_MANA).filter(([sub]) => sub !== "Wastes" && new RegExp(`\\b${sub}\\b`).test(tl)).map(([, colors]) => colors[0]);
+    // The intrinsic ability of a basic land type (CR 305.6) is an ability like any other: a land view whose abilities were lost has it
+    // no more (CR 613.1f — the tables' gate above).
+    const intrinsic = !namesVouch ? [] : Object.entries(BASIC_LAND_MANA).filter(([sub]) => sub !== "Wastes" && new RegExp(`\\b${sub}\\b`).test(tl)).map(([, colors]) => colors[0]);
     if (intrinsic.length) return { colors: intrinsic, amount: 1, requiresTap: true };
     return null;
   }
@@ -3139,6 +3146,10 @@ export function withGrantedMana(state, perm, prod) {
 function grantedBasicTypeColors(state, perm) {
   const printedLine = String(perm?.card?.type || perm?.card?.type_line || "");
   if (!/\bLand\b/i.test(printedLine)) return [];
+  // A land that lost its abilities (CR 613.1f) has no intrinsic mana ability, whichever layer-4 effect gave it the basic land type: the
+  // type is applied in layer 4, and the loss in layer 6 removes the ability the type carries. Unless the loss keeps the mana abilities.
+  const loss = abilityLossOf(state, perm.id);
+  if (loss && loss.keep !== "mana") return [];
   const eff = permanentTypes(state, perm.id);
   if (!eff.types.includes("Land")) return [];
   const out = [];
