@@ -6,7 +6,7 @@
 > (fallback §B/§D only).
 >
 > **Release batch (CLAUDE.md §7.2):** unreleased since **v0.169.0** (tagged 2026-10-31 on the `[0.169.0]` CHANGELOG cut):
-> **1 commit**, corpus **46.1% (15,957)** at the tag (v0.168.0 → v0.169.0: +133 gained, −5 false credit removed, 33 commits); engine gains since the tag: **+0**. The next tag
+> **2 commits**, corpus **46.1% (15,957)** at the tag (v0.168.0 → v0.169.0: +133 gained, −5 false credit removed, 33 commits); engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 >

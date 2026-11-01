@@ -1,5 +1,10 @@
 # SQUIRREL GIRL BASELINE — the anchor-pod program (Colton's 2026-09-05 order)
 
+> **⚠️ Superseded in part, 2026-10-31:** §3's pool and §7's gates are stale. The 09-05 gate is retired; Kinnan Mana Overload
+> and cdh are out of the pool; the upper-bar rule applies (threshold ≥ 40% over the 10,000-game baseline, Omnath's proposal,
+> open to Colton's veto). Current decisions: vault `memory/orders/squirrel-girl-baseline-program.md`. The operator runbook
+> moved to the vault: `omnath-tools/pilots/RUNBOOK-LEARNING.md` (v2).
+
 > **The order (Colton, 2026-09-05, verbatim intent):** *"I have a new Squirrel Girl deck that Cindy has pushed. I want
 > to run a large amount of games with Squirrel Girl against 10 different decks — 3 of them must be Kinnan, Believe it!
 > and Killer Turts. I want a baseline of how she plays; this is a full learning pass for you as well. After the baseline,
@@ -10,7 +15,7 @@
 > Arbiter play-nuance batch is filed.** Until then this program BUILDS and PROVES the machine on witness runs only.
 >
 > Owner: **Omnath** (self-play harness + trajectory data quality, per the 2026-08-16 ruling). Cindy owns the engine,
-> the corpus, and master. Companion runbook: [RUNBOOK-SG-BASELINE.md](RUNBOOK-SG-BASELINE.md). Memory:
+> the corpus, and master. Companion runbook: vault `omnath-tools/pilots/RUNBOOK-LEARNING.md` (moved 2026-10-31). Memory:
 > `memory/orders/squirrel-girl-baseline-program.md`. Tooling: `omnath-vault/omnath-tools/pilots/anchor-*.mjs`.
 
 ---
