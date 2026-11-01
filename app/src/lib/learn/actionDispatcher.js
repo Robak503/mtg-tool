@@ -843,6 +843,11 @@ function applyCastSpell(state, action) {
   // Ragavan's card leaves its OWNER's exile (zoneOwner above); every other cast splices the caster's own zone.
   const srcList = working.players[zoneOwner][fromZone];
   const srcIndex = srcList.findIndex(c => c.id === action.cardId);
+  // FAIL FAST (2026-11-01): the card was in the zone when the cast began (CARD_NOT_IN_ZONE above) but a cost paid since took it
+  // out — a Spirit Guide exiled for its own mana, a pitch naming the spell itself. Spliced at index -1, the zone came back as
+  // (zone minus its last card) + (the whole zone): every such cast doubled the caster's hand (self-play seed 3277877396). The offer
+  // never makes such a cast (manaModel.withoutOwnHandSource), so this is an upstream-bug detector, never a silent rebuild.
+  if (srcIndex === -1) throw new DispatcherError(`Card ${action.cardId} left ${fromZone} while its costs were paid`, "CARD_LEFT_ZONE");
   const nextSrc = [...srcList.slice(0, srcIndex), ...srcList.slice(srcIndex + 1)];
 
   // 4. Build a plain-data, SERIALIZABLE payload (Phase-7 PR-3) — no closure.

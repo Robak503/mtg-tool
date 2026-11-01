@@ -10,7 +10,24 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.9.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.10.0"`
+
+> **v1.10.0 (additive MINOR, 2026-11-01 — the driver never throws on an engine bug, and never hides one):**
+> - A throw anywhere inside the driver's loop — the legal-actions call, a pending-choice settler, the SBA pass, which until now
+>   threw out of `nextDecision` / `act` — is a `"dispatch-error"` decision carrying the error itself: `{ kind: "dispatch-error",
+>   reason, code, error: { name, message, code, stack }, turn, phase, step, ticks, maxTurnTicks, guard: { type: "engine-error",
+>   message } }`, on the session as that tick began (still `"active"`). A crash stays a crash: the self-play record is
+>   `result: "dispatch-error"` with `error`, `errorCode`, `errorStack` and the turn it happened on (it used to escape to the
+>   runner, which recorded turn 1). `endEngineStoppedGame` ends it (`"engine-stopped"`), so an Academy game is never left to
+>   re-throw on every resume. A dispatch-error with no `guard` (a refused answer, an auto-decided dispatch that throws) is
+>   unchanged. Under the test-time auditor (`MTG_AUDIT=1`, every vitest run) nothing is converted — the throw escapes, as before.
+> - Unchanged, stated because the engine underneath changed: `legalActions` / `isLegalAction`, a pilot's `legalActions` (§1.3)
+>   and the Academy's options list EVERY legal play — a cast per alternative-cost payment (Force of Will's pitch card, Flare of
+>   Denial's creature …), in the order they always came — and a trajectory row's `legal.n`, `legal.kinds`, `rank` and `forced`
+>   count and rank among them; a logged or dispatched action is the cast as paid. Inside the engine,
+>   `legalChoices.legalActionsForPlayer` now lists such a cast once per target with its payments on `altCostChoices`
+>   (`costChoices.js` — the AI ranks the short list; a late self-play game had offered 4,827,648 Force of Will casts); a direct
+>   caller of that internal list expands it with `costChoices.expandAllCostChoices`.
 
 > **v1.9.0 (additive MINOR, 2026-10-22 — the engine faults' stop):**
 > - The driver's two engine-fault exits name themselves in `guard` like the three guards: a step that throws —

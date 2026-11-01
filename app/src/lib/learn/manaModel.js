@@ -3784,6 +3784,18 @@ export function sourcesExcludingOneShotVictim(sources, victimId) {
 }
 
 /**
+ * The sources without the HAND-ZONE source of `cardId` (a Spirit Guide's "Exile this card from your hand: Add {G}", SG-6) — the
+ * same list when there is none (the common case: no allocation). A card being cast is on the stack before any mana ability is
+ * activated (CR 601.2a, 601.2g), and a card a cost discards or exiles from the hand is gone once that cost is paid, so neither
+ * can also be exiled for mana. Before 2026-11-01 a Spirit Guide paid for its own cast: the payment exiled it, the dispatcher's
+ * splice then missed it, and every recast doubled its controller's hand (self-play seed 3277877396). Pure.
+ */
+export function withoutOwnHandSource(sources, cardId) {
+  if (cardId == null || !sources.some((s) => s.fromHand && s.permanentId === cardId)) return sources;
+  return sources.filter((s) => !(s.fromHand && s.permanentId === cardId));
+}
+
+/**
  * The mana sources a CAST's payment may draw on — the dispatcher's own derivation, shared with the target-tax
  * re-check in legalChoices (stage ③ · 44) so a cast offered at its taxed cost and the payment that follows read
  * the same sources.
@@ -3823,6 +3835,10 @@ export function castPaymentSources(state, action) {
       && !(alt.exilePitchId != null && s.permanentId === alt.exilePitchId)
       && !(s.sacrifices && removed.has(s.permanentId)));
   }
+  // · THE CARD BEING CAST, and a hand card the cast's own cost discards (CR 601.2a, 601.2h): neither is in the hand to be exiled for
+  //   mana (withoutOwnHandSource — a Spirit Guide). The pitch card an alternative cost exiles is excluded above.
+  if ((action.fromZone || "hand") === "hand") sources = withoutOwnHandSource(sources, action.cardId);
+  for (const id of [action.discardCardId, ...(action.discardIds || [])]) sources = withoutOwnHandSource(sources, id);
   // · A sacrifice-a-creature source (the Altars) needs a creature the cast's own costs do not already claim.
   sources = withoutUnfeedableSacSources(state, action.playerId, sources, costReservedPermanentIds(action));
   return sourcesExcludingOneShotVictim(sources, action.sacCreatureId);
@@ -4051,22 +4067,39 @@ function planWithPhyrexian(cost, spendContext, attempt) {
   for (let k = 0; k <= (lifeOk ? pips.length : 0); k++) {
     const lifeAmount = k * PHYREXIAN_LIFE_PER_PIP;
     if (k > 0 && !(life > lifeAmount)) break;
-    for (const lifeSet of combinationsOf(pips.length, k)) {
+    for (const lifeSet of phyrexianLifeSets(pips, k)) {
       const plan = attempt(phyrexianAsMana(cost, lifeSet), k > 0 ? [{ permanentId: "phyrexian-life", payLife: lifeAmount, lifeAvail: life }] : null);
       if (plan) return k > 0 ? { ...plan, phyrexianLife: lifeAmount } : plan;
     }
   }
   return null;
 }
-/** Every k-element subset of 0..n-1, as index sets, in lexicographic order. */
-function combinationsOf(n, k) {
+/**
+ * The ways to pay k of the Phyrexian symbols `pips` with life, ONE per distinct cost: the symbols are interchangeable within their
+ * kind ({W/P} is {W/P}), so what a split costs is only how many of each kind it pays with life. Each split is its lexicographically
+ * first index set — the earliest symbols of each kind — and the splits come in the order of those sets, which is the order an
+ * every-subset walk first reached them; so the first split that pays is the one that walk found, and the plan is the same.
+ * Before 2026-11-01 that walk built every k-subset (C(n, k) of them) before trying one: Norn's Annex's {W/P} attack tax over a
+ * 75-permanent Squirrel board ran the attack planner out of memory (self-play seed 1462897988). Now the splits number at most
+ * the product over kinds of (count + 1) — n + 1 for one kind.
+ */
+function phyrexianLifeSets(pips, k) {
+  const kinds = new Map(); // symbol → its indices, ascending
+  pips.forEach((p, i) => {
+    const key = String(p);
+    if (!kinds.has(key)) kinds.set(key, []);
+    kinds.get(key).push(i);
+  });
+  const groups = [...kinds.values()];
   const out = [];
-  const walk = (start, picked) => {
-    if (picked.length === k) { out.push(new Set(picked)); return; }
-    for (let i = start; i < n; i++) walk(i + 1, [...picked, i]);
+  const walk = (g, left, picked) => {
+    if (g === groups.length) { if (left === 0) out.push(picked.slice().sort((a, b) => a - b)); return; }
+    const idx = groups[g];
+    for (let c = Math.min(left, idx.length); c >= 0; c--) walk(g + 1, left - c, [...picked, ...idx.slice(0, c)]);
   };
-  walk(0, []);
-  return out;
+  walk(0, k, []);
+  out.sort((a, b) => { for (let i = 0; i < k; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; });
+  return out.map((ids) => new Set(ids));
 }
 /** The cost with its Phyrexian symbols paid in mana except those in `lifeSet` (indices): a {B/P} becomes a {B} pip, a {G/U/P} a
  *  {G/U} hybrid pip; the symbols paid with life are gone from it (their life is the plan's base claim). */

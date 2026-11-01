@@ -28,6 +28,7 @@
 
 import { filterActions } from "./legalChoices.js";
 import { stableActionKey } from "./actionKey.js";
+import { expandAllCostChoices } from "./costChoices.js";
 import { pickAction } from "./opponentAI.js";
 import { narrateDecision, narrateAttackTrap } from "./narrator.js";
 import { detectAttackTraps } from "./trapDetector.js";
@@ -250,9 +251,14 @@ export function makeDecision(state, playerId, actions, options = {}) {
  * distinguishing fields, e.g. { kind, cardId }): kept, but it must now be
  * UNAMBIGUOUS — if the partial fields fit two or more legal actions we return
  * null (invalid choice, surfaced to the caller) rather than guessing.
+ *
+ * EVERY LEGAL PLAY (costChoices.js, 2026-11-01): the engine's list carries an alternative cost's payments on one cast
+ * (`altCostChoices`); both passes run over every legal play (expandAllCostChoices), so a cast paid with any pitch card matches
+ * exactly, and a partial choice that names no payment fits every payment's cast — ambiguous, refused — as it always was.
  */
-export function resolveChoice(actions, choice) {
+export function resolveChoice(engineActions, choice) {
   if (!choice) return null;
+  const actions = expandAllCostChoices(engineActions);
   const choiceKey = stableActionKey(choice);
   const exact = actions.find(a => stableActionKey(a) === choiceKey);
   if (exact) return exact;
@@ -266,7 +272,10 @@ export function resolveChoice(actions, choice) {
     // A permanent can have more than one activated ability — disambiguate by index so
     // two abilities sharing kind+permanentId+target don't collapse to the same choice.
     (a.abilityIndex === choice.abilityIndex || (a.abilityIndex == null && choice.abilityIndex == null)) &&
-    targetId(a) === targetId(choice)
+    targetId(a) === targetId(choice) &&
+    // A choice that names an alternative-cost payment names it exactly: a pitch card that is no legal payment never falls
+    // through to the one cast at that target that pays another way (the case with a single legal payment).
+    (choice.altCost == null || stableActionKey(choice.altCost) === stableActionKey(a.altCost))
   );
   return legacy.length === 1 ? legacy[0] : null;
 }

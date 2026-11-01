@@ -48,6 +48,7 @@
 
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction, DispatcherError } from "./actionDispatcher.js";
+import { expandAllCostChoices } from "./costChoices.js";
 import {
   isPlayerDead,
   hasWonGame,
@@ -73,7 +74,8 @@ import { PENDING_CHOICE_KINDS } from "./pendingChoice.js";
  * @returns {Array<object>} legal action objects, each with a `kind` + `playerId`
  */
 export function legalActions(state, seat) {
-  return legalActionsForPlayer(state, seat);
+  // EVERY legal play (costChoices.js): the engine carries an alternative cost's payments on one cast; the contract lists each.
+  return expandAllCostChoices(legalActionsForPlayer(state, seat));
 }
 
 /**
@@ -91,7 +93,7 @@ export function isLegalAction(state, action) {
   }
   let legal;
   try {
-    legal = legalActionsForPlayer(state, action.playerId);
+    legal = expandAllCostChoices(legalActionsForPlayer(state, action.playerId)); // every legal play, as legalActions lists them
   } catch {
     // Unknown seat ⇒ no legal actions ⇒ not legal. (legalActionsForPlayer throws
     // on an invalid seat; here that simply means "reject", not a crash.)
@@ -360,7 +362,20 @@ export function observe(state, seat) {
 //     "active") are unchanged; each error is logged with its stack. The Academy ends both games like a guard's
 //     (status "engine-stopped"); the pending-choice failsafe's engine-stuck still carries no `guard`.
 //   - learnSession.abandon also ends a session at its opening-hand mulligans (status "mulligan").
-export const PLAY_API_VERSION = "1.9.0";
+// 1.10.0 (additive MINOR — the driver never throws on an engine bug, 2026-11-01):
+//   - A throw anywhere inside the driver's loop (the legal-actions call, a pending-choice settler, the SBA pass — until now they
+//     threw out of nextDecision / act / advanceUntilDecision) is a "dispatch-error" decision carrying the error itself:
+//     { kind: "dispatch-error", reason, code, error: { name, message, code, stack }, turn, phase, step, ticks, maxTurnTicks,
+//       guard: { type: "engine-error", message } }, on the session as that tick began (status still "active"). A crash, reported
+//     as one: the self-play record says result "dispatch-error" with `error`, `errorCode`, `errorStack` and the real `turns`.
+//     endEngineStoppedGame ends it ("engine-stopped") like the guards' stops. The other dispatch-errors (a refused answer, an
+//     auto-decided dispatch that throws) carry no `guard` and are unchanged. Under the test-time auditor (MTG_AUDIT=1) nothing is
+//     converted: the throw escapes, as before.
+//   - legalActions / isLegalAction, a pilot's legalActions and the Academy's options still list EVERY legal play — a cast per
+//     alternative-cost payment (Force of Will's pitch card …), in the same order — and the trajectory row counts and ranks among
+//     them as before. Inside the engine (legalChoices.legalActionsForPlayer) such a cast is now one action per target carrying
+//     the payments on `altCostChoices` (costChoices.js); a caller of that internal list expands it with expandAllCostChoices.
+export const PLAY_API_VERSION = "1.10.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

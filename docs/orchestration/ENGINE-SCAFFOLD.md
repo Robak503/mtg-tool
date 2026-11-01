@@ -1342,6 +1342,12 @@ player.
   attack tax — Norn's Annex) pass the life; the offer's last pass (`withPhyrexianPayment`) prices each Phyrexian cast/activation
   with the payment's own plan, drops the unpayable and stamps `phyrexianLife`, which opponentAI.pickAction holds below
   LIFE_PRUDENCE_FLOOR. Compleated (CR 702.150a) is unmodeled: those planeswalkers pay the cost but don't resolve yet.
+  **The splits, not the subsets (2026-11-01):** `phyrexianLifeSets` tries each way to pay k symbols with life ONCE per distinct
+  cost — how many of each symbol kind — as its lexicographically first index set, in the order an every-subset walk first reached
+  it, so the first split that pays is the plan the walk found. The walk built every k-subset before trying one: Norn's Annex's
+  {W/P} per attacker over a 75-permanent Squirrel board ran the attack planner (`outnumberingAttackers` → `canAfford`) out of
+  memory (seed 1462897988). One caveat: with two different HYBRID Phyrexian kinds in one cost, same-split sets can order
+  `cost.hybrid` differently; no printed cost has two such kinds.
 - **Counter costs, no-{T} lines and per-turn limits (2026-10-17).** The two counter-cost lines a record pays are admitted only in
   their whole anchored line (`LAND_COUNTER_MANA_LINE_RE`, `PUT_COUNTER_MANA_LINE_RE` — manaLineRefused refuses the cost item in any
   other line): "{T}, Remove a <charge|mining|depletion> counter from this land: Add …" (`removesCounters` mode `"one"`: one
@@ -1637,6 +1643,39 @@ return-lands set) — non-carrier decks stay byte-identical by construction, and
 LOW carriers are pinned MUST-NOT-OFFER. `combatResolution.resolveCombatDamage` handles
 the keyword soup (trample/deathtouch/lifelink/infect/toxic/protection/menace),
 consults damage replacements, applies commander damage, then SBAs + dies triggers.
+
+**One cast per target INSIDE the engine, every legal play outside it (`costChoices.js`, 2026-11-01 — CR 601.2b, 601.2h).** The twin
+post-pass emits ONE alternative-cost cast per target / mode, never one per payment: an alternative cost payable more than one way
+(the pitch card of Force of Will / Force of Negation / Force of Vigor, the creature Flare of Denial or Dark Triumph sacrifices, the
+creature a Mercadian spell taps) carries the HOUSE payment in `altCost` / `altName` — `housePaymentIndex`, what
+`opponentAI.filterAltCastVariants` pays: the lowest mana value, then the lowest resource id, ties to the first offered — and every
+payment on `altCostChoices: [{ altCost, altName }]`; the AI's ranking pass reads that short list. `altCostChoices` never leaves the
+engine: `expandAllCostChoices` turns the list back into every legal play — each VARIANT (`costChoiceVariant`: one choice in place, no
+list) is key for key the cast the old per-payment list held, in the same order — and that is what `gameApi.legalActions` /
+`isLegalAction` (one equality), a pilot's `decide`, the Academy's ask options, `decisionGate.resolveChoice` (so a partial choice that
+names no payment is ambiguous and refused, as always) see. The trajectory row counts and ranks among every legal play
+(`everyPlayTally` / `everyPlayIndexOf`, without building the list), and what is dispatched and logged is the cast as paid. So the
+contract's "action ∈ legalActions" and the row semantics are unchanged; only `legalChoices.legalActionsForPlayer`, an engine-internal
+list, changed shape. A choice that names an altCost names it exactly in resolveChoice's legacy match. `withPayableOwedMana` judges an
+owed-mana alternative payment by payment. Why: every seat at every window enumerated N stack targets × M payments — 4,827,648 Force
+of Will casts in one self-play window (seed 3277877396), and the spread of that list into `legalActionsForPlayer` threw "Maximum call
+stack size exceeded". The pilot path still builds the expanded list (N × M) each window it is asked — bounded now that hands can't
+double, and only for a pilot. The ADDITIONAL-cost lanes (a discard, a sacrificed victim, an exiled graveyard card — `emit(ch, …)` per
+victim × target combo) still multiply inside the engine too; the AI ranks among those variants itself, so collapsing them is a play
+change of its own.
+
+**The card being cast never pays for itself, nor does the card a cost discards (CR 601.2a, 601.2g, 601.2h — 2026-11-01).** A Spirit
+Guide's "Exile this card from your hand: Add {G}" is a hand-zone source (SG-6); the card being cast is on the stack before any mana
+ability is activated, and a card exiled for mana can't then be discarded. `manaModel.withoutOwnHandSource` drops the cast card's
+own source from the cast's affordability (castActionsFromZone's per-card `castSources`) and from `castPaymentSources`, with every card
+the cast's own cost discards; the discard offer is priced the same way (`payableDiscarding`): a single discard the mana needs is not
+offered (Thrill of Possibility with Simian Spirit Guide and one Mountain: only the other card), and a counted discard keeps its
+least-valuable pick unless the payment then fails, when it takes the least valuable cards the payment allows (Cathartic Reunion
+discards the two others while the Guide pays). Before, the payment exiled the Guide, the dispatcher's splice found it at index -1 and
+rebuilt the hand as (hand minus its last card) + (the whole hand): every recast doubled the hand (Kinnan, seed 3277877396: 23 cards to
+2,116 within turn 34). The splice now refuses a card that left its zone while its costs were paid (`CARD_LEFT_ZONE`) — an upstream-bug
+detector, never a rebuild. Under vitest a test-time auditor (`AUDIT_VIOLATION`, a card in two zones) caught the doubling; in a real
+game nothing did.
 `decide({state, legalActions, seat, pilot})` is the **pilot injection point** for
 self-play (Omnath's pilots drive it); it validates the returned action against the
 offered set with a canonical-key deep compare (`actionInOfferedSet`). A pilot's
@@ -2213,7 +2252,16 @@ every tick slower, so a tick count alone never fires in time). Each names itself
 decision's `guard` (`{ type: "turn-stall" | "runaway" | "safety-cap", … }`) and leaves the
 session `active` — the harnesses count the `engine-stuck` result; the Academy's routes end
 the game with `endEngineStoppedGame` (status `engine-stopped`, a game-log line, a record,
-no save left to resume into the guard, 2026-10-22). One loop is not
+no save left to resume into the guard, 2026-10-22). **Any throw inside the loop** (2026-11-01) is a crash, reported as one: a `dispatch-error` carrying `error: { name, message, code,
+stack }`, the turn / phase / step and `guard: { type: "engine-error", message }`, on the session as that tick began, logged with its
+stack — `advanceUntilDecision` is a guard around `advanceUntilDecisionUnguarded`, which records each tick's starting session in
+`progress`. The self-play record is `dispatch-error` with `error`, `errorCode`, `errorStack` and the real `turns`;
+`endEngineStoppedGame` ends it (the `guard`), so an Academy game never re-throws on every resume. Under the test-time auditor
+(`MTG_AUDIT=1`, every vitest run) the guard converts nothing — the throw escapes, so engine corruption still turns a test red. Until
+then the legal-actions call, the pending-choice settlers and the SBA pass threw out of the driver, and the runner — which hands it a
+turn-1 session and gets the whole game back from one call — recorded a turn-34 throw as turn 1. The runner's own catch (now a
+backstop) records `turns: null` and `errorStack`. An auto-decided action whose dispatch throws keeps its `dispatch-error` (no guard).
+One loop is not
 `engine-stuck` at all: a loop of only MANDATORY actions is a **draw** (CR 104.4b /
 732.4 — Polyraptor beside Marauding Raptor). `mandatoryLoop.js` (a leaf) watches
 every tick and is reset by any tick that was not a plain priority pass; it answers

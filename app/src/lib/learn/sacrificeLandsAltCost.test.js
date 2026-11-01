@@ -22,6 +22,7 @@ import { dispatchAction, DispatcherError } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { classifyCard } from "./coverage.js";
 import { extractAltCost } from "./effects/castModifiers.js";
+import { expandCostChoices } from "./costChoices.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -107,7 +108,8 @@ describe("RUNTIME — the lands are the payment", () => {
 
   it("⭐ Dark Triumph: a Swamp opens it, any creature pays — and without a Swamp it is closed", () => {
     const withSwamp = state({ user: { hand: [DARK_TRIUMPH], battlefield: [perm(SWAMP("s1"), "p-s1"), perm(BEAR("b1"), "p-b1"), perm(BEAR("b2"), "p-b2")] } });
-    const alts = altCasts(withSwamp, "dt");
+    expect(altCasts(withSwamp, "dt").length).toBe(1); // ONE cast, the creatures on its altCostChoices (costChoices.js, 2026-11-01)
+    const alts = altCasts(withSwamp, "dt").flatMap(expandCostChoices);
     expect(alts.map((a) => a.altCost.sacId).sort()).toEqual(["p-b1", "p-b2"]); // one payment per creature — creatures aren't fungible
     const out = resolveTopOfStack(dispatchAction(withSwamp, alts.find((a) => a.altCost.sacId === "p-b1")));
     expect(out.players.user.graveyard.map((c) => c.name)).toContain("Grizzly Bears");

@@ -22,6 +22,7 @@ import { resolveTopOfStack } from "./gameEngine.js";
 import { permanentPower } from "./layers.js";
 import { pickAction } from "./opponentAI.js";
 import { classifyCard } from "./coverage.js";
+import { expandCostChoices } from "./costChoices.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -68,13 +69,16 @@ describe("TAP-A-CREATURE — the whole cards classify", () => {
 });
 
 describe("TAP-A-CREATURE — the offer", () => {
-  it("⭐ one alt per UNTAPPED creature — a summoning-sick one included, a tapped one never; no mana spent", () => {
+  it("⭐ one payment per UNTAPPED creature — a summoning-sick one included, a tapped one never; no mana spent", () => {
     const s = tapState({
       hand: [RALLY],
       battlefield: [perm(PLAINS, "p1"), perm(BEAR, "b1"), perm(BEAR, "b2", { summoningSick: true }), perm(BEAR, "b3", { tapped: true })],
     });
     const all = casts(s);
-    const alts = altsOf(all, "rally");
+    // ONE cast, its payments on altCostChoices (costChoices.js, 2026-11-01 — the tapped creature is chosen as it is cast, CR 601.2h);
+    // the expanded variants are the per-creature casts this pinned before.
+    expect(altsOf(all, "rally").length).toBe(1);
+    const alts = altsOf(all, "rally").flatMap(expandCostChoices);
     expect(alts.map((a) => a.altCost)).toEqual([
       { kind: "tapCreature", tapCreatureId: "b1", tapCreatureName: "Grizzly Bears" },
       { kind: "tapCreature", tapCreatureId: "b2", tapCreatureName: "Grizzly Bears" }, // CR 302.6 — summoning sickness is no bar

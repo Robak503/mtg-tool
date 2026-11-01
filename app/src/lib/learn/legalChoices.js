@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked, playerLifeLocked, blockDeclarationOpen } from "./gameState.js"; // B4: the Reflector Mage name cast lock; playerLifeLocked — CR 119.8, a life total that can't change can't pay life; blockDeclarationOpen — CR 509.1
-import { canAfford, planPayment, manaSources, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
+import { canAfford, planPayment, manaSources, withoutOwnHandSource, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
@@ -129,6 +129,7 @@ import { hideawayPlayOfferable } from "./effects/atoms/hideaway.js";
 import { isGraveyardReanimateAura } from "./animateDeadGate.js"; // P·12 — Animate Dead // P·10 — the linked free play is offered only when it can do something // P·6 — War Room's life cost (CR 903.4; a zero-import leaf)
 import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts, enchantableHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — one cast per legal host (CR 303.4a); every lane's hosts narrowed to what its Aura may enchant
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
+import { costChoiceVariant } from "./costChoices.js"; // one cast per target, its alternative-cost payments on altCostChoices (CR 601.2b, 601.2h)
 
 /**
  * AC-PERMANENT (CR 601.2f) — the additional cost of a spell that resolves as a PERMANENT.
@@ -1057,6 +1058,36 @@ function altCastName(alt, pay) {
   return bits.join(", ");
 }
 
+/**
+ * THE HOUSE PAYMENT among an alternative cost's payments for one cast (costChoices.js): the one the AI's dominance filter pays
+ * (opponentAI.filterAltCastVariants) — the lowest mana value of the card it exiles or the creature it sacrifices (0 for anything
+ * else), then the lowest resource id (the pitch / victim id, the joined land ids), ties to the first offered. The offered cast
+ * carries it, so an AI or a pilot that takes the cast as offered pays exactly what it paid when every payment was its own cast.
+ * Returns an index into `payments`.
+ */
+function housePaymentIndex(state, playerId, payments) {
+  const player = state.players[playerId];
+  const mvOf = (pay) => {
+    const card = pay.exilePitchId != null ? (player?.hand || []).find((h) => h.id === pay.exilePitchId)
+      : pay.sacId != null ? (player?.battlefield || []).find((p) => p.id === pay.sacId)?.card : null;
+    return typeof card?.cmc === "number" ? card.cmc : 0;
+  };
+  const idOf = (pay) => String(pay.exilePitchId ?? pay.sacId ?? (pay.returnLandIds || []).join("+"));
+  let best = 0;
+  for (let i = 1; i < payments.length; i++) {
+    const mv = mvOf(payments[i]);
+    const bestMv = mvOf(payments[best]);
+    if (mv < bestMv || (mv === bestMv && idOf(payments[i]) < idOf(payments[best]))) best = i;
+  }
+  return best;
+}
+
+/** One alternative-cost cast of `a` paid with `payments` (non-empty): the house payment in place, every payment on the choices. */
+function altCostCast(state, playerId, a, spec, payments, choices) {
+  const house = choices[housePaymentIndex(state, playerId, payments)];
+  return { ...a, cost: spec.owed, altCost: house.altCost, altName: house.altName, ...(choices.length > 1 ? { altCostChoices: choices } : {}) };
+}
+
 // The per-card OFFER decision: a payable, condition-satisfied, wave-vetted alt cost on a HIGH program.
 // HIGH is the ALT-6 population gate — the 15 LOW altCost carriers (Misdirection, Deflecting Swat, Force of
 // Vigor, …) attach metadata but their BODIES are unmodeled (Arbiter-routed); offering would cast an
@@ -1275,6 +1306,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 
   for (const card of cards) {
     if (isLand(card)) continue;
+    // THE CARD BEING CAST CAN'T PAY FOR ITSELF (CR 601.2a, 601.2g): it is on the stack before any mana ability is activated, so a
+    // Spirit Guide's "Exile this card from your hand: Add {G}" is gone with it. Every price below reads these sources; for any card
+    // that isn't its own hand source they are manaSources' list itself (manaModel.castPaymentSources excludes it from the payment).
+    const castSources = (s, pid) => withoutOwnHandSource(manaSources(s, pid), card.id);
     // P·39b — is this spell every creature type (Changeling; a creature spell this player's Maskwood Nexus reaches)? Read once for
     // the cost readers below (CR 601.2f — the spell is the caster's while its cost is determined).
     const everyType = cardIsEveryCreatureType(state, card, playerId);
@@ -1423,7 +1458,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // spend them (restricted-first in the planner). The ability-activation path threads NONE — Klauth's
     // "only to cast spells" is enforced by absence (the default-deny posture).
     const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [], castEvery: everyType, ...lifePaymentContext(state, playerId) }; // P·39b — castEvery: Cavern-style "creature spell of the chosen type" mana sees every creature type; + the caster's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f, 2026-10-17)
-    const affordable = (freeCast && !costOwesMana(cost)) || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
+    const affordable = (freeCast && !costOwesMana(cost)) || canAfford(player.manaPool, castSources(state, playerId), cost, spendContext);
     // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
     // under an alternative cost — a different, unmodeled line), payable right now.
     // RG-8 (2026-09-05 — the Bringers): the card's OWN "You may pay <pips> rather than pay this spell's mana cost" is the
@@ -1443,7 +1478,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const fixedAltCost = fixedAltPips ? totalCost({ ...fixedAltPips }) : null; // (a copy: WUBRG_COST is shared by every card of the call)
     const fixedAltVariants = [];
     if (!!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
-      && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext)) {
+      && canAfford(player.manaPool, castSources(state, playerId), fixedAltCost, spendContext)) {
       fixedAltVariants.push({ cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });
     }
     // A BOARD-GRANTED {0} (Rooftop Storm's Zombie creature spells, Dracogenesis' Dragon spells, Darksteel Monolith's colourless
@@ -1456,7 +1491,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       for (const g of zeroGrants) {
         if (named.has(g.sourceName) || !zeroAltCostGrantAllows(g, card, everyType, printedCmc)) continue;
         const zeroCost = totalCost(parseManaCost("{0}"));
-        if (!canAfford(player.manaPool, manaSources(state, playerId), zeroCost, spendContext)) continue;
+        if (!canAfford(player.manaPool, castSources(state, playerId), zeroCost, spendContext)) continue;
         named.add(g.sourceName);
         fixedAltVariants.push({ cost: zeroCost, altManaCost: "granted", altName: `pay {0} rather than its mana cost (${g.sourceName})`, ...(g.oncePerTurn ? { altCostOnceSourceId: g.sourceId } : {}) });
       }
@@ -1479,7 +1514,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // The alternative pays no mana of its own, but what a cost increase leaves on its {0} is owed (`zeroAltCost`, CR 118.9d): the twin
     // carries it as its cost and pays it with the mana; while the caster can't fund it the alternative is not offered.
     const altSpec = (!freeCast && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? ""))
-        && (!costOwesMana(zeroAltCost) || canAfford(player.manaPool, manaSources(state, playerId), zeroAltCost, spendContext)))
+        && (!costOwesMana(zeroAltCost) || canAfford(player.manaPool, castSources(state, playerId), zeroAltCost, spendContext)))
       ? computeAltCastSpec(state, playerId, card)
       : null;
     if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable, owed: zeroAltCost });
@@ -1499,7 +1534,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // through on its BEST-CASE cost and settle per chosen target below (each choice re-checks affordability).
     const program = parseCastProgram(card); // S1.1 — stripped parse; matches the classifier + the dispatcher fallback
     const tcr = program?.targetConditionalReduction || null;
-    const tcrAffordable = !!tcr && canAfford(player.manaPool, manaSources(state, playerId), { ...cost, generic: Math.max(0, (cost.generic || 0) - tcr.amount) }, spendContext);
+    const tcrAffordable = !!tcr && canAfford(player.manaPool, castSources(state, playerId), { ...cost, generic: Math.max(0, (cost.generic || 0) - tcr.amount) }, spendContext);
     if (!affordable && !emergeSpec && !altSpec && !tcrAffordable && !wubrgAffordable) continue;
 
     const effect = parseSpellEffect(card);
@@ -1544,7 +1579,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // The kicker is an additional cost (CR 702.33a): it joins the mana cost BEFORE the reductions (CR 601.2f; Herald of War's
         // ruling) — Burst Lightning kicked under Helm of Awakening is {R} + {4} − {1} = {3}{R}.
         kickedSpellCost = totalCost(mergeManaCost(manaCost, kCost));
-        kickedSpellAffordable = canAfford(player.manaPool, manaSources(state, playerId), kickedSpellCost);
+        kickedSpellAffordable = canAfford(player.manaPool, castSources(state, playerId), kickedSpellCost);
       } else {
         // TEAMWORK N — no extra mana: tap creatures with total power ≥ N (the printed reminder). The same mana cost, paid
         // WITHOUT the tapped creatures (manaModel.castPaymentSources drops them, exactly as the dispatcher will).
@@ -1689,7 +1724,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // cracked to pay the spell's mana cost — re-check affordability with all N excluded. A repeatable
           // victim taps first legally, so it's only dropped from the sources when it's a one-shot.
           if (!freeCast) {
-            let src = manaSources(state, playerId);
+            let src = castSources(state, playerId);
             for (const id of chosenIds) src = sourcesExcludingOneShotVictim(src, id);
             // + a sacrifice-a-creature source (the Altars) cannot be fed one of the N victims (manaModel.castPaymentSources).
             src = withoutUnfeedableSacSources(state, playerId, src, new Set(chosenIds));
@@ -1717,7 +1752,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // can't also be cracked to pay the mana cost — re-check affordability with it excluded, per
           // victim (another victim or source may still afford). A repeatable victim taps first legally.
           // + a sacrifice-a-creature source (the Altars) cannot be fed THE victim either (manaModel.castPaymentSources).
-          if (!freeCast && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(manaSources(state, playerId), victim.id), new Set([victim.id])), cost)) continue;
+          if (!freeCast && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(castSources(state, playerId), victim.id), new Set([victim.id])), cost)) continue;
           for (const ch of combos) {
           // Don't sacrifice the very permanent the effect targets — paid as a cost (gone before the spell
           // resolves) → the target would fizzle (CR 608.2b). Pointless self-defeating action; drop it.
@@ -1755,7 +1790,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // The additional mana joins the mana cost BEFORE the taxes and reductions are applied (CR 601.2f): Spark Harvest's
         // "pay {3}{B}" under Helm of Awakening is {B} + {3}{B} − {1} = {2}{B}{B}.
         const mergedCost = totalCost(addExtraManaCost(manaCost, addCost.pips));
-        if (!canAfford(player.manaPool, manaSources(state, playerId), mergedCost, spendContext)) continue;
+        if (!canAfford(player.manaPool, castSources(state, playerId), mergedCost, spendContext)) continue;
         // ⭐⭐ THE CHARGE IS THE SAME OBJECT AS THE OFFER, and that is the entire safety argument. The
         // dispatcher pays `action.cost` through planPayment; stamping the MERGED cost here means the
         // additional mana is charged with NO dispatcher change at all, and offer and payment cannot drift
@@ -1793,6 +1828,17 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (!affordable) continue; // R1.5 — same printed-cost re-check as payLife above
         const discardable = player.hand.filter(h => h.id !== card.id);
         if (discardable.length < addCost.count) continue;
+        // A DISCARDED CARD CAN'T ALSO PAY (CR 601.2g, 601.2h — 2026-11-01): a Spirit Guide's hand mana is exiled before the costs are
+        // paid, so the card it is can't then be discarded, and the payment (manaModel.castPaymentSources) leaves out the hand source of
+        // every card the cast discards. Priced the same way here, so no cast the dispatcher refuses is offered: Thrill of Possibility
+        // with Simian Spirit Guide and one Mountain offered "discard the Guide" (MANA_SHORT — and the AI picked it). The same sources
+        // when nothing discarded is a hand source — then no re-price at all.
+        const payableDiscarding = (ids) => {
+          const all = castSources(state, playerId);
+          let left = all;
+          for (const id of ids) left = withoutOwnHandSource(left, id);
+          return left === all || canAfford(player.manaPool, left, cost, spendContext);
+        };
         if (addCost.random) {
           // RG-7 (2026-09-05 — Sonic Burst): ONE action; the dispatcher picks the pitch at payment with the seeded rng.
           for (const ch of combos) emit(ch, { discardRandom: true, discardName: "discard a card at random" });
@@ -1800,13 +1846,24 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion). Reuse the each-player discard
           // least-valuable policy (autoPickDiscardCandidate: lowest MV, then power, then name, then id) to pick
           // EXACTLY N and offer ONE cast per target combo (freezing the N ids on `discardIds`).
-          const chosen = [...discardable].sort(leastValuableCardCmp).slice(0, addCost.count);
+          const ranked = [...discardable].sort(leastValuableCardCmp);
+          let chosen = ranked.slice(0, addCost.count);
+          // The least valuable N, unless the cast can't then be paid (a Spirit Guide among them that the mana needs): then the least
+          // valuable N the payment allows, taken in the same order (Cathartic Reunion discards the two others while the Guide pays).
+          if (!payableDiscarding(chosen.map(c => c.id))) {
+            chosen = [];
+            for (const c of ranked) if (chosen.length < addCost.count && payableDiscarding([...chosen, c].map(x => x.id))) chosen.push(c);
+            if (chosen.length < addCost.count) continue;
+          }
           const chosenIds = chosen.map(c => c.id);
           for (const ch of combos) emit(ch, { discardIds: chosenIds, discardName: `discard ${chosen.map(c => c.name).filter(Boolean).join(", ")}` });
         } else {
           // N=1 — one cast per discardable hand card (a real in-game pick). BYTE-IDENTICAL.
-          for (const dc of discardable) for (const ch of combos) {
-            emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+          for (const dc of discardable) {
+            if (!payableDiscarding([dc.id])) continue; // the card the mana needs can't be the one discarded
+            for (const ch of combos) {
+              emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+            }
           }
         }
       } else if (addCost.kind === "exileFromGraveyard") {
@@ -1997,7 +2054,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (spreeCost != null) withAdditions = mergeManaCost(withAdditions, parseManaCost(spreeCost));
         const hit = !!tcr && targetConditionalReductionHits(state, playerId, ch.targets, tcr);
         const cost = freeCast ? base.cost : totalCost(withAdditions, { extraReduction: hit ? tcr.amount : 0 });
-        if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext)) return null;
+        if (!freeCast && !canAfford(player.manaPool, castSources(state, playerId), cost, spendContext)) return null;
         const striven = { ...common, cost, ...(spreeCost != null ? { spreeCost } : {}) };
         return kickedSpell ? { ...striven, kicked: false } : striven;
       };
@@ -2093,7 +2150,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (auraKicker) {
           const auraKickerCost = parseManaCost(auraKicker);
           const auraKickedCost = totalCost(mergeManaCost(manaCost, auraKickerCost)); // the kicker before the reductions (CR 601.2f)
-          if (canAfford(player.manaPool, manaSources(state, playerId), auraKickedCost)) {
+          if (canAfford(player.manaPool, castSources(state, playerId), auraKickedCost)) {
             for (const t of targets) {
               actions.push({ ...base, cost: auraKickedCost, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, kicked: true, kickedName: "kicked" }); // `cmc` stays printed (CR 118.8d)
             }
@@ -2136,7 +2193,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         pips: coloredPipReductionForSpell(costReducers, asCast, false),
       };
       const bestowCost = assembleTotalCost(parseManaCost(bestowCostStr), bestowMods, { manaValue: printedCmc });
-      const canAffordBestow = canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
+      const canAffordBestow = canAfford(player.manaPool, castSources(state, playerId), bestowCost);
       // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
       // isn't modeled) — so a clean bestow card here never has {X} in its bestow cost; no X enumeration.
       if (canAffordBestow && !bestowCost.hasX) {
@@ -2242,7 +2299,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         for (let k = 1; k <= MULTIKICK_OFFER_CAP; k++) {
           kicks = mergeManaCost(kicks, unit);
           const folded = totalCost(kicks);
-          if (!canAfford(player.manaPool, manaSources(state, playerId), folded, spendContext)) break;
+          if (!canAfford(player.manaPool, castSources(state, playerId), folded, spendContext)) break;
           actions.push({ ...base, cost: folded, targets: [], needsTargets: false,
             kicked: true, kickCount: k, kickedName: `kicked ×${k}` });
         }
@@ -2257,7 +2314,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (!freeCast) {
         const kickerCost = parseManaCost(kickerSpec.kickerCost);
         const kickedCost = totalCost(mergeManaCost(manaCost, kickerCost)); // the kicker joins the mana cost before the reductions (CR 601.2f)
-        if (canAfford(player.manaPool, manaSources(state, playerId), kickedCost)) {
+        if (canAfford(player.manaPool, castSources(state, playerId), kickedCost)) {
           actions.push({
             ...base,
             cost: kickedCost, // `cmc` stays printed (base): the kicker is paid, never part of the mana value (CR 118.8d)
@@ -2302,7 +2359,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Affordability EXCLUDES the victim from the mana sources — a sacrificed mana dork can't also tap to
         // pay (the γ1 double-spend guard; the dispatcher applies the identical exclusion) — nor feed an Altar (2026-10-17: the
         // payment's castPaymentSources narrows the Altars' victims by the emerge victim, so the offer does too).
-        const sources = withoutUnfeedableSacSources(state, playerId, manaSources(state, playerId).filter((s) => s.permanentId !== victim.id), new Set([victim.id]));
+        const sources = withoutUnfeedableSacSources(state, playerId, castSources(state, playerId).filter((s) => s.permanentId !== victim.id), new Set([victim.id]));
         if (!canAfford(player.manaPool, sources, reducedCost)) continue;
         actions.push({
           ...base,
@@ -2403,12 +2460,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !carriesAdditionalMana(a)) ? altSpecs.get(a.cardId) : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.affordable) out.push(a); // the normal hard-cast survives only when genuinely payable
-      for (const pay of spec.payments) {
-        // Never sacrifice the very permanent the spell targets — the cost is paid before resolution, so the
-        // target would fizzle (CR 608.2b). Mirrors the additional-cost sacrifice exclusion.
-        if (pay.sacId && (a.targets || []).some((t) => t.id === pay.sacId)) continue;
-        out.push({ ...a, cost: spec.owed, altCost: { kind: spec.alt.kind, ...(spec.alt.evoke ? { evoke: true } : {}), ...pay }, altName: altCastName(spec.alt, pay) }); // + evoke flag (Solitude)
+      // ONE alternative-cost cast per target, never one per payment (costChoices.js — CR 601.2b, 601.2h: the pitch card, the
+      // creature sacrificed or tapped is chosen as the spell is cast). The payments' { altCost, altName } are built once per card
+      // and shared by every target's cast; the house payment rides in place and the rest on `altCostChoices`.
+      if (!spec.choices) {
+        spec.choices = spec.payments.map((pay) => ({ altCost: { kind: spec.alt.kind, ...(spec.alt.evoke ? { evoke: true } : {}), ...pay }, altName: altCastName(spec.alt, pay) })); // + evoke flag (Solitude)
       }
+      // Never sacrifice the very permanent the spell targets — the cost is paid before resolution, so the
+      // target would fizzle (CR 608.2b). Mirrors the additional-cost sacrifice exclusion.
+      const targetIds = new Set((a.targets || []).map((t) => t.id));
+      const keep = spec.payments.map((pay) => !(pay.sacId && targetIds.has(pay.sacId)));
+      if (keep.every(Boolean)) out.push(altCostCast(state, playerId, a, spec, spec.payments, spec.choices));
+      else if (keep.some(Boolean)) out.push(altCostCast(state, playerId, a, spec, spec.payments.filter((_, i) => keep[i]), spec.choices.filter((_, i) => keep[i])));
     }
     return out;
   }
@@ -5097,11 +5160,28 @@ function applyTargetTaxes(state, playerId, actions) {
  * WHAT A FREE OR NO-MANA ALTERNATIVE CAST STILL OWES IS PAYABLE (CR 118.9d, 601.2g, 601.2h): a `freeCast` or `altCost` cast whose cost
  * owes mana — what a tax leaves on its {0} — is offered only when the dispatcher's own plan (offeredPaymentPlan — its sources, its spend
  * context) pays it: the creature an additional cost sacrifices, the creature the alternative cost taps and the card it exiles can't
- * also pay. Every other action passes untouched, and a list with no such cast is returned as it is.
+ * also pay. Every other action passes untouched, and a list with no such cast is returned as it is. A cast carrying cost choices
+ * (costChoices.js) is judged payment by payment: it keeps the payments whose own plan pays, the house among them in place, and is
+ * gone when none does — what the one-cast-per-payment list kept, cast by cast.
  */
 function withPayableOwedMana(state, playerId, actions) {
-  if (!actions.some((a) => a?.kind === "cast-spell" && (a.freeCast || a.altCost) && costOwesMana(a.cost))) return actions;
-  return actions.filter((a) => !(a?.kind === "cast-spell" && (a.freeCast || a.altCost) && costOwesMana(a.cost)) || offeredPaymentPlan(state, playerId, a) !== null);
+  const owes = (a) => a?.kind === "cast-spell" && (a.freeCast || a.altCost) && costOwesMana(a.cost);
+  if (!actions.some(owes)) return actions;
+  const out = [];
+  for (const a of actions) {
+    if (!owes(a)) { out.push(a); continue; }
+    if (!Array.isArray(a.altCostChoices)) {
+      if (offeredPaymentPlan(state, playerId, a) !== null) out.push(a);
+      continue;
+    }
+    const payable = a.altCostChoices.filter((c) => offeredPaymentPlan(state, playerId, costChoiceVariant(a, c)) !== null);
+    if (payable.length === a.altCostChoices.length) { out.push(a); continue; }
+    if (!payable.length) continue;
+    const house = payable[housePaymentIndex(state, playerId, payable.map((c) => c.altCost))];
+    const { altCostChoices: _choices, ...rest } = a;
+    out.push({ ...rest, altCost: house.altCost, altName: house.altName, ...(payable.length > 1 ? { altCostChoices: payable } : {}) });
+  }
+  return out;
 }
 
 /** The cost passes every offered list takes last: the target taxes, then the owed-mana check on the free and no-mana casts. */

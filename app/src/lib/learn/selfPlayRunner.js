@@ -394,23 +394,28 @@ export function runSelfPlayGame({
   if (resolveArbiter) advanceOpts.resolveArbiter = resolveArbiter; // ARBITER-IN-RUNNER — cache-backed gated-card resolve; absent ⇒ byte-identical (hash preserved)
 
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
-  // returns a structured engine-stuck / dispatch-error decision — but we still
-  // guard the call so a truly unexpected throw is reported honestly, not hidden.
+  // returns a structured engine-stuck / dispatch-error decision (a throw inside its loop is a
+  // dispatch-error carrying the error and the turn it happened on) — but we still guard the call so
+  // a truly unexpected throw (or, under the test-time auditor, any throw) is reported honestly.
   let advanced;
   try {
     advanced = advanceUntilDecision(session, advanceOpts);
   } catch (error) {
+    console.error("[self-play] advanceUntilDecision threw (recorded as dispatch-error, turn unknown):", error); // the stack, which the record can't carry
     return {
       result: "dispatch-error",
       status: session.status,
       reason: error?.message || "advanceUntilDecision threw",
-      turns: session.state?.turn ?? 0,
+      // The turn it happened on is unknown: the whole game is played inside that one call, so `session` — the one handed in — is
+      // still on turn 1 (until 2026-11-01 this said `session.state.turn`, and a game that died on turn 34 read as a turn-1 crash).
+      turns: null,
       ticks: 0,
       log: session.state?.log || [],
       meta,
       trainingWeight: 0, // a non-completion is never a learnable row
       onThePlay: session.state?.startingPlayer ?? null, // the game DID start; report who led
       error: error?.message || String(error),
+      errorStack: error?.stack ?? null,
     };
   }
 
@@ -486,6 +491,9 @@ export function runSelfPlayGame({
     // bottom-picker active for this game's mulligan phase; 0 = no mulligan phase ran.
     // NEVER pool mulligan data across policy versions (the re-anchor warning in the order).
     mulliganPolicyV: (hasAnyMulliganPilot || defaultAIMulligan) ? 2 : 0,
+    // A THROW the driver converted (2026-11-01): a dispatch-error carrying the error itself — its message and stack ride the record,
+    // the turn is the one it happened on (`turns` above). Absent on every other record, so those are unchanged.
+    ...(decision.error ? { error: decision.error.message ?? null, errorCode: decision.error.code ?? null, errorStack: decision.error.stack ?? null } : {}),
   };
 
   // EPOCH-2 per-game instrumentation (schemaVersion 3): per-seat finish ranks +

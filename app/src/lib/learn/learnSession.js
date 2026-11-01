@@ -68,6 +68,7 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
+import { expandAllCostChoices, withoutCostChoices, everyPlayTally, everyPlayIndexOf } from "./costChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { actionChangedGame } from "./antiLoopLatch.js"; // the anti-loop latch: did an auto-decided non-pass action change the game? (a zero-import leaf)
 import { createLoopWatch } from "./mandatoryLoop.js"; // CR 104.4b / 732.4 — a loop of only mandatory actions is a draw (a zero-import leaf)
@@ -1091,6 +1092,11 @@ function actionInOfferedSet(action, offered) {
  * { turn, seat, pilot, features, action } per decide call (the policy-training
  * substrate). Recording is opt-in and pure (featurizeState reads, mutates nothing);
  * default (no recorder) adds zero overhead.
+ *
+ * EVERY LEGAL PLAY (costChoices.js, 2026-11-01): `offered` is the engine's list, where an alternative cost's payments ride one
+ * cast (`altCostChoices`). The pilot is handed every legal play (expandAllCostChoices — the list it always saw), the row counts and
+ * ranks among every legal play (everyPlayTally / everyPlayIndexOf, without building the list), and what is returned — dispatched
+ * and logged — is the cast as paid (the house variant for the engine's own pick), never the choice list.
  */
 function resolveDecideAction({
   decide,
@@ -1101,7 +1107,8 @@ function resolveDecideAction({
   fallbackAction,
   recordDecision,
 }) {
-  let chosen = fallbackAction;
+  let chosen = withoutCostChoices(fallbackAction);
+  const everyPlay = typeof decide === "function" ? expandAllCostChoices(offered) : null;
   // ENGINE-COMPUTED FEATURES to the pilot (Omnath's eval-net seam ask, 2026-07-10): the SAME
   // featurizeState object the recorder row carries is passed INTO decide — a persona consuming
   // engine-computed features instead of re-deriving them from raw state can't drift from the
@@ -1135,7 +1142,7 @@ function resolveDecideAction({
   if (typeof decide === "function") {
     let candidate;
     try {
-      candidate = decide({ state, legalActions: offered, seat, pilot, features, previewFeatures });
+      candidate = decide({ state, legalActions: everyPlay, seat, pilot, features, previewFeatures });
     } catch (err) {
       // A throwing pilot must never abort a real game — fall back to the default pick.
       if (typeof console !== "undefined" && console.warn) {
@@ -1144,15 +1151,16 @@ function resolveDecideAction({
       candidate = undefined;
     }
     // Validate against the OFFERED set (not a recomputed set) — exactly what the pilot saw.
-    chosen = actionInOfferedSet(candidate, offered) ? candidate : fallbackAction;
+    chosen = actionInOfferedSet(candidate, everyPlay) ? candidate : chosen;
   }
   if (typeof recordDecision === "function" && chosen) {
     try {
       // ROWS v2 (EPOCH-2 instrumentation, schemaVersion 3): what was REJECTED matters for
       // policy learning — record the offered set's size + kind histogram, the chosen action's
       // rank in the engine's own ordering, the stack depth, and whether the choice was forced.
-      const legalKinds = {};
-      for (const a of offered) if (a?.kind) legalKinds[a.kind] = (legalKinds[a.kind] || 0) + 1;
+      // Over every legal play — what the pilot was handed (a cast per alternative-cost payment), counted without building it.
+      const tally = everyPlayTally(offered);
+      const legalKinds = tally.kinds;
       // M5.1 (featuresV=3 — the nearTie/top-k unpark, Omnath handoff): pickCastAction's ranking
       // rides the tick-scoped side-channel (see opponentAI.takeLastCastRanking). Attached ONLY
       // when the recorded choice IS a cast the ranking covers (kind + cardId guarded), so a
@@ -1174,10 +1182,13 @@ function resolveDecideAction({
         features, // the SAME object decide() received — pilot view and training row can't diverge
 
         action: serializeAction(chosen),
-        legal: { n: offered.length, kinds: legalKinds },
-        rank: Math.max(0, offered.indexOf(chosen)),
+        legal: { n: tally.n, kinds: legalKinds },
+        // The chosen play's own place among every legal play — what `offered.indexOf(chosen)` was before the payments rode one cast:
+        // a pilot's pick by identity in the list it was handed (a non-house payment at its own index), else the engine's pick (the
+        // offered object, or its house variant) by everyPlayIndexOf. 0 when it is neither, exactly as before.
+        rank: Math.max(0, everyPlay && everyPlay.indexOf(chosen) >= 0 ? everyPlay.indexOf(chosen) : everyPlayIndexOf(offered, chosen)),
         stackDepth: state.stack?.length ?? 0,
-        forced: offered.length === 1,
+        forced: tally.n === 1,
         castScores: castMatch
           ? castRanking
               .slice(0, 3)
@@ -1354,6 +1365,10 @@ export function runawaySize(state, limits = RUNAWAY_LIMITS) {
  * { type: "no-legal-action", seat, message } (`message` is the error's). Re-deriving the same state throws again, so
  * neither game can go on; each error is logged with its stack (console.error — server.err.log in the exe). The
  * pending-choice failsafe's engine-stuck has no `guard`: it clears the choice, and the next advance can go on.
+ * ANY OTHER THROW inside the loop (2026-11-01) — the legal-actions call, the decision, a pending-choice settler, the SBA pass — is a
+ * "dispatch-error" carrying the error (message, stack, the turn) and `guard: { type: "engine-error", message }`, on the session as
+ * that tick began (advanceUntilDecision below). Until then those escaped this function, which by contract never throws on an
+ * engine bug. An auto-decided action whose dispatch throws keeps its own "dispatch-error" answer (no guard).
  *
  * OPT-IN OBSERVER (Learn-to-Play Track-1a): `onTurnStart` is a read-only callback
  * invoked `onTurnStart(state, turnNumber)` once each time the game enters a NEW
@@ -1400,7 +1415,7 @@ export function runawaySize(state, limits = RUNAWAY_LIMITS) {
  * legalChoices — never a legality gate (THE CREED). null ⇒ normalizePolicy(null) ⇒ the
  * current shipping behavior, byte-identical.
  */
-export function advanceUntilDecision(
+function advanceUntilDecisionUnguarded(
   session,
   {
     archetype = null,
@@ -1416,6 +1431,7 @@ export function advanceUntilDecision(
     safetyCap = SAFETY_CAP_TICKS, // injectable for tests
     mandatoryLoopLimits = undefined, // mandatoryLoop.MANDATORY_LOOP by default; injectable for tests
   } = {},
+  progress = { current: session, ticks: 0, maxTurnTicks: 0 }, // where the guard below reads the last tick's start
 ) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
@@ -1480,6 +1496,9 @@ export function advanceUntilDecision(
 
   while (ticks < SAFETY_CAP) {
     ticks += 1;
+    progress.current = current; // the session as this tick begins — what the engine-error stop answers on (advanceUntilDecision)
+    progress.ticks = ticks;
+    progress.maxTurnTicks = maxTurnTicks;
 
     // Per-turn tick budget — the primary spin guard (see TURN_TICK_BUDGET above). Reset the
     // counter whenever state.turn advances; a turn that never advances but keeps ticking is a
@@ -2685,9 +2704,13 @@ export function advanceUntilDecision(
 
     // Priority holder set: ask the decisionGate.
     const actor = state.priorityHolder;
-    const actions = legalActionsForPlayer(state, actor);
+    const difficulty = actor === "user" ? current.difficulty : "expert";
+    // A seat that can be ASKED (the person, below Expert) is offered every legal play — a cast per alternative-cost payment
+    // (costChoices.js), exactly the options it always had; an auto-decided seat ranks the engine's short list.
+    const engineActions = legalActionsForPlayer(state, actor);
+    const actions = difficulty === "expert" ? engineActions : expandAllCostChoices(engineActions);
     const decision = makeDecision(state, actor, actions, {
-      difficulty: actor === "user" ? current.difficulty : "expert",
+      difficulty,
       archetype,
       policy,
     });
@@ -2797,6 +2820,48 @@ export function advanceUntilDecision(
       guard: { type: "safety-cap", limit: SAFETY_CAP },
     },
   };
+}
+
+/**
+ * The driver (advanceUntilDecisionUnguarded above — its JSDoc is the contract), guarded: it NEVER throws on an engine bug, and never
+ * hides one. A throw from anywhere in the loop is a CRASH, reported as one — never folded into a stall:
+ *   { kind: "dispatch-error", reason: <message>, code, error: { name, message, code, stack }, turn, phase, step, ticks,
+ *     maxTurnTicks, guard: { type: "engine-error", message } }
+ * on the session as it stood when the throwing tick began (status still "active"), logged with its stack (console.error). The
+ * self-play runner records it as "dispatch-error" with that turn, the message and the stack; the Academy ends it through
+ * endEngineStoppedGame ("engine-stopped" — the `guard`), as it does the two engine faults the loop catches itself, so a game is
+ * never left active to re-throw on every resume. Before 2026-11-01 the legal-actions call and the pending-choice settlers ran outside
+ * every guard: a throw on turn 34 reached the runner, which recorded the turn-1 session it had handed in (self-play seeds
+ * 3277877396, 3366998639, 1788491710, 1721451499, 1943977102).
+ * UNDER THE TEST-TIME AUDITOR (MTG_AUDIT=1 — every vitest run, src/test-setup) nothing is converted: the throw — an AUDIT_VIOLATION,
+ * any invariant error — escapes exactly as it did before the guard, so a test that never asserts the decision still goes red.
+ */
+export function advanceUntilDecision(session, options = {}) {
+  const progress = { current: session, ticks: 0, maxTurnTicks: 0 };
+  try {
+    return advanceUntilDecisionUnguarded(session, options, progress);
+  } catch (error) {
+    if (process.env.MTG_AUDIT === "1") throw error;
+    const current = progress.current;
+    const st = current?.state;
+    const message = error?.message || String(error);
+    console.error(`[learn] the engine threw in game ${current?.id} on turn ${st?.turn} (${st?.phase} / ${st?.step}):`, error);
+    return {
+      session: current,
+      decision: {
+        kind: "dispatch-error",
+        reason: message,
+        code: error?.code ?? null,
+        error: { name: error?.name ?? "Error", message, code: error?.code ?? null, stack: error?.stack ?? null },
+        turn: st?.turn ?? null,
+        phase: st?.phase ?? null,
+        step: st?.step ?? null,
+        ticks: progress.ticks,
+        maxTurnTicks: progress.maxTurnTicks,
+        guard: { type: "engine-error", message },
+      },
+    };
+  }
 }
 
 // ─── User-choice application ─────────────────────────────────────────────────
@@ -4665,12 +4730,16 @@ export const ENGINE_STOPPED = "engine-stopped";
  *   - an engine-log event { kind: "game-stopped", guard, reason } (state.log);
  *   - the end-of-game decision { kind: "game-over", reason: "engine-stopped", guard, message, detail } — what the
  *     driver itself answers for that session from then on is { kind: "game-over", reason: "engine-stopped" }.
+ * The driver's converted throw (a "dispatch-error" carrying `guard: { type: "engine-error" }`, 2026-11-01) ends the same way.
  * Anything else — a game in progress, a game already over, an "engine-stuck" no guard raised (the pending-choice
- * failsafe clears its choice and the game can go on) — comes back untouched (the same object). Pure.
+ * failsafe clears its choice and the game can go on), a "dispatch-error" with no guard — comes back untouched (the same object). Pure.
  */
 export function endEngineStoppedGame(result) {
   const session = result?.session;
-  const guard = result?.decision?.kind === "engine-stuck" ? result.decision.guard : null;
+  // A guard's or engine fault's engine-stuck, or the driver's converted throw — a "dispatch-error" with `guard` (2026-11-01; an answer
+  // the person can change — INVALID_CHOICE, a refused dispatch — carries none and passes through).
+  const kind = result?.decision?.kind;
+  const guard = kind === "engine-stuck" || kind === "dispatch-error" ? result.decision.guard : null;
   if (!guard?.type || session?.status !== "active") return result;
   const state = session.state;
   const detail = engineStopDetail(guard);
