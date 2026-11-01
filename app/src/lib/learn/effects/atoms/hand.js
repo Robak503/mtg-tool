@@ -553,7 +553,29 @@ export function lookAtHandClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^look at target player's hand$/.test(t)) return { op: "look-at-hand", targetType: "player" };
   if (/^look at target opponent's hand$/.test(t)) return { op: "look-at-hand", targetType: "opponent" };
+  // THE TOP CARD OF A LIBRARY (play-weighted 2026-10-31 — Mishra's Bauble, EDHREC #1104: "Look at the top card of target player's
+  // library."): the look-at-hand discipline one zone over — information only (CR 701.20e), shown to the ability's controller; no
+  // library may be looked at without such an instruction (CR 401.2). Only the bare target-player sentence: "…, then you may put it
+  // into their graveyard" and the like are a choice with a consequence, a different build.
+  if (/^look at the top card of target player's library$/.test(t)) return { op: "look-at-library-top", targetType: "player" };
   return null;
+}
+
+/**
+ * ===== LOOK AT THE TOP CARD OF A LIBRARY (CR 701.20e) ===== Mishra's Bauble. Nothing moves: the card stays on top, unrevealed to
+ * anyone but the looker. The log entry names the ACTUAL top card (`card`, null for an empty library) with the looker and the
+ * library's owner, so the information truly reaches the reader (the game log feeds /api/why-you-lost and the replays) — the
+ * look-at-hand note's reason this is not an empty gesture. No legal target left (an eliminated seat) → a clean logged no-op.
+ */
+export function applyLookAtLibraryTop(state, atom, ctx) {
+  const seats = (ctx.targets || []).filter((t) => t.type === "player" && state.players?.[t.id]).map((t) => t.id);
+  if (seats.length === 0) return logEvent(state, { kind: "spell-effect", effect: "look-at-library-top", looker: ctx.controller, player: null, card: null });
+  let next = state;
+  for (const pid of seats) {
+    const top = (state.players[pid].library || [])[0];
+    next = logEvent(next, { kind: "spell-effect", effect: "look-at-library-top", looker: ctx.controller, player: pid, card: top?.name ?? null });
+  }
+  return next;
 }
 
 export const handResolvers = {
@@ -577,4 +599,5 @@ export const handResolvers = {
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
   "hand-to-bottom-draw-same": applyHandToBottomDrawSame, // SHELF-85 N12 — Teferi's Puzzle Box (the draw-step referent tucks their hand, draws that many); #514 — Valakut Awakening (any number, plus one)
   "look-at-hand": applyLookAtHand, // LOOK (CR 701.20e) — information only; the log carries the real contents
+  "look-at-library-top": applyLookAtLibraryTop, // LOOK (CR 701.20e) — Mishra's Bauble; the log names the real top card
 };

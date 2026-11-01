@@ -60,7 +60,7 @@ export function applyAmass(state, atom, ctx) {
   // an animated Mutavault. Amass reuses it — a second Army token would be a creature the rules never make.
   const existing = player.battlefield.find((p) => isArmy(p) || permIsEveryCreatureType(next, p.id));
   if (existing) {
-    if (amount > 0) next = addCounter(next, { permanentId: existing.id, type: PLUS_ONE, amount });
+    if (amount > 0) next = addCounter(next, { permanentId: existing.id, type: PLUS_ONE, amount, placedBy: ctx?.controller });
     // "It's also a <Subtype>." — append the subtype to the readable type line so tribal readers
     // (countMatches's `\b<Subtype>\b`, lord static abilities) see it. Rebuild the card.type in place
     // (updatePermanent is private to gameState); idempotent — only appends when absent. CR 701.47a adds it only "if it isn't

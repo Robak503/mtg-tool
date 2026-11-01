@@ -36,7 +36,7 @@ import { hasKeyword } from "./keywords.js";
 import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
-import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
+import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, resolveCastSiteReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
@@ -4504,6 +4504,22 @@ function actionsDeclareAttacker(state, playerId) {
       if (p.counters?.loyalty != null) targets.push({ defenderId: oppId, defenderPlaneswalkerId: p.id, pwName: p.card?.name });
     }
   }
+  // DEFENDER-SCOPED ATTACK CAP (Crawlspace — "No more than two creatures can attack you each combat", CR 508.1c): the slots left at
+  // each capped defending PLAYER (the creatures declared attacking them as a player — an attack on their planeswalker is not one,
+  // CR 506.2, 508.3e); a player with none left is no longer an attack target, their planeswalkers still are. Declaration is
+  // sequential, so the cap is exact. The slots left ride into the requirements offer below (attackDeclarationOffer).
+  const defenderSlots = {};
+  for (const oppId of opponentsOf(state, playerId)) {
+    const cap = defenderAttackCapFor(state, oppId);
+    if (cap == null) continue;
+    const atThem = (state.combat?.attackers || []).filter((a) => a.defender === oppId && !a.defenderPlaneswalkerId).length;
+    defenderSlots[oppId] = Math.max(0, cap - atThem);
+  }
+  let capRemovedTarget = false;
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const t = targets[i];
+    if (!t.defenderPlaneswalkerId && defenderSlots[t.defenderId] === 0) { targets.splice(i, 1); capRemovedTarget = true; }
+  }
 
   // CANT-ATTACK-UNLESS-DEFENDER (BLITZ SM-1, generalized by CS-1 — CR 508.1c): a creature printed
   // "can't attack unless defending player <predicate>" (islandhome lands + Whimwader's blue permanent,
@@ -4555,12 +4571,15 @@ function actionsDeclareAttacker(state, playerId) {
   // The creatures that "attack each combat if able" and can still attack without paying a cost must be declared before the
   // declaration closes (legalActionsForPlayer withholds every other action while one remains); under an attack cap the last
   // slots go to them (attackDeclarationOffer).
-  const offer = (actions) => attackDeclarationOffer(state, playerId, actions, { cap: attackCap, declaredCount: declared.size });
+  const offer = (actions) => attackDeclarationOffer(state, playerId, actions, { cap: attackCap, declaredCount: declared.size, defenderSlots });
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
   // dispatcher auto-fills the defender, so emit one action per creature — unchanged shape.
   // An islandhome attacker whose lone defender fails the requirement gets NO attack action (SM-1).
-  if (targets.length <= 1) {
+  // Only when no defender cap removed a target: the dispatcher's auto-fill names the FIRST opponent, so once a cap has taken a
+  // player out, the lone target left (another opponent in a pod — any pod after an elimination — or the capped player's
+  // planeswalker) takes the per-target path, and every attack names its defender.
+  if (targets.length <= 1 && !capRemovedTarget) {
     return offer(attackers
       .filter(p => allowedTargetsFor(p).length > 0)
       .map(p => ({

@@ -2199,7 +2199,7 @@ export function untapAll(state, { playerId }) {
   return { ...untapped, pendingUntapEvents: [...(untapped.pendingUntapEvents || []), ...becameUntapped] };
 }
 
-export function addCounter(state, { permanentId, type, amount = 1 }) {
+export function addCounter(state, { permanentId, type, amount = 1, placedBy = null }) {
   if (typeof type !== "string" || !type) throw new Error("addCounter: type required");
   if (!Number.isInteger(amount)) throw new Error("addCounter: amount must be integer");
   // Wave-3 doubler replacement (CR 616): the recipient controller's counter doublers (Doubling Season,
@@ -2225,8 +2225,13 @@ export function addCounter(state, { permanentId, type, amount = 1 }) {
   // 0-count placement (a doubler flooring to zero) records nothing — no counters were put on.
   // `before` is the count of this kind the permanent had BEFORE the placement — the counter-threshold trigger ("When the
   // twelfth hour counter is put on this artifact" — Midnight Clock) fires when one placement takes it from below N to N or more.
+  // `placedBy` — the player who PUT the counters (Exemplar of Light's "Whenever YOU put one or more +1/+1 counters on this creature"),
+  // recorded only when the caller names it: the counter effects (effects/atoms/counters.js, distributeCounters.js, amass, earthbend,
+  // the fight riders — the effect's controller), a cost (its payer), the prevent-and-put walls (the wall's controller), explore and
+  // the returns under an owner's control (that controller — CR 701.44a, 122.6a). A row without one has no known placer, and a
+  // "you put" watcher does not fire for it: the placer is never defaulted to the recipient's controller.
   if (!lk || placed <= 0) return next;
-  return { ...next, pendingCounterEvents: [...(next.pendingCounterEvents || []), { id: permanentId, type, amount: placed, before: lk.permanent.counters?.[type] || 0, controller: lk.controller }] };
+  return { ...next, pendingCounterEvents: [...(next.pendingCounterEvents || []), { id: permanentId, type, amount: placed, before: lk.permanent.counters?.[type] || 0, controller: lk.controller, ...(placedBy ? { placedBy } : {}) }] };
 }
 
 export function removeCounter(state, { permanentId, type, amount = 1 }) {
@@ -2989,6 +2994,9 @@ export function deathLookback(state, perm, controller) {
     lkiTypes: [...permanentTypes(state, perm.id).types],
     lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
     lkiKeywords: damageResultKeywords(state, perm.id), // its lifelink / deathtouch / infect / wither as it last existed (CR 702.15c, 702.2e, 702.80b) — its own dies trigger's damage
+    // FLYING AS IT LAST EXISTED (CR 603.10a — Luminous Broodmoth's "a creature you control without flying dies"): printed or granted,
+    // layer-aware, read while it is still on the battlefield. The dies watcher's keyword exclusion reads it off the look-back.
+    lkiFlying: permanentHasKeyword(state, perm.id, "Flying"),
     // ATTACKING AS IT DIED (Kardur, Doomscourge — "Whenever an attacking creature dies"): it was a declared or put-in attacker in the
     // current combat (CR 506.4 — it is removed from combat only as it leaves). Stamped only when true, so every other look-back is
     // unchanged.

@@ -216,6 +216,23 @@ function countsAsCreatureType(state, p, needle) {
   return !!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType;
 }
 
+// THE CREATURE TYPES OF `p`, INSIDE A DERIVE (Coat of Arms' shared-type count): { every, types } — `every` for a changeling (CR
+// 702.73a) or an every-creature-type effect (countsAsCreatureType's two reads), `types` the creature-type words of the recursion-free
+// identity (effectiveTypeIdentity: printed subtypes plus the fixed layer-4 adds and Mistform replacements), lowercased as the closed
+// vocabulary spells them (CR 205.3m — permanentCreatureTypes' pairing for the one two-word type). A word outside the vocabulary is
+// another card type's subtype and never a creature type. The same identity the tribal lords and the host-subtype gate read; a type
+// added by a dynamic layer-4 effect is not in it — their documented under-read.
+function creatureTypesInDerive(state, p) {
+  const every = hasKeyword(p.card, "changeling") || (!!state && boardHasAllCreatureTypesEffect(state) && effectiveTypeIdentity(p, state).everyCreatureType);
+  const words = [...new Set(effectiveTypeIdentity(p, state).subtypes)];
+  const types = words.filter((w) => CR_CREATURE_TYPES.has(w));
+  for (let i = 0; i + 1 < words.length; i++) {
+    const pair = `${words[i]} ${words[i + 1]}`;
+    if (CR_CREATURE_TYPES.has(pair)) types.push(pair);
+  }
+  return { every, types };
+}
+
 // THE IN-DERIVE CARD-TYPE READ (the type-line audit) — "does permanent `p` have the card type or supertype `word` right now?"
 // for the board counts below, which run INSIDE a derive (the layer-7 applier, a gate) and so may never derive. The printed
 // line over-counts there, the forbidden direction: a God below its devotion, a bestowed Aura, an attached reconfigure
@@ -299,6 +316,28 @@ function countSelfSpecOnBoard(state, perm, spec) {
     for (const pid of Object.keys(state?.players || {})) {
       for (const p of state.players[pid]?.battlefield || []) {
         if (p.attachedTo === perm.id && attachRe.test(p.card?.type || "")) n += 1;
+      }
+    }
+    return n;
+  }
+  // OTHER CREATURES SHARING A CREATURE TYPE WITH THE COUNTING ONE (Coat of Arms — "for each other creature on the battlefield that
+  // shares at least one creature type with it"): `perm` is the creature being sized. Every battlefield's creatures but `perm` with a
+  // creature type in common with it (CR 205.3m), a changeling or an every-creature-type creature sharing one with any creature that
+  // has a creature type (CR 702.73a). Read INSIDE the derive, so recursion-free: creature-ness and the creature types are the
+  // in-derive identity the tribal lords use (hasCardTypeInDerive, creatureTypesInDerive) — permanentsShareCreatureType's reading
+  // without the derive.
+  if (spec.kind === "otherCreaturesSharingCreatureType") {
+    const mine = creatureTypesInDerive(state, perm);
+    if (!mine.every && !mine.types.length) return 0;
+    let n = 0;
+    for (const pl of Object.values(state?.players || {})) {
+      for (const p of pl.battlefield || []) {
+        if (p.id === perm.id || !hasCardTypeInDerive(state, p, "Creature")) continue;
+        const theirs = creatureTypesInDerive(state, p);
+        const shares = mine.every ? (theirs.every || theirs.types.length > 0)
+          : theirs.every ? mine.types.length > 0
+          : mine.types.some((t) => theirs.types.includes(t));
+        if (shares) n += 1;
       }
     }
     return n;

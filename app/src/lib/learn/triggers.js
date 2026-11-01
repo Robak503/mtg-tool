@@ -1593,7 +1593,9 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "with" reject below for the Military Intelligence reason. Exact sentences only; any other count or subject stays undetected.
   if (/^an opponent attacks with creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any" };
   if (/^an opponent attacks you with two or more creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any", minAttackingYou: 2 };
-  const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
+  const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c)
+    // Pollywog Prodigy (play-weighted 2026-10-31) — the watcher-power bound; its arm re-anchors the whole sentence.
+    || /^(?:you|an opponent|a player|each player) casts? an? (?:[a-z]+ )?spell with mana value less than this creature's power$/.test(c);
   // The DURING-EACH-OPPONENT'S-TURN exemption (2026-08-14 — Wavebreak Hippocamp): the blanket qualifier
   // refusal below ate this rider before the castNth arm could see it. Exempted by the EXACT phrase only —
   // every other "during" qualifier stays refused wholesale (safe FN, as before).
@@ -1823,6 +1825,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (ntSubDies && !NON_SUBTYPE_ETB_WORDS.has(ntSubDies[1])) {
       return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubDies[1].charAt(0).toUpperCase() + ntSubDies[1].slice(1), nontokenFilter: true };
     }
+    // "A CREATURE YOU CONTROL WITHOUT FLYING dies" (play-weighted 2026-10-31 — Luminous Broodmoth, EDHREC #1165): the controlled
+    // scope with a keyword exclusion on the DEAD creature, read from its death look-back (lkiFlying — the flying it had as it last
+    // existed, CR 603.10a) by scopeMatches' pre-switch gate. Flying only — the one keyword the look-back records for this.
+    if (c === "a creature you control without flying dies") return { event: "dies", scope: "creatureYouControl", whose: "any", withoutKeyword: "flying" };
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
     // ANOTHER <SUBTYPE> dies (play-weighted #2326 — Diregraf Captain: "Whenever another Zombie you control dies, target opponent loses
@@ -2634,6 +2640,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // count word — a SINGULAR "put a +1/+1 counter on a creature" (Ant-Man) would fire on a 1-counter event but
   // its "that many"-less payoff (create a token) is a SEPARATE slice, so it's left out here (no over-claim).
   // scope:"creatureYouControl" = count only counters on creatures the placer controls; scope:"creature" = any.
+  // …ON THIS CREATURE (play-weighted 2026-10-31 — Exemplar of Light, EDHREC #1189: "Whenever you put one or more +1/+1 counters on
+  // this creature, draw a card. This ability triggers only once each turn."): the receiving permanent's own counters-put event
+  // (checkCounterTriggers' self path — every placement, the enters-with ones too, CR 122.6), gated on the PLAYER WHO PUT them being
+  // its controller (`placedByController` — the counter row's placedBy, CR 122.6a). Its bundled ruling: any reason counts, not only
+  // its own lifegain ability. One placement is one event however many counters land.
+  if (/^you put one or more \+1\/\+1 counters on this creature$/.test(c)) return { event: "countersPut", scope: "self", whose: "any", counterType: "+1/+1", placedByController: true };
   if (/^you put one or more \+1\/\+1 counters on a creature you control$/.test(c)) return { event: "countersPlaced", scope: "creatureYouControl", whose: "any" };
   if (/^you put one or more \+1\/\+1 counters on a creature$/.test(c)) return { event: "countersPlaced", scope: "creature", whose: "any" };
   // ===== YOU ATTACK ===== "you attack" (the bare condition for "Whenever you attack, …" — fires ONCE
@@ -2652,6 +2664,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // event entirely, and the anchored "you control" requirement keeps it out. A variant with an OBJECT
   // ("…attack a player", "…attack an opponent") is likewise not claimed — the bare form only (safe FN).
   if (/^one or more creatures you control attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
+  // ANY PLAYER'S BATCHED ATTACK (play-weighted 2026-10-31 — Duelist's Heritage, EDHREC #1282: "Whenever one or more creatures
+  // attack, …"; its bundled ruling: "whenever any player attacks with one or more creatures, not just when you do"): the same
+  // once-per-declaration event read for every watcher — checkAttackTriggers' all-players anyAttack pass (Aurelia's), with no
+  // minimum. CR 508.1, 603.2c: one declaration, one trigger.
+  if (/^one or more creatures attack$/.test(c)) return { event: "youAttack", scope: "anyAttack", whose: "any" };
   // SHELF-85 S5 (2026-09-04 — Prodigy's Prototype "Whenever one or more Vehicles you control attack"): the SAME
   // once-per-combat batch, gated on at least one declared attacker carrying the subtype (checkAttackTriggers reads
   // `attackerSubtype` off the live attacker set — a crewed Vehicle is still a Vehicle). Curated to the one word the
@@ -3293,6 +3310,19 @@ function classifyCondition(condRaw, cardName, cardType) {
     const op = /greater|more/.test(mvCastM[3]) ? "gte" : "lte";
     return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "manaValue", op, value: parseInt(mvCastM[2], 10) } };
   }
+  // MANA VALUE BELOW THE WATCHER'S POWER (play-weighted 2026-10-31 — Pollywog Prodigy, EDHREC #1203: "Whenever an opponent casts a
+  // noncreature spell with mana value less than this creature's power, draw a card."): the threshold is the WATCHER's power as the
+  // spell is cast (the trigger event, CR 603.2 — no intervening "if", so it is not checked again on resolution, the card's ruling),
+  // against the spell's mana value on the stack (CR 202.3). checkCastTriggers reads both; the base filter is the plain cast
+  // vocabulary's, so "noncreature" keeps its one meaning. Only the strict "less than" and the "this creature" subject.
+  const mvBelowPowerM = c.match(/^(you|an opponent|a player|each player) casts? an? ([a-z]+ )?spell with mana value less than this creature's power$/);
+  if (mvBelowPowerM) {
+    const base = mvBelowPowerM[2] ? castSpellFilter(mvBelowPowerM[2].trim()) : "any";
+    if (base) {
+      const whose = /you/.test(mvBelowPowerM[1]) ? "you" : /opponent/.test(mvBelowPowerM[1]) ? "opponent" : "any";
+      return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "manaValueBelowSourcePower", base } };
+    }
+  }
   // CAST-FROM-NONHAND (Vega, the Watcher / Kellan's cluster A — "you cast a spell from anywhere other than
   // your hand", SHELF K1): the same cast event with a SOURCE-ZONE gate — checkCastTriggers threads the cast
   // action's fromZone and drops the descriptor when the cast came from hand (or the zone is unknown — an
@@ -3362,6 +3392,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // qualifier ("for the first time", "2 or more life") leaves residue → null → Arbiter (CREED).
   let lifeLostM = c.match(/^(an opponent|a player) loses life$/);
   if (lifeLostM) return { event: "lifeLost", scope: "lifeLost", whose: /opponent/.test(lifeLostM[1]) ? "opponent" : "any" };
+  // "YOU lose life" (play-weighted 2026-10-31 — Vilis, Broker of Blood, EDHREC #1124: "Whenever you lose life, draw that many
+  // cards."): the same event for the watcher's OWN controller — checkLifeLossTriggers gates whose:"you" on the loser being the
+  // watcher's controller. Paying life is losing it (CR 119.4), and damage is too (CR 120.3a): every loss routes through loseLife.
+  // Anchored: "…during your turn" (the Shadowhearts) or "…for the first time each turn" leaves residue → undetected → Arbiter.
+  if (c === "you lose life") return { event: "lifeLost", scope: "lifeLost", whose: "you" };
   let milledM = c.match(/^one or more (nonland )?cards are milled$/);
   if (milledM) return { event: "milled", scope: "milled", whose: "any", perCard: false, milledFilter: milledM[1] ? "nonland" : null };
   milledM = c.match(/^(a player|an opponent) mills (?:a|an|one) (nonland )?card$/);
@@ -4033,6 +4068,9 @@ const LIFEGAIN_DRAIN_PAYOFF_RE = /^(?:target|each) opponent loses that much life
 // exactly why these cards sit at body-only rather than shipping a broken native), and the rewrite is what
 // re-points the magnitude at ctx.lifeLostAmount instead of merely unblocking the words.
 const LIFELOST_GAIN_PAYOFF_RE = /^you gain that much life\.?$/i;
+// LOSS → DRAW (Vilis, Broker of Blood): "Whenever you lose life, draw that many cards." The bare phrase is the combat-damage draw
+// (countContext:"combatDamageAmount" — Starwinder), never set on this event; the rewrite re-points it at ctx.lifeLostAmount.
+const LIFELOST_DRAW_PAYOFF_RE = /^draw that many cards\.?$/i;
 
 // MILLED "that many" TOKEN PAYOFF (Screeching Scorchbeast, SHELF M1b) — "you may create that many 2/2 black
 // Zombie Mutant creature tokens[. Do this only once each turn]" on a MILLED trigger: "that many" is the count
@@ -5081,6 +5119,12 @@ export function detectTriggers(cardIn) {
       // (see cls.functionsFromGraveyard below), and the descriptor build's `|| !!cls.oncePerTurnTrigger` —
       // documented there as load-bearing — is what carries it through.
       if (firstTimeEachTurn) cls.oncePerTurnTrigger = true;
+      // "YOU lose life FOR THE FIRST TIME each turn" (Vengeful Warchief, Gonti's Machinations — play-weighted 2026-10-31): the first
+      // time is the PLAYER's first life loss of the turn, not the watcher's first sighting — the Warchief's ruling: "If Vengeful
+      // Warchief comes under your control after you've already lost life in a turn, its ability can't trigger during that turn."
+      // The per-source latch alone would fire it on that later loss, so the descriptor also carries firstLossEachTurn, which
+      // checkLifeLossTriggers reads against the loser's lifeLostThisTurn ledger (the turn's first loss: the ledger holds only it).
+      if (firstTimeEachTurn && cls.event === "lifeLost" && cls.whose === "you") cls.firstLossEachTurn = true;
       // Extend the effect with the trigger's remaining SAME-LINE sentences (reminder text stripped)
       // so the parser sees its WHOLE effect. A triggered ability's effect is one oracle line, so we
       // stop at the first newline — that avoids swallowing a separate ability on the next line. An
@@ -5542,6 +5586,14 @@ export function detectTriggers(cardIn) {
         // dropped-clause FP). The marker only ever exists on a dies/self descriptor, so the spell path can
         // never reach the atom. Whole-clause anchored ($) — a rider never matches → body-only (CREED).
         effectClause = `[dies-return-bf] ${effectClause}`;
+      } else if (cls.event === "dies" && cls.withoutKeyword === "flying"
+        && /^return it to the battlefield under its owner's control with a flying counter on it$/i.test(effectClause)) {
+        // WATCHER DIES-RETURN WITH A FLYING COUNTER (play-weighted 2026-10-31 — Luminous Broodmoth): "it" is the creature that died
+        // (CR 608.2c — the dies look-back threads its card id, ctx.triggeringCardId), back from the graveyard that holds it to its
+        // OWNER's battlefield, entering with the flying counter (CR 614.1c, 122.6). The same dies-only marker as the self form above
+        // (the bare wording on a spell or a live event must never reach the atom), gated to the watcher that reads the flying it
+        // excludes; whole-clause anchored.
+        effectClause = `[dies-return-bf] ${effectClause}`;
       } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
         // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the
@@ -6000,6 +6052,11 @@ export function detectTriggers(cardIn) {
         // phrase is byte-identical to Essence Sliver's combat-damage payoff, so the rewrite is a RE-POINT,
         // not an unblock: without it the atom carries combatDamageAmount and gains 0 on this event.
         effectClause = "you gain that much life-lost life";
+      } else if (cls.event === "lifeLost" && LIFELOST_DRAW_PAYOFF_RE.test(effectClause)) {
+        // ===== LOSS → DRAW (play-weighted 2026-10-31 — Vilis, Broker of Blood) ===== "draw that many cards" = the life just
+        // lost (ctx.lifeLostAmount, per loss event — CR 603.2). The same re-point as the drain half above: the bare phrase binds
+        // combatDamageAmount, which this event never sets. The sentinel is unprintable, so only a lifeLost payoff reaches the arm.
+        effectClause = "draw that many life-lost cards";
       } else if (cls.event === "landfall"
         && /^you may return this card from your graveyard to the battlefield$/i.test(effectClause.trim())) {
         // ===== GRAVEYARD-FUNCTIONING landfall self-return (Bloodghast — the family's namesake, 2026-08-15)
@@ -6204,6 +6261,8 @@ export function detectTriggers(cardIn) {
         oncePerBatch: cls.oncePerBatch,        // ONCE-PER-BATCH enter watcher (Satoru, BI-5) — deduped against the unflushed pending triggers
         withoutDying: cls.withoutDying,        // BATCHED LEAVES only (shelf D20 — Dour Port-Mage): a graveyard exit doesn't count. ⚠️ Unlisted here = dropped = every exit counts, deaths included
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
+        firstLossEachTurn: cls.firstLossEachTurn, // "you lose life for the first time each turn" only (Vengeful Warchief) — checkLifeLossTriggers fires it only on the player's first loss of the turn. ⚠️ Unlisted here = dropped = a watcher that arrived after the first loss fires on a later one
+        withoutKeyword: cls.withoutKeyword,   // DIES "without flying" only (Luminous Broodmoth) — scopeMatches reads the death look-back's lkiFlying. ⚠️ Unlisted here = dropped = every death of a creature you control returns it, fliers included
         legendaryFilter: cls.legendaryFilter, // H6 (Yoshimaru) — "another legendary permanent/creature enters": scopeMatches gates on the supertype
         legendaryCreatureOnly: cls.legendaryCreatureOnly, // H6 — the creature form of the above
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
@@ -6212,6 +6271,7 @@ export function detectTriggers(cardIn) {
         requiresModified: cls.requiresModified, // MODIFIED-PREDICATE combatDamageToPlayer (Kodama, W3 — CR 700.9) — scopeMatches gate via layers.isModifiedPermanent. ⚠️ Unlisted here = dropped = fires on EVERY connecting creature — the over-fire direction, with the detector looking correct.
         requiresDamagedBySource: cls.requiresDamagedBySource, // DEALT-DAMAGE-BY-ME dies scope only (Sengir Vampire) — scopeMatches gate reads the dead creature's damagedBy look-back. ⚠️ Unlisted here = dropped = the trigger fires on EVERY creature death anywhere, the widest possible over-fire, while still looking correctly detected.
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
+        placedByController: cls.placedByController, // "YOU put … on this creature" (Exemplar of Light) — checkCounterTriggers fires only when the row's placer is the recipient's controller. ⚠️ Unlisted here = dropped = an opponent's counter fires it too
         counterThreshold: cls.counterThreshold, // COUNTER THRESHOLD (Midnight Clock — "the twelfth hour counter") — N; checkCounterTriggers fires only on the placement that takes the count from below N to N or more. ⚠️ Unlisted here = dropped = the threshold reads undefined and the descriptor never fires (a dead native).
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
@@ -6986,6 +7046,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
   // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
   if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
+  // WITHOUT-FLYING dies gate (play-weighted 2026-10-31 — Luminous Broodmoth): the dead creature had no flying as it last existed
+  // (CR 603.10a), read off its death look-back (deathLookback's lkiFlying — printed or granted, layer-aware). A look-back that did
+  // not record it (undefined) fires nothing: the exclusion is never guessed.
+  if (descriptor.withoutKeyword === "flying" && triggeringPermanent?.lkiFlying !== false) return false;
   // TOKEN filter — the exact mirror, and separate from nontokenFilter on purpose: a descriptor with NEITHER
   // flag must keep firing on both kinds, so this cannot be one boolean.
   if (descriptor.tokenFilter && !triggeringPermanent?.card?.token) return false;
@@ -7962,7 +8026,7 @@ export function checkDiesTriggers(state, dead) {
     // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
     // Vehicle or an animated land that died fires "whenever a creature dies".
     // + wasAttacking (Kardur, Doomscourge — "an attacking creature dies"): carried only when the death look-back recorded it.
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}) };
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}) };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so
@@ -9878,6 +9942,10 @@ export function checkLifeLossTriggers(state, { playerId, amount } = {}) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "lifeLost")) {
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(playerId)) continue;
+        if (d.whose === "you" && playerId !== watcher.controller) continue; // "Whenever YOU lose life" (Vilis) — its controller's own loss
+        // "…for the first time each turn" (Vengeful Warchief): this loss is the player's first of the turn — the ledger, already
+        // tallied by loseLife, holds exactly this amount. A ledger holding more means an earlier loss this turn.
+        if (d.firstLossEachTurn && (state.players[playerId].lifeLostThisTurn || 0) !== amount) continue;
         fired.push(makePendingTrigger(d, watcher, null, { lifeLostPlayerId: playerId, lifeLostAmount: amount }));
       }
     }
@@ -9955,7 +10023,10 @@ export function checkCounterTriggers(state) {
     if (!lk) continue; // left the battlefield before the flush → no-op, never a fabricated fire
     fired = fired.concat(
       detectTriggers(classLiveCard(lk.permanent))
-        .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type)
+        .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type
+          // "YOU put" (Exemplar of Light): the row's named placer is the recipient's controller (an entering permanent's rows name its
+          // controller, CR 122.6a). A row with no named placer never fires it — false-negative safe.
+          && (!d.placedByController || (ev.placedBy != null && ev.placedBy === ev.controller)))
         // COUNTERS-PUT MAGNITUDE (Shalai and Hallar — SHELF-TAIL SH1): thread the count placed in THIS
         // event (ev.amount, recorded by gameState addCounter) so a "deals that much damage" payoff reads it
         // via countContext:"countersPutCount" — the counters-placed sentinel discipline, one event over.
@@ -10586,6 +10657,13 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
             const lk = t?.id ? findPermanent(state, t.id) : null;
             return !!lk && lk.controller === watcher.controller && permanentIsCreature(state, lk.permanent.id);
           })) continue;
+        } else if (d.spellFilter && d.spellFilter.kind === "manaValueBelowSourcePower") {
+          // POLLYWOG PRODIGY (play-weighted 2026-10-31): the base filter, then the cast spell's mana value on the stack (CR 202.3)
+          // strictly below the WATCHER's power now, as the spell is cast (layer-aware — its counters and pumps counted). An unsized
+          // mana value or power fires nothing.
+          if (!spellMatchesFilter(d.spellFilter.base, spellCard, castEvery, castMv)) continue;
+          const watcherPower = permanentPower(state, watcher.id);
+          if (!Number.isFinite(castMv) || !Number.isFinite(watcherPower) || !(castMv < watcherPower)) continue;
         } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery, castMv)) {
           continue;
         }

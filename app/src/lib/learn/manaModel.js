@@ -4994,7 +4994,7 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   // counter doubler applies (CR 122.6) and a "counters are put on" watcher sees it. A Wall that reaches 0 toughness dies to the
   // next state-based check, as a cost may legally leave it (CR 118.3 only asks that the counter can be put on).
   if (tap.putsCounter) {
-    next = addCounter(next, { permanentId: tap.permanentId, type: tap.putsCounter.type, amount: 1 });
+    next = addCounter(next, { permanentId: tap.permanentId, type: tap.putsCounter.type, amount: 1, placedBy: playerId }); // a cost the tapping player pays
     next = logEvent(next, { kind: "mana", event: "put-counter-cost", permanentId: tap.permanentId, playerId, counterType: tap.putsCounter.type });
   }
   // 2026-10-17 — THE PER-TURN LIMIT (manaActivationLimit, CR 602.5b): stamp the activation ledger the activated abilities share

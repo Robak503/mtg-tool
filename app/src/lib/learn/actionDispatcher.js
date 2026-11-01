@@ -85,7 +85,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
 import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
 import { isBodyOnlyAuraSpell, bodyOnlyAuraHosts } from "./auraSpellHost.js"; // every Aura no modeled lane casts — its cast targets one legal host (CR 303.4a)
-import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter, stackSpellIsUncounterable, defenderAttackCapFor } from "./staticAbilityParser.js";
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -1763,7 +1763,7 @@ function applyActivateAbility(state, action) {
     // uses, so a counter replacement applies and the counters-put event is recorded (CR 122.6). The remove-counter cost's mirror: a
     // source the counter takes to 0 toughness dies here (CR 704.5f), before the ability resolves — the cards' rulings ("it's put
     // into your graveyard before you can untap it"); the ability on the stack then finds no source to untap.
-    working = addCounter(working, { permanentId: action.permanentId, type: action.putCounter.type, amount: action.putCounter.count || 1 });
+    working = addCounter(working, { permanentId: action.permanentId, type: action.putCounter.type, amount: action.putCounter.count || 1, placedBy: action.playerId }); // a cost its activator pays
     freezeLeavingSource();
     const lethal = destroyLethalCreatures(working);
     working = checkDiesTriggers(lethal.state, lethal.dead);
@@ -2114,6 +2114,13 @@ function applyDeclareAttacker(state, action) {
   // defenderId picks which opponent this attacker targets (Commander). In
   // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
+  // THE DEFENDER-SCOPED CAP, ENFORCED HERE TOO (Crawlspace, Judoon Enforcers — CR 508.1c): an attack at a player whose cap is already
+  // met is an illegal declaration, never auto-filled or accepted. legalChoices never offers one; this refuses any that arrives.
+  if (!action.defenderPlaneswalkerId) {
+    const cap = defenderAttackCapFor(state, defender);
+    const atThem = cap == null ? 0 : (state.combat?.attackers || []).filter((a) => a.defender === defender && !a.defenderPlaneswalkerId).length;
+    if (cap != null && atThem >= cap) throw new DispatcherError(`No more than ${cap} creature(s) can attack ${defender} each combat`, "ATTACK_CAP");
+  }
 
   // ATTACK TAX (CR 508.1h — Propaganda / Ghostly Prison / Windborn Muse): pay {N} per taxing permanent the
   // defender controls whose printed subject names THIS attack's target — the player, or the planeswalker

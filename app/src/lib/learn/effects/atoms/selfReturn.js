@@ -209,6 +209,11 @@ export function selfReturnClauseParser(clause) {
   // half — Momentary Blink — that must stay Arbiter); anchored ^…$.
   const drb = t.match(/^\[dies-return-bf\] return it to the battlefield( tapped)? under its owner's control( with a \+1\/\+1 counter on it)?$/i);
   if (drb) return { op: "dies-return-bf", tapped: !!drb[1], plusCounter: !!drb[2] };
+  // …and Luminous Broodmoth's watcher form (play-weighted 2026-10-31): the card enters WITH a flying counter (an enters-with counter,
+  // CR 614.1c, 122.6 — handed to the entry's replacement reader, so it is on the creature as it enters). Marker-gated likewise.
+  if (/^\[dies-return-bf\] return it to the battlefield under its owner's control with a flying counter on it$/i.test(t)) {
+    return { op: "dies-return-bf", tapped: false, plusCounter: false, enterCounter: "flying" };
+  }
   return null;
 }
 
@@ -325,7 +330,7 @@ export function applyUndyingReturn(state, atom, ctx) {
     // The new permanent's id was minted inside enterCardFromZone; recover it by the returned CARD id (unique
     // per physical card, so the battlefield holds exactly one permanent wrapping it).
     const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
-    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1 });
+    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1, placedBy: owner }); // it returns under its owner's control, who puts it (CR 122.6a)
   }
   return logEvent(next, { kind: "spell-effect", effect: "undying-return", returned: didEnter, controller: owner });
 }
@@ -420,7 +425,7 @@ export function applyPersistReturn(state, atom, ctx) {
   if (didEnter) {
     const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
     if (perm) {
-      next = addCounter(next, { permanentId: perm.id, type: "-1/-1", amount: 1 });
+      next = addCounter(next, { permanentId: perm.id, type: "-1/-1", amount: 1, placedBy: owner }); // its owner puts it (CR 122.6a)
       // A 1-toughness persister returns 0/0 → dies to the toughness check (CR 704.5f; the persist trigger is resolving,
       // so the state-based check right after it — CR 704.4) — and stays dead (its LKI now shows a -1/-1 counter, so the
       // intervening-if blocks a second return).
@@ -451,11 +456,13 @@ export function applyDiesReturnBattlefield(state, atom, ctx) {
   if (!owner) {
     return logEvent(state, { kind: "spell-effect", effect: "dies-return-bf", returned: false, controller: lastController });
   }
-  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", tapped: !!atom.tapped });
+  // `enterCounter` (Luminous Broodmoth's flying counter) enters WITH the creature — the entry's own extraCounter reader (CR 614.1c).
+  const { state: entered, entered: didEnter } = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", tapped: !!atom.tapped,
+    ...(atom.enterCounter ? { extraCounter: { type: atom.enterCounter, n: 1 } } : {}) });
   let next = entered;
   if (didEnter && atom.plusCounter) {
     const perm = (next.players[owner].battlefield || []).find((p) => p.card?.id === cardId);
-    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1 });
+    if (perm) next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1, placedBy: owner }); // it returns under its owner's control, who puts it (CR 122.6a)
   }
   return logEvent(next, { kind: "spell-effect", effect: "dies-return-bf", returned: didEnter, controller: owner });
 }

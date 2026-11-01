@@ -149,10 +149,29 @@ export function requiredAttackerIds(state, seat, attackActions) {
  * than owed creatures, only the owed creatures are offered: a slot spent on any other creature obeys fewer requirements
  * (the CR 508.1d example).
  */
-export function attackDeclarationOffer(state, seat, actions, { cap = null, declaredCount = 0 } = {}) {
+export function attackDeclarationOffer(state, seat, actions, { cap = null, declaredCount = 0, defenderSlots = null } = {}) {
   const required = requiredAttackerIds(state, seat, actions);
   if (cap != null && required.size > 0 && required.size >= cap - declaredCount) {
     return { actions: actions.filter((a) => required.has(a.permanentId)), required };
+  }
+  // A DEFENDER-SCOPED CAP (Crawlspace — "No more than two creatures can attack you each combat"; `defenderSlots` = the slots left at
+  // each capped defending player): the same reading per player. The creatures still owed whose every free offered attack is at that
+  // player (as a player — an attack on a planeswalker is not one) can obey their requirement only there; when they are at least as
+  // many as the slots left, a slot spent by any other creature obeys fewer requirements (CR 508.1d), so only they are offered there.
+  // A creature with a free attack elsewhere is not counted (the known under-enforcement above: required creatures are not matched
+  // against each other across several capped defenders).
+  if (defenderSlots && required.size > 0) {
+    let out = actions;
+    for (const [defender, slots] of Object.entries(defenderSlots)) {
+      if (!(slots > 0)) continue;
+      const atPlayer = (a) => defenderOf(state, seat, a) === defender && !a.defenderPlaneswalkerId;
+      const onlyThere = new Set([...required].filter((id) => {
+        const free = actions.filter((a) => a.permanentId === id && attackCostsNothing(state, defenderOf(state, seat, a), a.defenderPlaneswalkerId));
+        return free.length > 0 && free.every(atPlayer);
+      }));
+      if (onlyThere.size >= slots) out = out.filter((a) => !atPlayer(a) || onlyThere.has(a.permanentId));
+    }
+    return { actions: out, required };
   }
   return { actions, required };
 }

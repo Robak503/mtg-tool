@@ -671,6 +671,22 @@ export function attachedPreventPutCounters(state, permId) {
   return null;
 }
 
+/**
+ * WHO PUTS the attached prevent-and-put wall's counters (Exemplar of Light's "you put" reads it): the controller of the
+ * attachment printing the wall — the replacement effect's controller, not the creature's (a Panther Habit can stay on an
+ * Exemplar that changed control). Null when no attachment prints it, or when several do under different controllers (the
+ * creature's controller picks which applies, CR 616.1, and the engine does not track that pick): the placer is never guessed.
+ */
+export function attachedPreventPutCountersPlacer(state, permId) {
+  const lk = findPermanent(state, permId);
+  const placers = new Set();
+  for (const attId of lk?.permanent?.attachments || []) {
+    const att = findPermanent(state, attId);
+    if (att?.permanent?.card && attachedPreventPutCountersOf(att.permanent.card)) placers.add(att.controller);
+  }
+  return placers.size === 1 ? [...placers][0] : null;
+}
+
 // ATTACHED DAMAGE-PREVENTION (BLITZ AP-1, CR 615 — the Gaseous Form / Defang class). The per-card
 // reader (attachedPreventionOf) lives in staticAbilityParser — the aura NATIVE gate (isNativeAura,
 // which the CAST paths consult directly) must see the same read, and this module already imports from

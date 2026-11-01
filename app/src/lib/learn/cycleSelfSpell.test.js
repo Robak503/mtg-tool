@@ -31,7 +31,7 @@ import { resolveOptionalChoice } from "./effects/runProgram.js";
 import { classifyCard } from "./coverage.js";
 import { parseEffectClause, parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { cycleSelfTriggersModeled } from "./triggerRouting.js";
-import { permanentPower, permanentToughness } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -97,9 +97,19 @@ describe("the cards", () => {
   });
 
   it("CONTROL — a spell whose cycle trigger is NOT modeled stays parked and its cycling stays unoffered (the trigger is never dropped)", () => {
-    const row = Object.fromEntries(Object.entries({ DIRGE_OF_DREAD, RESOUNDING_SILENCE, DECREE_OF_JUSTICE }).map(([k, c]) => [k, { tier: classifyCard(c), modeled: cycleSelfTriggersModeled(c) }]));
-    expect(row).toEqual({ DIRGE_OF_DREAD: { tier: "arbiter-spell", modeled: false }, RESOUNDING_SILENCE: { tier: "arbiter-spell", modeled: false }, DECREE_OF_JUSTICE: { tier: "arbiter-spell", modeled: false } });
-    expect(cycleOffer(board({ hand: [H("dirge", DIRGE_OF_DREAD)], pool: { B: 2 } }), "dirge")).toBe(null);
+    const row = Object.fromEntries(Object.entries({ RESOUNDING_SILENCE, DECREE_OF_JUSTICE }).map(([k, c]) => [k, { tier: classifyCard(c), modeled: cycleSelfTriggersModeled(c) }]));
+    expect(row).toEqual({ RESOUNDING_SILENCE: { tier: "arbiter-spell", modeled: false }, DECREE_OF_JUSTICE: { tier: "arbiter-spell", modeled: false } });
+    expect(cycleOffer(board({ hand: [H("decree", DECREE_OF_JUSTICE)], pool: { W: 1, C: 2 } }), "decree")).toBe(null);
+    expect(cycleOffer(board({ hand: [H("rf", RENEWED_FAITH)], pool: { W: 1, C: 2 } }), "rf")).not.toBe(null); // the same pool pays a modeled trigger's cycling
+  });
+
+  it("Dirge of Dread's cycle trigger reads now (the causative keyword grant, play-weighted 2026-10-31): its body stays parked, its cycling is offered, and the cycled trigger gives a creature fear", () => {
+    expect({ tier: classifyCard(DIRGE_OF_DREAD), modeled: cycleSelfTriggersModeled(DIRGE_OF_DREAD) }).toEqual({ tier: "arbiter-spell", modeled: true });
+    const s0 = board({ hand: [H("dirge", DIRGE_OF_DREAD)], pool: { B: 2 }, user: [P("bears", GRIZZLY_BEARS)] });
+    const offer = cycleOffer(s0, "dirge");
+    expect(offer).not.toBe(null);
+    const s1 = resolveAll(dispatchAction(s0, offer));
+    expect({ fear: permanentHasKeyword(s1, "bears", "Fear"), drew: s1.players.user.hand.length }).toEqual({ fear: true, drew: 1 });
   });
 
   it("the spell's program is the body alone: the cycle line is not in it", () => {

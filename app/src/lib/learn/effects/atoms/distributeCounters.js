@@ -102,7 +102,7 @@ export function applyPutLeaveCountersOnSelf(state, atom, ctx) {
   if (!kinds.length) return logEvent(state, { kind: "spell-effect", effect: "put-leave-counters-on-self", controller: ctx.controller, placed: 0, reason: "no-snapshot" });
   let next = state;
   for (const [type, amount] of kinds) {
-    next = addCounter(next, { permanentId: src.permanent.id, type, amount });
+    next = addCounter(next, { permanentId: src.permanent.id, type, amount, placedBy: ctx?.controller });
   }
   if (kinds.some(([type]) => type === "-1/-1")) {
     const r = destroyLethalCreaturesAfterEffect(next);
@@ -131,7 +131,7 @@ export function applyMoveAllCountersToTarget(state, atom, ctx) {
   if (!target) return logEvent(state, { kind: "spell-effect", effect: "move-all-counters-to-target", controller: ctx.controller, moved: 0, reason: "target-gone" });
   let next = state;
   for (const [type, amount] of pile) {
-    next = addCounter(next, { permanentId: target.permanent.id, type, amount });
+    next = addCounter(next, { permanentId: target.permanent.id, type, amount, placedBy: ctx?.controller });
     next = removeCounter(next, { permanentId: src.permanent.id, type, amount });
   }
   const r = destroyLethalCreaturesAfterEffect(next);

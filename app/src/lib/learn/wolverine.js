@@ -69,7 +69,7 @@ export function applyWolverineEndStep(state) {
   for (const pid of Object.keys(next.players || {})) {
     for (const perm of next.players[pid].battlefield || []) {
       if (perm.dealtDamageToCreatureThisTurn && marksDamageToCreature(perm.card)) {
-        next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1 });
+        next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1, placedBy: pid }); // its own ability, its controller
         next = logEvent(next, { kind: "wolverine-endstep-counter", permanentId: perm.id, cardName: perm.card?.name, controller: pid });
       }
     }

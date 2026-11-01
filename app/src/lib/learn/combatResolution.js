@@ -59,7 +59,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors, perman
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
-import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters, groupPreventPutCounters } from "./combatEvasion.js"; // + groupPreventPutCounters (Vigor, 2026-10-17)
+import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, attachedPreventPutCountersPlacer, selfPreventPutCounters, groupPreventPutCounters } from "./combatEvasion.js"; // + groupPreventPutCounters (Vigor, 2026-10-17)
 import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
 import { playerProtectedFromEverything, moveCardToZone } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage; moveCardToZone — ④-AX end-of-combat self-bounce
 import { sacrificeCreatureEffect } from "./effects/atoms/removal.js"; // ④-AX — the shared sacrifice primitive for the end-of-combat self-sacrifice
@@ -298,19 +298,23 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // own counters and two hits in one step correctly earn twice. The absence of a budget here is the
   // difference between the two families, not an oversight.
   const pcAdditions = new Map();  // permanentId -> +1/+1 counters to ADD after the loops
+  // permanentId -> who PUTS them (the wall's controller — Exemplar of Light's "you put"); null once two walls with different
+  // controllers paid the same creature, so the placer is never guessed.
+  const pcPlacer = new Map();
+  const notePlacer = (id, who) => pcPlacer.set(id, pcPlacer.has(id) && pcPlacer.get(id) !== who ? null : who);
   /** Decide the prevent-and-put wall for one hit. Returns true when the damage is PREVENTED. */
   const preventAndPutCounters = (targetId, amount, sourcePerm) => {
     const lk = findPermanent(state, targetId);
     if (!lk) return false;
     // ATTACHED (Panther Habit): all damage, any source, "that many" = the amount about to be dealt.
     if (attachedPreventPutCounters(state, targetId)) {
-      if (amount > 0) pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount);
+      if (amount > 0) { pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount); notePlacer(targetId, attachedPreventPutCountersPlacer(state, targetId)); }
       return true;
     }
     // GROUP (Vigor, 2026-10-17): another permanent the target's controller controls prints the wall — all damage, "that
     // many", the same payout as the attached form. Read off the pre-step board like every wall here.
     if (groupPreventPutCounters(state, targetId)) {
-      if (amount > 0) pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount);
+      if (amount > 0) { pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount); notePlacer(targetId, lk.controller); }
       return true;
     }
     // SELF (Ironscale Hydra): COMBAT damage FROM A CREATURE only, and exactly ONE counter. This funnel is
@@ -321,6 +325,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const type = String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? "");
       if (!/\bcreature\b/i.test(type)) return false;
       pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + 1);
+      notePlacer(targetId, lk.controller); // its own wall
       return true;
     }
     return false;
@@ -774,7 +779,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // A creature that left the battlefield during the step earns nothing (findPermanent guard), matching
   // every sibling loop here.
   for (const [id, n] of pcAdditions) {
-    if (n > 0 && findPermanent(next, id)) next = addCounter(next, { permanentId: id, type: "+1/+1", amount: n });
+    if (n > 0 && findPermanent(next, id)) next = addCounter(next, { permanentId: id, type: "+1/+1", amount: n, placedBy: pcPlacer.get(id) ?? null });
   }
   // PV-1 (CR 615): write the surviving prevention shields back (the local pool decremented at the deal
   // sites). Only when a live pool existed — an empty pool leaves state untouched (byte-identical).

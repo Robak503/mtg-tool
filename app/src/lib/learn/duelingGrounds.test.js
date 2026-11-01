@@ -5,7 +5,8 @@
  * A headcount on the whole combat (CR 508.1a / 509.1a), whoever controls the source. The static parser reads the
  * sentence to a `combatCap` descriptor; a board reader takes the LOWEST cap of its kind across every battlefield; the
  * attacker enumeration returns nothing once that many attackers stand declared, the blocker enumeration once that many
- * creatures block. The defender-scoped "can attack YOU each combat" (Crawlspace) is a different restriction and parks.
+ * creatures block. The defender-scoped "can attack YOU each combat" (Crawlspace) is a different restriction, its own reader
+ * (`defenderAttackCap` — defenderAttackCap.test.js, play-weighted 2026-10-31).
  *
  * Mutation-checked: see the run ledger (docs-sk84).
  */
@@ -47,16 +48,17 @@ const attacks = (s) => legalActionsForPlayer(s, "user").filter((a) => a.kind ===
 const blocks = (s) => legalActionsForPlayer(s, "user").filter((a) => a.kind === "declare-blocker");
 
 describe("the parser and the board reader", () => {
-  it("reads one/two × attack/block; the defender-scoped Crawlspace form is refused; Dueling Grounds and Silent Arbiter flip native", () => {
+  it("reads one/two × attack/block; the defender-scoped Crawlspace form is no global cap (its own reader); Dueling Grounds and Silent Arbiter flip native", () => {
     const row = { dg: parseStaticAbilities(DG).map((d) => d.combatCap), two: parseStaticAbilities(TWO_CAP).map((d) => d.combatCap), cs: parseStaticAbilities(CRAWLSPACE),
       dgTier: classifyCard(DG), saTier: classifyCard(ARBITER), csTier: classifyCard(CRAWLSPACE) };
     console.log("  WITNESS duelingGrounds", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.dg).toEqual([{ kind: "attack", max: 1 }, { kind: "block", max: 1 }]);
     expect(row.two).toEqual([{ kind: "attack", max: 2 }, { kind: "block", max: 2 }]);
     expect(row.cs.some((d) => d.combatCap)).toBe(false);
+    expect(row.cs.map((d) => d.defenderAttackCap)).toEqual([{ max: 2 }]);
     expect(row.dgTier).toBe("native-static");
     expect(row.saTier).toMatch(/^native/);
-    expect(row.csTier).not.toMatch(/^native/);
+    expect(row.csTier).toBe("native-static");
   });
 
   it("the reader takes the LOWEST cap across every battlefield, and null when none is out", () => {

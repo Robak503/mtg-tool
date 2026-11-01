@@ -1082,6 +1082,42 @@ Brighthearth) never see a crew activation. The cast watcher takes "you cast a sp
 counted creature-token arm (atoms/tokens.js) takes "where X is half the number of <count>, rounded down|up" (`halve`; applyCreateToken
 halves `countFor` through `halveAmount`, a no-op when unset — Endless Ranks of the Dead).
 
+**Eight readers the most-played lacked (play-weighted 2026-10-31).** The life-loss event takes "you lose life" (`whose: "you"`,
+gated in `checkLifeLossTriggers` on the loser being the watcher's controller — Vilis, Broker of Blood); its "draw that many cards" is
+re-pointed at the life just lost (the `lifeLost` rewrite → the "draw that many life-lost cards" sentinel → `countContext:
+"lifeLostAmount"`, cdmgPayoffClauseParser's (dr3)). With the trailing "for the first time each turn" peeled (Vengeful Warchief,
+Gonti's Machinations) the descriptor also carries `firstLossEachTurn`: the PLAYER's first loss of the turn (the loser's
+`lifeLostThisTurn` ledger holds exactly this loss), not the per-source latch alone — a watcher that arrives after the first loss
+never fires that turn. The cast watcher takes "a <filter> spell with mana value less than this creature's power" (`spellFilter:
+{ kind: "manaValueBelowSourcePower", base }`, read in `checkCastTriggers` against the watcher's layer-aware power as the spell is
+cast — Pollywog Prodigy). The batched attack takes the any-player form "one or more creatures attack" (Aurelia's `anyAttack` pass
+with no minimum — Duelist's Heritage); `combat.pumpClauseParser` reads the causative grant "have target creature gain <keywords>
+until end of turn" (the subject peels compose — "attacking" in Heritage; Kinsbaile Balloonist). The dies watcher takes "a creature
+you control without flying dies" (`withoutKeyword: "flying"`, scopeMatches' pre-switch gate on the death look-back's `lkiFlying` —
+`gameState.deathLookback` records the flying it had as it last existed; an unrecorded look-back fires nothing), and its "return it
+to the battlefield under its owner's control with a flying counter on it" is the `[dies-return-bf]` marker with `enterCounter`
+(handed to enterCardFromZone's `extraCounter`, so the creature enters with it — Luminous Broodmoth). The receiving permanent's own
+counters-put event takes "you put one or more +1/+1 counters on this creature" (`placedByController`: the counter row's NAMED
+`placedBy` is the recipient's controller — Exemplar of Light). `gameState.addCounter` records `placedBy` only when its caller
+names it, never defaulting it: the counter effects (atoms/counters.js, distributeCounters.js, amass, earthbend, the fight riders —
+the effect's controller), a cost (its payer — the activation's putCounter, a mana tap's), the prevent-and-put walls (the wall's
+controller: `combatEvasion.attachedPreventPutCountersPlacer` for Panther Habit — the attachment's controller, null when two
+controllers' walls could apply — and the creature's controller for Vigor and its own Ironscale wall), explore (its controller, CR
+701.44a), Wolverine's end step, and the returns under an owner's control (undying, persist, the dies-returns, the blink returns —
+that controller, CR 122.6a); an entering permanent's rows name its controller (CR 122.6a). A row with no named placer never fires a
+"you put" watcher (false-negative safe). `atoms/hand.js` reads "look at the top
+card of target player's library" (`look-at-library-top`, the look-at-hand discipline: the log names the real top card to the
+looker; intent own — Mishra's Bauble, Merfolk Observer, Moonring Island). The group count anthem takes "other creature on the
+battlefield that shares at least one creature type with it" (`{ kind: "otherCreaturesSharingCreatureType" }`, counted per affected
+creature in layers' countSelfSpecOnBoard through the in-derive identity `creatureTypesInDerive` — Coat of Arms). The static parser
+reads the defender-scoped "No more than N creatures can attack you each combat." (`defenderAttackCap`; `defenderAttackCapFor` takes
+the lowest among the defender's permanents): `legalChoices.actionsDeclareAttacker` drops a capped player as an attack target once
+their slots are spent (an attack on their planeswalker is not one, CR 506.2, 508.3e); once a cap has removed a target the one-opponent
+shortcut is never taken (its declarations carry no defender, and `applyDeclareAttacker` fills in the FIRST opponent in turn order —
+the capped player in a pod with one legal target left), so every attack names its defender, and `applyDeclareAttacker` itself
+refuses an attack past a defender's cap (`ATTACK_CAP`); and `attackRequirements.attackDeclarationOffer` gives a capped player's
+last slots to the owed creatures that can attack only that player (CR 508.1d — Crawlspace, Judoon Enforcers).
+
 **The chosen-type sweep family** (`removal.notChosenTypeSet`, 2026-10-18): Kindred Dominance's destroy, Raise the Palisade's bounce
 and Crippling Fear's -N/-N share one choice (`choicePolicy.autoPickCreatureTypeToSpare`, made as the spell resolves, for every
 seat) and one set (every creature now not of the chosen type by its current types; a changeling is never in it). The bounce rides

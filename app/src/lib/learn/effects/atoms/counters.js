@@ -180,10 +180,10 @@ export function applyAddCounter(state, atom, ctx) {
         placedOnAny += placed;
         if (t.controller === ctx.controller) placedOnYours += placed;
       }
-      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: addAmt });
+      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: addAmt, placedBy: ctx?.controller });
       // COUNTERS OF SEVERAL KINDS (Gift of the Viper — multiKindCounterClauseParser): the other kinds land on the same recipient in
       // the same event; none is a +1/+1 counter (the parser keeps that one first), so the watcher tally above is already whole.
-      for (const kind of atom.alsoCounterTypes || []) next = addCounter(next, { permanentId: t.id, type: kind, amount: addAmt });
+      for (const kind of atom.alsoCounterTypes || []) next = addCounter(next, { permanentId: t.id, type: kind, amount: addAmt, placedBy: ctx?.controller });
     }
   }
   // -1/-1 counters lower DERIVED toughness — the lethal check for a creature it drops to 0
@@ -255,7 +255,7 @@ export function applyProliferate(state, atom, ctx) {
         const hasBad = kinds.some((k) => PROLIF_BAD.has(k));
         const choose = mine ? (hasGood && !hasBad) : (hasBad && !hasGood);
         if (!choose) continue;
-        for (const k of kinds) next = addCounter(next, { permanentId: perm.id, type: k, amount: 1 });
+        for (const k of kinds) next = addCounter(next, { permanentId: perm.id, type: k, amount: 1, placedBy: ctx?.controller });
       }
       // POISON on opponent players (the player counter whose proliferation is unambiguously good for me).
       if (!mine && (next.players[pid].poison || 0) > 0) next = addPoison(next, { playerId: pid, amount: 1 });
@@ -493,6 +493,9 @@ export function cdmgPayoffClauseParser(clause) {
   // argument: the bare "you gain that much life" is Essence Sliver's combat-damage payoff, and the two must
   // never collapse onto one countContext.
   if (/^you gain that much life-lost life$/.test(t)) return { op: "gain-life", countContext: "lifeLostAmount", targetType: null };
+  // (dr3) LOSS → DRAW (Vilis, Broker of Blood) — "draw that many life-lost cards": the lifeLost rewrite's sentinel; the count is
+  // the life just lost (ctx.lifeLostAmount). The referent gates admit that countContext only on the lifeLost event.
+  if (/^draw that many life-lost cards$/.test(t)) return { op: "draw", countContext: "lifeLostAmount", optional: false, targetType: null };
   // (dies-rad) power-scaled dies payoff — Feral Ghoul
   if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
     return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
@@ -938,7 +941,7 @@ export function applyAddNamedCounterSelf(state, atom, ctx) {
   // absent/zero count places nothing (a clean logged no-op, never a fabricated counter — CREED).
   const amount = atom.countContext ? (ctx[atom.countContext] || 0) : (atom.amount || 1);
   if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: 0, targets: [ctx.sourceId] });
-  const next = addCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount });
+  const next = addCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount, placedBy: ctx?.controller });
   return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount, targets: [ctx.sourceId] });
 }
 
@@ -978,7 +981,7 @@ export function applyDoubleOrResetCounters(state, atom, ctx) {
     if (count === 0) {
       return logEvent(state, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "double", added: 0 });
     }
-    const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: count });
+    const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: count, placedBy: ctx?.controller });
     return logEvent(next, { kind: "spell-effect", effect: "double-or-reset-counters", controller: ctx.controller, branch: "double", added: count });
   }
   const removed = Math.max(0, count - 1);
@@ -1095,7 +1098,7 @@ export function applyShieldCounter(state, atom, ctx) {
   // only BY LAYERS (an animated land, a crewed Vehicle) is a creature right now (CR 613). The printed-card
   // check alone made this a silent no-op on exactly those permanents.
     if (!lk || !permanentIsCreature(next, t.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
-    next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1 });
+    next = addCounter(next, { permanentId: t.id, type: "shield", amount: 1, placedBy: ctx?.controller });
     placed.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "shield-counter", targets: placed });
@@ -1175,7 +1178,7 @@ export function applyMonstrosity(state, atom, ctx) {
   const lk = findPermanent(state, ctx.sourceId);
   if (!lk) return state;
   if (lk.permanent.monstrous) return logEvent(state, { kind: "spell-effect", effect: "monstrosity", note: "already monstrous", permanentId: ctx.sourceId });
-  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
+  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1, placedBy: ctx?.controller });
   next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, monstrous: true }));
   // BECOMES-MONSTROUS (CR 701.37a — SHELF S7): the real transition just happened (the already-monstrous
   // branch returned above), so the source's own becomes-monstrous watchers fire exactly once.
@@ -1245,7 +1248,7 @@ export function applyAdapt(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "adapt", note: "already has +1/+1 counters", permanentId: ctx.sourceId });
   }
   state = s0;
-  const next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
+  const next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1, placedBy: ctx?.controller });
   return logEvent(next, { kind: "spell-effect", effect: "adapt", permanentId: ctx.sourceId, amount: atom.amount || 1 });
 }
 
@@ -1263,7 +1266,7 @@ export function applyDrawOrCounterTriggering(state, atom, ctx) {
     const next = drawCards(state, { playerId: ctx.controller, count: 1 });
     return logEvent(next, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, branch: "draw" });
   }
-  const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: 1 });
+  const next = addCounter(state, { permanentId: found.permanent.id, type: "+1/+1", amount: 1, placedBy: ctx?.controller });
   return logEvent(next, { kind: "spell-effect", effect: "draw-or-counter-triggering", controller: ctx.controller, branch: "counter" });
 }
 
@@ -1335,7 +1338,7 @@ export function applyRenown(state, atom, ctx) {
   const n = atom.amount || 1;
   // Counters go through addCounter — the central chokepoint, so doubling effects and counter-placed
   // watchers compose exactly as they do for monstrosity/evolve.
-  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: n });
+  let next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: n, placedBy: ctx?.controller });
   next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, renowned: true }));
   return logEvent(next, { kind: "spell-effect", effect: "renown", permanentId: ctx.sourceId, amount: n });
 }
@@ -1417,7 +1420,7 @@ function applyDoubleAllCounters(state, atom, ctx) {
   if (!lk) return logEvent(state, { kind: "spell-effect", effect: "double-all-counters-fizzle", targetId: t?.id || null, controller: ctx?.controller });
   const snapshot = Object.entries(lk.permanent.counters || {}).filter(([, n]) => Number.isInteger(n) && n > 0);
   let next = state;
-  for (const [type, n] of snapshot) next = addCounter(next, { permanentId: t.id, type, amount: n });
+  for (const [type, n] of snapshot) next = addCounter(next, { permanentId: t.id, type, amount: n, placedBy: ctx?.controller });
   return logEvent(next, { kind: "spell-effect", effect: "double-all-counters", targetId: t.id, kinds: snapshot.map(([k, n]) => `${k}:${n}`), controller: ctx?.controller });
 }
 
@@ -1484,7 +1487,7 @@ export function applyTransferCounters(state, atom, ctx) {
     for (const [type, amount] of Object.entries(bag)) {
       const n = Number(amount) || 0;
       if (n <= 0) continue;
-      next = addCounter(next, { permanentId: t.id, type, amount: n });
+      next = addCounter(next, { permanentId: t.id, type, amount: n, placedBy: ctx?.controller });
       moved += n;
     }
   }
@@ -1533,7 +1536,7 @@ export function applyMoveCounter(state, atom, ctx) {
   let next = removeCounter(state, { permanentId: src.permanent.id, type: kind, amount: 1 });
   const dstIsCreature = permanentIsCreature(next, dst.permanent.id);
   const placed = kind === "+1/+1" && dstIsCreature ? applyCounterDoubling(next, dst.controller, "+1/+1", 1, dst.permanent.id) : 0;
-  next = addCounter(next, { permanentId: dst.permanent.id, type: kind, amount: 1 });
+  next = addCounter(next, { permanentId: dst.permanent.id, type: kind, amount: 1, placedBy: ctx?.controller });
   // No lethal check here: a creature a move leaves at 0 toughness dies to the state-based actions checked after the ability
   // resolves (CR 704.3), which the stack's resolution already runs (the kill is pinned in nestingGroundsMove.test.js).
   next = logEvent(next, { kind: "spell-effect", effect: "move-counter", moved: 1, counterType: kind, from: src.permanent.id, onto: dst.permanent.id, controller: ctx.controller });

@@ -207,6 +207,10 @@ export function atomTargetIntent(atom) {
       // — Ingenious Thief's ETB is the whole reason this case exists; without it the HIGH-parsing program
       // has an ambiguous atom and the trigger routes to the Arbiter instead of firing.
       return "enemy";
+    case "look-at-library-top":
+      // THE TOP CARD OF A LIBRARY (Mishra's Bauble) — information only. Enumeration stays legal-wide ("target player" is any
+      // player); the intent is the controller's own library, the card it will draw next, so a chooser has a side to place it on.
+      return "own";
     case "make-uncounterable":
       // GRANT UNCOUNTERABILITY (Vexing Shusher) -- you protect YOUR OWN spell with this. It can legally
       // target any spell on the stack, but no chooser would ever spend it shielding an opponent's, so the

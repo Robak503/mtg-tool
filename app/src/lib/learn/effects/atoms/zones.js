@@ -266,7 +266,7 @@ export function applyBlink(state, atom, ctx) {
     if (atom.ifSubtypeCounter && r.permanentId) {
       const np = findPermanent(next, r.permanentId);
       if (np && permanentHasTypeWord(next, r.permanentId, atom.ifSubtypeCounter.subtype)) { // the type-line audit: its front face, as it is now
-        next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
+        next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1, placedBy: np.controller }); // the returned object's controller (CR 122.6a)
       }
     }
   }
@@ -2127,7 +2127,7 @@ export function applyBlinkReturn(state, atom, ctx) {
   const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId, auraSideHint: atom.auraSideHint || null });
   let next = r.state;
   if (r.entered && atom.withCounter && r.permanentId) {
-    next = addCounter(next, { permanentId: r.permanentId, type: "+1/+1", amount: 1 });
+    next = addCounter(next, { permanentId: r.permanentId, type: "+1/+1", amount: 1, placedBy: atom.ownerId }); // it returns under its owner's control, who puts it (CR 122.6a)
   }
   return logEvent(next, { kind: "spell-effect", effect: "blink-return", returned: r.entered ? atom.cardId : null, controller: ctx.controller });
 }

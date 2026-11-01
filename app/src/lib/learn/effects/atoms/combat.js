@@ -547,7 +547,7 @@ export function applyEarthbend(state, atom, ctx) {
   next = addContinuousEffect(next, { layer: 4, op: { types: ["Creature"], subtypes: ["Elemental"] }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
   next = addContinuousEffect(next, { layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: 0, toughness: 0 }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
   next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
-  if (n > 0) next = addCounter(next, { permanentId: land.id, type: "+1/+1", amount: n }); // → a real N/N before the SBA
+  if (n > 0) next = addCounter(next, { permanentId: land.id, type: "+1/+1", amount: n, placedBy: ctx?.controller }); // → a real N/N before the SBA
   // EARTHBEND-RETURN (CR 603.7 delayed triggered ability) — tag the animated land so its "when it dies or is
   // exiled, return it to the battlefield tapped" rider fires (triggers.checkLeavesTriggers synthesizes the return
   // off this flag when the land leaves to a graveyard/exile). Set BEFORE the lethal check so an X=0 earthbend (a
@@ -709,7 +709,7 @@ export function applyFightPair(state, atom, ctx) {
     const pre = fightPairRefs(base, ctx);
     const legendaryOk = !atom.fighterCounter.onlyIfLegendary || /\bLegendary\b/i.test(typeLineStr(pre.fighter?.permanent?.card));
     if (pre.fighter && legendaryOk) {
-      base = addCounter(base, { permanentId: pre.fighter.permanent.id, type: atom.fighterCounter.counterType || "+1/+1", amount: atom.fighterCounter.amount || 1 });
+      base = addCounter(base, { permanentId: pre.fighter.permanent.id, type: atom.fighterCounter.counterType || "+1/+1", amount: atom.fighterCounter.amount || 1, placedBy: ctx?.controller });
     }
   }
   const { fighter, target } = fightPairRefs(base, ctx);
@@ -770,7 +770,7 @@ export function applyDamageTargetPower(state0, atom, ctx) {
   // dealee still gets the counter placed (CR 608.2b — the legal part of the effect still happens).
   if (atom.fighterCounterFirst) {
     const { fighter: f0 } = fightPairRefs(state, ctx);
-    if (f0) state = addCounter(state, { permanentId: f0.permanent.id, type: atom.fighterCounterFirst.counterType || "+1/+1", amount: atom.fighterCounterFirst.amount || 1 });
+    if (f0) state = addCounter(state, { permanentId: f0.permanent.id, type: atom.fighterCounterFirst.counterType || "+1/+1", amount: atom.fighterCounterFirst.amount || 1, placedBy: ctx?.controller });
   }
   const { fighter, target } = fightPairRefs(state, ctx);
   if (!fighter || !target) {
@@ -2090,6 +2090,15 @@ export function pumpClauseParser(clause) {
   }
   cg = t.match(/^have target creature get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (cg) return { op: "pump", targetType: "creature", ptDelta: { p: parseInt(cg[1], 10), t: parseInt(cg[2], 10) } };
+  // CAUSATIVE KEYWORD GRANT (play-weighted 2026-10-31 — Duelist's Heritage "you may have target attacking creature gain double
+  // strike until end of turn"; Kinsbaile Balloonist, Dirge of Dread): the "have … gain" voice of "target creature gains <keywords>
+  // until end of turn" — the same pump atom with no P/T change, the keywords through the shared vocabulary. The subject peels
+  // ("attacking", "another", a controller) come off before this arm, as for the pump forms above.
+  cg = t.match(/^have target creature gain (.+) until end of turn$/);
+  if (cg) {
+    const kws = parseGrantedKeywords(cg[1]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // BECOMES-A-SUBTYPE-AND-GAINS (SHELF-85 · Light-Paws L5 Enter the Avatar State, 2026-09-05) — "Until end of turn, target
   // creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and
   // hexproof." The keyword pump with a layer-4 SUBTYPE-ADD rider (the set-base-pt-team arm's `addSubtype` shape), both

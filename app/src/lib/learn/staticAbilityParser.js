@@ -618,6 +618,12 @@ function parseSelfCountSource(phrase) {
   if ((m = p.match(/^(other )?([a-z][a-z]+) on the battlefield$/))) {
     return { kind: "subtypeOnBattlefield", subtype: m[2].charAt(0).toUpperCase() + m[2].slice(1), excludeSelf: !!m[1] };
   }
+  // OTHER CREATURES SHARING A CREATURE TYPE WITH IT (play-weighted 2026-10-31 — Coat of Arms, EDHREC #953: "Each creature gets +1/+1
+  // for each other creature on the battlefield that shares at least one creature type with it."): every player's creatures but the
+  // counting one with a creature type in common with it (CR 205.3m), counted per affected creature (layers' countSelfSpecOnBoard —
+  // `perm` is the creature being sized). The battlefield-wide wording only; "… you control that shares …" (Stoneforge Masterwork)
+  // is not this count.
+  if (p === "other creature on the battlefield that shares at least one creature type with it") return { kind: "otherCreaturesSharingCreatureType" };
   return null;
 }
 
@@ -3370,6 +3376,15 @@ function parseClause(clause, out, selfName, selfType) {
   const cap = c.match(/^no more than (one|two) creatures? can (attack|block) each combat$/);
   if (cap) {
     out.push({ combatCap: { kind: cap[2], max: cap[1] === "one" ? 1 : 2 } });
+    return;
+  }
+  // DEFENDER-SCOPED ATTACK CAP (play-weighted 2026-10-31 — Crawlspace, EDHREC #1404: "No more than two creatures can attack you each
+  // combat."): a restriction on attacking the source's CONTROLLER as a player (CR 508.1c). An attack on a planeswalker that player
+  // controls is not an attack on them (CR 506.2, 508.3e — the card's ruling). legalChoices stops offering attacks at that player once
+  // that many stand declared at them (defenderAttackCapFor, the lowest such cap among their permanents).
+  const defCap = c.match(/^no more than (one|two|three) creatures? can attack you each combat$/);
+  if (defCap) {
+    out.push({ defenderAttackCap: { max: { one: 1, two: 2, three: 3 }[defCap[1]] } });
     return;
   }
   // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that
@@ -8509,6 +8524,20 @@ export function combatCapFor(state, kind) {
       for (const d of parseStaticAbilities(perm?.card)) {
         if (d?.combatCap?.kind === kind && (cap == null || d.combatCap.max < cap)) cap = d.combatCap.max;
       }
+    }
+  }
+  return cap;
+}
+
+/**
+ * DEFENDER-SCOPED ATTACK CAP reader (Crawlspace): the LOWEST "no more than N creatures can attack you each combat" among the
+ * permanents `defenderId` controls — "you" is the source's controller — or null when they control none.
+ */
+export function defenderAttackCapFor(state, defenderId) {
+  let cap = null;
+  for (const perm of state?.players?.[defenderId]?.battlefield || []) {
+    for (const d of parseStaticAbilities(perm?.card)) {
+      if (d?.defenderAttackCap && (cap == null || d.defenderAttackCap.max < cap)) cap = d.defenderAttackCap.max;
     }
   }
   return cap;
