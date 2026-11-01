@@ -10,7 +10,20 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.10.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.11.0"`
+
+> **v1.11.0 (MINOR, 2026-11-01 — every throw in the driver is the same crash; a CLASSIFICATION change for two decisions):**
+> - v1.9.0's two engine faults — a step that throws (`guard` `"engine-error"`) and a seat with no legal action whose pass throws
+>   (`"no-legal-action"`) — were an `"engine-stuck"` with no stack: a crash folded into a stall. They are now the `"dispatch-error"`
+>   v1.10.0 gives every other throw: `error: { name, message, code, stack }`, turn, phase, step, ticks, maxTurnTicks, the same
+>   `guard` and the same `reason`. A consumer that counted them as engine-stuck counts them as dispatch-error now (the self-play
+>   record too, with `error` / `errorStack`); `guard.type` tells them apart. `endEngineStoppedGame` ends them as before, with the same
+>   words. The remaining `"engine-stuck"` decisions are the stalls (turn stall, runaway, safety cap) and the pending-choice failsafe.
+> - A throw v1.10.0's outer guard catches carries `guard.at: "loop"` (additive); the Academy's line for it says the engine hit an
+>   error, not that moving to the next step failed.
+> - Narrowed (v1.10.0 read wider than it was): under `MTG_AUDIT=1` the OUTER guard rethrows; the loop's own catches convert in every
+>   mode — the step's, the no-legal-action pass's, and an auto-decided dispatch's (an `AUDIT_VIOLATION` inside an AI's dispatch is
+>   that catch's dispatch-error, not a red test); `applyAction` answers a refused dispatch with the state unchanged.
 
 > **v1.10.0 (additive MINOR, 2026-11-01 — the driver never throws on an engine bug, and never hides one):**
 > - A throw anywhere inside the driver's loop — the legal-actions call, a pending-choice settler, the SBA pass, which until now

@@ -1,10 +1,11 @@
 /**
  * gameEndings.test.js — the session loop's side of how an Academy game ends (2026-10-22).
  *
- *   - The two engine faults name themselves on the driver's engine-stuck decision — `guard` { type: "engine-error",
+ *   - The two engine faults name themselves on the driver's decision — a "dispatch-error" carrying the error and its stack
+ *     since 2026-11-01 (an engine-stuck until then) — `guard` { type: "engine-error",
  *     message } for a step that throws, { type: "no-legal-action", seat, message } for a seat holding priority with no
  *     legal action whose pass throws — so endEngineStoppedGame ends the game they stop, with an honest one-line reason.
- *     The decision's kind, reason text and the "active" session are unchanged (the self-play harnesses' result).
+ *     The reason text and the "active" session are unchanged; the self-play result is "dispatch-error" with the stack.
  *   - abandon() ends a game still at its opening-hand mulligans (start saves it, so it is offered under "Continue a game").
  *   - A puzzle attempt the person abandoned gets no puzzle verdict: they neither solved nor missed it.
  * The pending-choice failsafe's engine-stuck is left as it was: it clears the choice, so the game can go on.
@@ -44,7 +45,8 @@ describe("the engine faults name themselves, and the game they stop ends", () =>
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const raw = learn.advanceUntilDecision(faulted("engine-error"));
-      expect(raw.decision.kind).toBe("engine-stuck");
+      expect(raw.decision.kind).toBe("dispatch-error"); // a throw is a crash (2026-11-01 — it was engine-stuck)
+      expect(typeof raw.decision.error.stack).toBe("string");
       expect(raw.decision.reason).toBe(THROWN);
       expect(raw.decision.guard).toEqual({ type: "engine-error", message: THROWN });
       expect(raw.session.status).toBe("active");
@@ -67,7 +69,8 @@ describe("the engine faults name themselves, and the game they stop ends", () =>
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const raw = learn.advanceUntilDecision(faulted("no-legal-action"));
-      expect(raw.decision.kind).toBe("engine-stuck");
+      expect(raw.decision.kind).toBe("dispatch-error"); // a throw is a crash (2026-11-01 — it was engine-stuck)
+      expect(typeof raw.decision.error.stack).toBe("string");
       expect(raw.decision.reason).toBe("no legal action and no pass available");
       expect(raw.decision.guard).toEqual({ type: "no-legal-action", seat: "user", message: THROWN });
       expect(raw.session.status).toBe("active");

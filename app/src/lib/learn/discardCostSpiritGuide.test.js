@@ -7,6 +7,11 @@
  * dispatcher refuses (MANA_SHORT) — and the AI picked it, so a self-play game ended there and an Academy game re-derived the same
  * pick. Cathartic Reunion's two auto-picked discards took the Guide (the least valuable card) and were refused; the legal line —
  * discard the two other cards while the Guide pays — was never offered. (The castexplode review's F1, its fixtures.)
+ *
+ * A RANDOM discard (Sonic Burst — the re-review's N2, older than the slice): the card is picked at payment from what the mana left,
+ * so the cast was offered with the Guide and one Mountain, the Guide's mana was spent, the hand was empty and the dispatcher refused
+ * it (ADDCOST_UNPAID) — a false positive the AI would take. Offered now only when some hand card can be the one discarded while the
+ * mana is paid without it.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -20,6 +25,7 @@ beforeEach(() => _resetIdsForTests());
 const SSG = (id) => ({ id, name: "Simian Spirit Guide", type: "Creature — Ape Spirit", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [], colors: ["R"], oracle: "Exile this card from your hand: Add {R}." });
 const THRILL = { id: "thr", name: "Thrill of Possibility", type: "Instant", mana: "{1}{R}", cmc: 2, colors: ["R"], oracle: "As an additional cost to cast this spell, discard a card.\nDraw two cards." };
 const REUNION = { id: "reu", name: "Cathartic Reunion", type: "Sorcery", mana: "{1}{R}", cmc: 2, colors: ["R"], oracle: "As an additional cost to cast this spell, discard two cards.\nDraw three cards." };
+const BURST = { id: "burst", name: "Sonic Burst", type: "Instant", mana: "{1}{R}", cmc: 2, colors: ["R"], oracle: "As an additional cost to cast this spell, discard a card at random.\nSonic Burst deals 4 damage to any target." };
 const MOUNTAIN = { name: "Mountain", type: "Basic Land — Mountain", oracle: "({T}: Add {R}.)" };
 const big = (id) => ({ id, name: `Big ${id}`, type: "Creature — Giant", mana: "{6}{R}", cmc: 7, power: 7, toughness: 7, colors: ["R"], oracle: "" });
 const deck = Array.from({ length: 10 }, (_, i) => ({ id: `l${i}`, name: "Forest", type: "Basic Land — Forest", oracle: "({T}: Add {G}.)" }));
@@ -79,4 +85,33 @@ describe("CONTROL — where the Guide isn't needed for mana, discarding it is st
     expect(dispatches(s, offers[0])).toBe("ok");
   });
 
+});
+
+describe("WITNESS (N2) — a random discard is offered only when a card is left to discard after the mana", () => {
+  it("Sonic Burst, Simian Spirit Guide and one Mountain: no cast (the Guide must pay, so nothing is left to discard)", () => {
+    const s = aiMain([BURST, SSG("ssg")]);
+    expect(castsOf(s, "burst")).toEqual([]);
+    const pick = pickAction(s, "ai", legalActionsForPlayer(s, "ai"), { archetype: "midrange" });
+    expect(pick?.cardId ?? null).not.toBe("burst");
+  });
+});
+
+describe("CONTROL (N2) — a second card makes the random discard payable", () => {
+  it("Sonic Burst, the Guide and a 7-drop, one Mountain: offered, and every offer dispatches — the Guide pays, the 7-drop is discarded", () => {
+    const s = aiMain([BURST, SSG("ssg"), big("g1")]);
+    const offers = castsOf(s, "burst");
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offers.every((a) => a.discardRandom === true)).toBe(true);
+    expect(offers.map((a) => dispatches(s, a)).every((r) => r === "ok")).toBe(true);
+    const next = dispatchAction(s, offers[0]);
+    expect(next.players.ai.exile.map((c) => c.id)).toEqual(["ssg"]);
+    expect(next.players.ai.graveyard.map((c) => c.id)).toEqual(["g1"]);
+  });
+
+  it("two Mountains and the Guide alone: offered (the lands pay, the Guide is the card discarded)", () => {
+    const s = aiMain([BURST, SSG("ssg")], 2);
+    const offers = castsOf(s, "burst");
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offers.map((a) => dispatches(s, a)).every((r) => r === "ok")).toBe(true);
+  });
 });

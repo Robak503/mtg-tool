@@ -375,7 +375,18 @@ export function observe(state, seat) {
 //     alternative-cost payment (Force of Will's pitch card …), in the same order — and the trajectory row counts and ranks among
 //     them as before. Inside the engine (legalChoices.legalActionsForPlayer) such a cast is now one action per target carrying
 //     the payments on `altCostChoices` (costChoices.js); a caller of that internal list expands it with expandAllCostChoices.
-export const PLAY_API_VERSION = "1.10.0";
+// 1.11.0 (MINOR — every throw in the driver is the same crash, 2026-11-01; a CLASSIFICATION change for two decisions):
+//   - 1.9.0's two engine faults — a step that throws (guard "engine-error") and a seat with no legal action whose pass throws
+//     (guard "no-legal-action") — were an "engine-stuck" with no stack: a crash folded into a stall. They are now the
+//     "dispatch-error" 1.10.0 gives every other throw (engineThrowDecision): `error: { name, message, code, stack }`, turn, phase,
+//     step, ticks, maxTurnTicks, the same `guard` and the same `reason` text. A consumer that counted them as engine-stuck counts
+//     them as dispatch-error now — the self-play record's result is "dispatch-error" with `error` / `errorStack`; switch on
+//     `guard.type` to tell them apart. endEngineStoppedGame ends them exactly as before (same words on the Academy's end line).
+//   - A throw 1.10.0's outer guard catches carries `guard.at: "loop"` (additive), and the Academy's line for it says the engine hit
+//     an error rather than that moving to the next step failed.
+//   - Unchanged: under MTG_AUDIT=1 the outer guard rethrows; the loop's own catches (the step's, the no-legal-action pass's, an
+//     auto-decided dispatch's) convert in every mode — an AUDIT_VIOLATION inside an AI's dispatch is that catch's dispatch-error.
+export const PLAY_API_VERSION = "1.11.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

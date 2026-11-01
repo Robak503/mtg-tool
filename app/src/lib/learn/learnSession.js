@@ -1360,15 +1360,14 @@ export function runawaySize(state, limits = RUNAWAY_LIMITS) {
  * the self-play harnesses count the decision as their "engine-stuck" result. The Academy ends the game with
  * endEngineStoppedGame (status "engine-stopped"), so a stopped game is never left to be resumed into its guard again.
  * `turnTickBudget`, `runawayLimits` and `safetyCap` are injectable for tests; the defaults are the shipped limits.
- * TWO ENGINE FAULTS end the advance the same way (2026-10-22): moving to the next step throws —
- * { type: "engine-error", message } — or a seat holds priority with no legal action and its pass throws —
- * { type: "no-legal-action", seat, message } (`message` is the error's). Re-deriving the same state throws again, so
- * neither game can go on; each error is logged with its stack (console.error — server.err.log in the exe). The
- * pending-choice failsafe's engine-stuck has no `guard`: it clears the choice, and the next advance can go on.
- * ANY OTHER THROW inside the loop (2026-11-01) — the legal-actions call, the decision, a pending-choice settler, the SBA pass — is a
- * "dispatch-error" carrying the error (message, stack, the turn) and `guard: { type: "engine-error", message }`, on the session as
- * that tick began (advanceUntilDecision below). Until then those escaped this function, which by contract never throws on an
- * engine bug. An auto-decided action whose dispatch throws keeps its own "dispatch-error" answer (no guard).
+ * A THROW IS A CRASH, reported as one (engineThrowDecision — a "dispatch-error" carrying the error and its stack, the turn, and a
+ * `guard` saying where; 2026-11-01): moving to the next step throws — { type: "engine-error", message }; a seat holds priority with no
+ * legal action and its pass throws — { type: "no-legal-action", seat, message } (both 2026-10-22's engine faults, which were an
+ * "engine-stuck" with no stack until 2026-11-01); anything else in the loop — the legal-actions call, the decision, a pending-choice
+ * settler, the SBA pass — reaches the guard around this function (advanceUntilDecision below): { type: "engine-error", message,
+ * at: "loop" }. Re-deriving the same state throws again, so the game can't go on; each error is logged with its stack (console.error
+ * — server.err.log in the exe). The pending-choice failsafe's engine-stuck has no `guard`: it clears the choice, and the next advance
+ * can go on. An auto-decided action whose dispatch throws keeps its own "dispatch-error" answer with no guard.
  *
  * OPT-IN OBSERVER (Learn-to-Play Track-1a): `onTurnStart` is a read-only callback
  * invoked `onTurnStart(state, turnNumber)` once each time the game enters a NEW
@@ -2694,10 +2693,12 @@ function advanceUntilDecisionUnguarded(
       } catch (error) {
         // An engine fault: the same state throws again on every re-derive, so `guard` names it and the Academy ends the
         // game (endEngineStoppedGame). Logged with its stack — the only place the error itself is seen.
+        // A crash, reported as one (2026-11-01 — it was 1.9.0's engine-stuck, a crash folded into a stall): the dispatch-error every
+        // throw in this loop is, carrying the error and its stack; `guard` keeps the step's own words on the Academy's end line.
         console.error(`[learn] the engine threw moving game ${current.id} on from turn ${state.turn} (${state.phase} / ${state.step}):`, error);
         return {
           session: current,
-          decision: { kind: "engine-stuck", reason: error.message, guard: { type: "engine-error", message: error?.message || String(error) } },
+          decision: engineThrowDecision(error, state, { ticks, maxTurnTicks, guard: { type: "engine-error", message: error?.message || String(error) } }),
         };
       }
     }
@@ -2739,15 +2740,15 @@ function advanceUntilDecisionUnguarded(
         // An engine fault: the seat can do nothing and the same state throws again on every re-derive, so `guard` names
         // it and the Academy ends the game (endEngineStoppedGame). Logged with its stack — until 2026-10-22 it was dropped.
         console.error(`[learn] ${actor} held priority in game ${current.id} (turn ${state.turn}, ${state.phase} / ${state.step}) with no legal action, and its ${fallback.kind} threw:`, error);
+        // The same dispatch-error as every throw in this loop (2026-11-01), with the error and its stack; reason and guard as before.
         return {
           session: current,
-          decision: {
-            kind: "engine-stuck",
+          decision: engineThrowDecision(error, state, {
             reason: "no legal action and no pass available",
             ticks,
             maxTurnTicks,
             guard: { type: "no-legal-action", seat: actor, message: error?.message || String(error) },
-          },
+          }),
         };
       }
       continue;
@@ -2826,15 +2827,19 @@ function advanceUntilDecisionUnguarded(
  * The driver (advanceUntilDecisionUnguarded above — its JSDoc is the contract), guarded: it NEVER throws on an engine bug, and never
  * hides one. A throw from anywhere in the loop is a CRASH, reported as one — never folded into a stall:
  *   { kind: "dispatch-error", reason: <message>, code, error: { name, message, code, stack }, turn, phase, step, ticks,
- *     maxTurnTicks, guard: { type: "engine-error", message } }
+ *     maxTurnTicks, guard: { type: "engine-error", message, at: "loop" } }   (engineThrowDecision)
  * on the session as it stood when the throwing tick began (status still "active"), logged with its stack (console.error). The
  * self-play runner records it as "dispatch-error" with that turn, the message and the stack; the Academy ends it through
  * endEngineStoppedGame ("engine-stopped" — the `guard`), as it does the two engine faults the loop catches itself, so a game is
  * never left active to re-throw on every resume. Before 2026-11-01 the legal-actions call and the pending-choice settlers ran outside
  * every guard: a throw on turn 34 reached the runner, which recorded the turn-1 session it had handed in (self-play seeds
  * 3277877396, 3366998639, 1788491710, 1721451499, 1943977102).
- * UNDER THE TEST-TIME AUDITOR (MTG_AUDIT=1 — every vitest run, src/test-setup) nothing is converted: the throw — an AUDIT_VIOLATION,
- * any invariant error — escapes exactly as it did before the guard, so a test that never asserts the decision still goes red.
+ * UNDER THE TEST-TIME AUDITOR (MTG_AUDIT=1 — every vitest run, src/test-setup) this guard converts nothing: a throw that reaches it
+ * — an AUDIT_VIOLATION, any invariant error — escapes exactly as it did before the guard, so a test that never asserts the decision
+ * still goes red. The loop's OWN catches convert in every mode, as they did before this guard: the step's and the no-legal-action
+ * pass's (engineThrowDecision), and the auto-decided dispatch's — an AUDIT_VIOLATION thrown inside an AI's dispatchAction is that
+ * catch's "dispatch-error" (no guard), not a red test; gameApi.applyAction likewise answers a refused dispatch with the state
+ * unchanged. A test meets those through the decision it asserts.
  */
 export function advanceUntilDecision(session, options = {}) {
   const progress = { current: session, ticks: 0, maxTurnTicks: 0 };
@@ -2848,20 +2853,32 @@ export function advanceUntilDecision(session, options = {}) {
     console.error(`[learn] the engine threw in game ${current?.id} on turn ${st?.turn} (${st?.phase} / ${st?.step}):`, error);
     return {
       session: current,
-      decision: {
-        kind: "dispatch-error",
-        reason: message,
-        code: error?.code ?? null,
-        error: { name: error?.name ?? "Error", message, code: error?.code ?? null, stack: error?.stack ?? null },
-        turn: st?.turn ?? null,
-        phase: st?.phase ?? null,
-        step: st?.step ?? null,
-        ticks: progress.ticks,
-        maxTurnTicks: progress.maxTurnTicks,
-        guard: { type: "engine-error", message },
-      },
+      decision: engineThrowDecision(error, st, { ticks: progress.ticks, maxTurnTicks: progress.maxTurnTicks, guard: { type: "engine-error", message, at: "loop" } }),
     };
   }
+}
+
+/**
+ * THE DECISION FOR A THROW INSIDE THE DRIVER (2026-11-01): a crash, reported as one — { kind: "dispatch-error", reason (the message, or
+ * the caller's words), code, error: { name, message, code, stack }, turn, phase, step, ticks, maxTurnTicks, guard }. `guard` names
+ * where it happened, so endEngineStoppedGame ends the game with the right words: { type: "engine-error", message } for a step that
+ * throws, { type: "no-legal-action", seat, message } for a seat with nothing to do whose pass throws, { type: "engine-error",
+ * message, at: "loop" } for anything else the outer guard catches. The self-play runner records `error`, `errorCode`, `errorStack`.
+ */
+function engineThrowDecision(error, state, { reason = null, ticks = null, maxTurnTicks = null, guard }) {
+  const message = error?.message || String(error);
+  return {
+    kind: "dispatch-error",
+    reason: reason ?? message,
+    code: error?.code ?? null,
+    error: { name: error?.name ?? "Error", message, code: error?.code ?? null, stack: error?.stack ?? null },
+    turn: state?.turn ?? null,
+    phase: state?.phase ?? null,
+    step: state?.step ?? null,
+    ticks,
+    maxTurnTicks,
+    guard,
+  };
 }
 
 // ─── User-choice application ─────────────────────────────────────────────────
@@ -4718,8 +4735,9 @@ export const ENGINE_STOPPED = "engine-stopped";
 
 /**
  * End a game one of the driver's three guards stopped (the per-turn tick budget, the runaway size guard, the safety
- * cap — advanceUntilDecision's `guard`), or one of its two engine faults stopped (a step that throws, "engine-error";
- * a seat with no legal action whose pass throws, "no-legal-action" — 2026-10-22). The driver only reports the stop: its
+ * cap — advanceUntilDecision's `guard`), or a throw stopped (a step that throws, "engine-error"; a seat with no legal action whose
+ * pass throws, "no-legal-action" — 2026-10-22; any other throw in the loop, "engine-error" at "loop" — 2026-11-01; each now a
+ * "dispatch-error" carrying its guard). The driver only reports the stop: its
  * session is still "active", and a game left that way was autosaved and offered under "Continue a game", where resuming
  * it hit the same stop at once — the person could not leave it. The Academy's play routes pass every engine result
  * through here, so the game ENDS:

@@ -1841,6 +1841,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         };
         if (addCost.random) {
           // RG-7 (2026-09-05 — Sonic Burst): ONE action; the dispatcher picks the pitch at payment with the seeded rng.
+          // Priced like the chosen discards (2026-11-01): the card is picked from what the mana left, so the cast needs SOME hand card
+          // that can be discarded while the mana is paid without it — with Simian Spirit Guide as the only other card and the Guide's
+          // mana needed, nothing is left to discard and the dispatcher refuses the cast (ADDCOST_UNPAID), so it isn't offered.
+          if (!discardable.some((dc) => payableDiscarding([dc.id]))) continue;
           for (const ch of combos) emit(ch, { discardRandom: true, discardName: "discard a card at random" });
         } else if (addCost.count > 1) {
           // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion). Reuse the each-player discard
@@ -5112,7 +5116,8 @@ function withPhyrexianPayment(state, playerId, actions) {
 //     The mana value is untouched (CR 202.3). The dispatcher pays the cost like any cast's, and the cast is
 //     DROPPED when the taxed total can't be funded from the very sources and spend context the payment will use
 //     (manaModel.castPaymentSources). A free or no-mana alternative-cost cast takes the tax onto the {0} it is
-//     (CR 118.9d) and pays it the same way.
+//     (CR 118.9d) and pays it the same way; one whose payments ride on it (`altCostChoices`) is judged payment by payment
+//     in withPayableOwedMana, which runs next.
 // Taxed permanents are read off each OPPONENT's battlefield (the array a permanent sits in IS its controller —
 // controlMove.js). A spell pays each taxing permanent's tax once however many of its targets name it — the
 // tax is on the spell ("spells … that target this creature") — so target ids are de-duplicated. Spells only:
@@ -5148,7 +5153,11 @@ function applyTargetTaxes(state, playerId, actions) {
       const fromZone = a.fromZone || "hand";
       const castCard = a.faceCard || (player?.[fromZone] || []).find((c) => c.id === a.cardId) || null; // the dispatcher's castCard
       const spendContext = { castCard, isCommander: fromZone === "command", restrictedEntries: player?.restrictedMana || [], castEvery: cardIsEveryCreatureType(state, castCard, playerId), ...lifePaymentContext(state, playerId) };
-      if (!canAfford(player.manaPool, castPaymentSources(state, a), cost, spendContext)) continue;
+      // A cast carrying alternative-cost choices (costChoices.js) is NOT judged by its house payment alone: each payment funds the tax
+      // from different sources (the creature it taps, the card it exiles), so it keeps the taxed cost and withPayableOwedMana — the next
+      // pass — judges every payment, re-picks the house among those that pay, and drops the cast only when none does. Judged by the
+      // house here, Orim's Cure at Sphinx of New Prahv lost "tap Grizzly Bears" whenever the Elves came first (2026-11-01).
+      if (!Array.isArray(a.altCostChoices) && !canAfford(player.manaPool, castPaymentSources(state, a), cost, spendContext)) continue;
       taxed = { ...taxed, cost, targetManaTax: manaTax };
     }
     out.push(taxed);

@@ -40,6 +40,9 @@ export function engineStopDetail(guard) {
       return `it took the engine's limit of ${steps(guard.limit)} without coming to a choice for you — a loop it could not get out of.`;
     // The two engine faults (2026-10-22): the error itself is the reason — a bug in the engine, not in the game.
     case "engine-error":
+      // `at: "loop"` (2026-11-01): a throw the driver's outer guard caught — the legal-actions call, a pending-choice settler, the
+      // SBA pass — not a step; the words say what is known: the engine hit an error.
+      if (guard.at === "loop") return `the engine hit an error — ${sentence(guard.message)}`;
       return `moving the game to its next step failed with an engine error — ${sentence(guard.message)}`;
     case "no-legal-action":
       return `${seatLabel(guard.seat) || "A player"} had priority with no legal action, and moving the game on failed with an engine error — ${sentence(guard.message)}`;

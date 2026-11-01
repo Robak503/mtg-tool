@@ -18,6 +18,12 @@
  *
  * The throw is injected (legalActionsForPlayer wrapped to throw from a chosen turn on) — the real throws are fixed or reported
  * elsewhere, and this pins the guard for any throw, not one bug. (The castexplode review's F3.)
+ *
+ * THE LOOP'S OWN CATCHES (the re-review's N3): a step that throws (nextStep) and a seat with no legal action whose pass throws were
+ * 1.9.0's "engine-stuck" with a guard and no stack — a crash folded into a stall. Both are the same dispatch-error now, with the
+ * error and its stack, keeping their guards ("engine-error" / "no-legal-action"); they convert in every mode, as they always did.
+ * A throw the outer guard catches carries `at: "loop"`, so the Academy's line names an engine error, not a failed step.
+ * F10: a pending-choice settler throwing — a commander-return choice whose card is not in the zone it names (the Kellan seeds).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,7 +85,7 @@ describe("WITNESS — a throw inside the driver's loop is a dispatch-error carry
     expect(result.decision.error).toMatchObject({ name: "RangeError", message: "Maximum call stack size exceeded" });
     expect(result.decision.error.stack).toMatch(/RangeError: Maximum call stack size exceeded/);
     expect(result.decision.turn).toBe(3);
-    expect(result.decision.guard).toEqual({ type: "engine-error", message: "Maximum call stack size exceeded" });
+    expect(result.decision.guard).toEqual({ type: "engine-error", message: "Maximum call stack size exceeded", at: "loop" });
     expect(result.session.status).toBe("active");
     expect(result.session.state.turn).toBe(3);
     // Reported, never swallowed: logged with the error itself (its stack rides it).
@@ -123,5 +129,58 @@ describe("CONTROL — no throw, no change", () => {
     expect(game.turns).toBeGreaterThan(4);
     expect(game.error).toBeUndefined();
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+/** A game the engine can't move on from: no priority holder, an unknown step — nextStep throws (gameEndings.test.js' state). */
+function stepFaulted() {
+  const session = expertGame();
+  return { ...session, state: { ...session.state, priorityHolder: null, step: "no-such-step" } };
+}
+const stepThrown = (session) => `Invalid (phase=${session.state.phase}, step=no-such-step)`;
+
+describe("WITNESS (N3) — a step that throws is a dispatch-error carrying its stack, not a stall", () => {
+  it("nextStep throwing: dispatch-error with the error, its stack and the step's guard; the Academy's line still names the step", () => {
+    const faulted = stepFaulted();
+    const STEP_THROWN = stepThrown(faulted);
+    const raw = learn.advanceUntilDecision(faulted);
+    expect(raw.decision.kind).toBe("dispatch-error");
+    expect(raw.decision.reason).toBe(STEP_THROWN);
+    expect(typeof raw.decision.error.stack).toBe("string");
+    expect(raw.decision.error.message).toBe(STEP_THROWN);
+    expect(raw.decision.guard).toEqual({ type: "engine-error", message: STEP_THROWN });
+    const ended = learn.endEngineStoppedGame(raw);
+    expect(ended.session.status).toBe("engine-stopped");
+    expect(ended.decision.detail).toBe(`moving the game to its next step failed with an engine error — ${STEP_THROWN}.`);
+  });
+
+  it("a throw the outer guard catches reads as an engine error, not a failed step, on the Academy's end line", () => {
+    auditorOff();
+    globalThis.__engineThrowGuardFromTurn = 2;
+    const raw = learn.advanceUntilDecision(expertGame());
+    expect(raw.decision.guard).toEqual({ type: "engine-error", message: "Maximum call stack size exceeded", at: "loop" });
+    const ended = learn.endEngineStoppedGame(raw);
+    expect(ended.decision.detail).toBe("the engine hit an error — Maximum call stack size exceeded.");
+    expect(ended.decision.detail).not.toMatch(/next step/);
+  });
+});
+
+describe("TESTS (F10) — a pending-choice settler's throw reaches the guard", () => {
+  it("a commander-return choice whose card is not in exile: dispatch-error naming it, with the settler on its stack", () => {
+    auditorOff();
+    const session = expertGame();
+    const state = { ...session.state, pendingChoice: { kind: "commander-return", controller: "user", zone: "exile", cardId: "ghost-cmdr", cardName: "Ghost Commander" } };
+    const raw = learn.advanceUntilDecision({ ...session, state });
+    expect(raw.decision.kind).toBe("dispatch-error");
+    expect(raw.decision.reason).toMatch(/ghost-cmdr/);
+    expect(raw.decision.error.stack).toMatch(/settleCommanderReturnChoice/);
+    expect(raw.decision.guard).toMatchObject({ type: "engine-error", at: "loop" });
+  });
+
+  it("under the test-time auditor the same settler throw escapes, as before the guard", () => {
+    process.env.MTG_AUDIT = "1";
+    const session = expertGame();
+    const state = { ...session.state, pendingChoice: { kind: "commander-return", controller: "user", zone: "exile", cardId: "ghost-cmdr", cardName: "Ghost Commander" } };
+    expect(() => learn.advanceUntilDecision({ ...session, state })).toThrow(/ghost-cmdr/);
   });
 });

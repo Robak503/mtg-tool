@@ -1657,7 +1657,10 @@ names no payment is ambiguous and refused, as always) see. The trajectory row co
 (`everyPlayTally` / `everyPlayIndexOf`, without building the list), and what is dispatched and logged is the cast as paid. So the
 contract's "action ∈ legalActions" and the row semantics are unchanged; only `legalChoices.legalActionsForPlayer`, an engine-internal
 list, changed shape. A choice that names an altCost names it exactly in resolveChoice's legacy match. `withPayableOwedMana` judges an
-owed-mana alternative payment by payment. Why: every seat at every window enumerated N stack targets × M payments — 4,827,648 Force
+owed-mana alternative payment by payment — including what a TARGET TAX adds: `applyTargetTaxes` stamps the taxed cost on a cast that
+carries choices and leaves the judging to that pass, since each payment funds the tax from different sources (Orim's Cure at Sphinx of
+New Prahv: tapping the Elves leaves too little, tapping the Bears doesn't). Judged by the house there, the cast and every payment went
+whenever the house couldn't pay — a false negative fixed 2026-11-01; whether it showed depended on the battlefield's order. Why: every seat at every window enumerated N stack targets × M payments — 4,827,648 Force
 of Will casts in one self-play window (seed 3277877396), and the spread of that list into `legalActionsForPlayer` threw "Maximum call
 stack size exceeded". The pilot path still builds the expanded list (N × M) each window it is asked — bounded now that hands can't
 double, and only for a pilot. The ADDITIONAL-cost lanes (a discard, a sacrificed victim, an exiled graveyard card — `emit(ch, …)` per
@@ -1671,7 +1674,9 @@ own source from the cast's affordability (castActionsFromZone's per-card `castSo
 the cast's own cost discards; the discard offer is priced the same way (`payableDiscarding`): a single discard the mana needs is not
 offered (Thrill of Possibility with Simian Spirit Guide and one Mountain: only the other card), and a counted discard keeps its
 least-valuable pick unless the payment then fails, when it takes the least valuable cards the payment allows (Cathartic Reunion
-discards the two others while the Guide pays). Before, the payment exiled the Guide, the dispatcher's splice found it at index -1 and
+discards the two others while the Guide pays). A RANDOM discard (Sonic Burst) is offered only when some hand card can be the one
+discarded while the mana is paid without it — the card is picked from what the mana left, so with the Guide as the only other card and
+its mana needed the dispatcher refused the cast (ADDCOST_UNPAID), a false positive older than this note. Before, the payment exiled the Guide, the dispatcher's splice found it at index -1 and
 rebuilt the hand as (hand minus its last card) + (the whole hand): every recast doubled the hand (Kinnan, seed 3277877396: 23 cards to
 2,116 within turn 34). The splice now refuses a card that left its zone while its costs were paid (`CARD_LEFT_ZONE`) — an upstream-bug
 detector, never a rebuild. Under vitest a test-time auditor (`AUDIT_VIOLATION`, a card in two zones) caught the doubling; in a real
@@ -2252,16 +2257,21 @@ every tick slower, so a tick count alone never fires in time). Each names itself
 decision's `guard` (`{ type: "turn-stall" | "runaway" | "safety-cap", … }`) and leaves the
 session `active` — the harnesses count the `engine-stuck` result; the Academy's routes end
 the game with `endEngineStoppedGame` (status `engine-stopped`, a game-log line, a record,
-no save left to resume into the guard, 2026-10-22). **Any throw inside the loop** (2026-11-01) is a crash, reported as one: a `dispatch-error` carrying `error: { name, message, code,
-stack }`, the turn / phase / step and `guard: { type: "engine-error", message }`, on the session as that tick began, logged with its
-stack — `advanceUntilDecision` is a guard around `advanceUntilDecisionUnguarded`, which records each tick's starting session in
-`progress`. The self-play record is `dispatch-error` with `error`, `errorCode`, `errorStack` and the real `turns`;
-`endEngineStoppedGame` ends it (the `guard`), so an Academy game never re-throws on every resume. Under the test-time auditor
-(`MTG_AUDIT=1`, every vitest run) the guard converts nothing — the throw escapes, so engine corruption still turns a test red. Until
-then the legal-actions call, the pending-choice settlers and the SBA pass threw out of the driver, and the runner — which hands it a
-turn-1 session and gets the whole game back from one call — recorded a turn-34 throw as turn 1. The runner's own catch (now a
-backstop) records `turns: null` and `errorStack`. An auto-decided action whose dispatch throws keeps its `dispatch-error` (no guard).
-One loop is not
+no save left to resume into the guard, 2026-10-22). **Every throw inside the loop** (2026-11-01) is a crash, reported as one — `engineThrowDecision`: a `dispatch-error` carrying
+`error: { name, message, code, stack }`, the turn / phase / step and a `guard` saying where, logged with its stack. A step that throws
+keeps `{ type: "engine-error", message }` and a seat with no legal action whose pass throws `{ type: "no-legal-action", seat, message }`
+(2026-10-22's two faults — an `engine-stuck` with no stack until this); anything else reaches the guard around
+`advanceUntilDecisionUnguarded` (`advanceUntilDecision`, which records each tick's starting session in `progress`) as
+`{ type: "engine-error", message, at: "loop" }` — the Academy's end line then says the engine hit an error (learnOutcome). The
+self-play record is `dispatch-error` with `error`, `errorCode`, `errorStack` and the real `turns`; `endEngineStoppedGame` ends all
+three, so an Academy game never re-throws on every resume. The only `engine-stuck` left are the stalls (turn stall, runaway, safety
+cap) and the pending-choice failsafe. Under the test-time auditor (`MTG_AUDIT=1`, every vitest run) the OUTER guard rethrows, so a
+throw reaching it still turns a test red; the loop's own catches convert in every mode, as they did before — the step's, the
+no-legal-action pass's, and an auto-decided dispatch's (an `AUDIT_VIOLATION` inside an AI's `dispatchAction` is that catch's
+dispatch-error with no guard, and `gameApi.applyAction` answers a refused dispatch with the state unchanged), so a test meets those
+through the decision it asserts. Until 2026-11-01 the legal-actions call, the pending-choice settlers and the SBA pass threw out of the
+driver, and the runner — which hands it a turn-1 session and gets the whole game back from one call — recorded a turn-34 throw as
+turn 1. The runner's own catch (now a backstop) records `turns: null` and `errorStack`. One loop is not
 `engine-stuck` at all: a loop of only MANDATORY actions is a **draw** (CR 104.4b /
 732.4 — Polyraptor beside Marauding Raptor). `mandatoryLoop.js` (a leaf) watches
 every tick and is reset by any tick that was not a plain priority pass; it answers

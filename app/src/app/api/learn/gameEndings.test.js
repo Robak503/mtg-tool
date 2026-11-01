@@ -360,16 +360,20 @@ describe("controls", () => {
     expect((await recordOf(moved.sessionId)).status).toBe("user-wins");
   });
 
-  it("the driver itself still reports both faults as engine-stuck on an active session (what the self-play harnesses count)", async () => {
+  // 2026-11-01: a throw is a crash, reported as one — both faults are a "dispatch-error" carrying the error and its stack (the
+  // self-play record's result too), still on an active session, still ended by the routes through their guard.
+  it("the driver itself reports both faults as a dispatch-error with the error's stack, on an active session (what the self-play harnesses count)", async () => {
     const first = await start();
     const thrown = learn.advanceUntilDecision(fault(first.data.sessionId, THROWING_STEP));
-    expect(thrown.decision.kind).toBe("engine-stuck");
+    expect(thrown.decision.kind).toBe("dispatch-error");
     expect(thrown.decision.reason).toMatch(THROWN);
+    expect(typeof thrown.decision.error.stack).toBe("string");
     expect(thrown.session.status).toBe("active");
     const second = await start();
     const stuck = learn.advanceUntilDecision(fault(second.data.sessionId, NO_LEGAL_ACTION));
-    expect(stuck.decision.kind).toBe("engine-stuck");
+    expect(stuck.decision.kind).toBe("dispatch-error");
     expect(stuck.decision.reason).toBe("no legal action and no pass available");
+    expect(typeof stuck.decision.error.stack).toBe("string");
     expect(stuck.session.status).toBe("active");
   });
 });
