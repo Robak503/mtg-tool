@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-10-31 ~23:30Z) — v0.169.0 TAGGED · PHASE 2 RUNNABLE.** Top 1,000 **935 / 1,000**; top 2,500 **1,904 / 2,500
+> **NOW (2026-11-01 ~00:10Z) — v0.169.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **935 / 1,000**; top 2,500 **1,904 / 2,500
 > (76.2%) → +346 to 90%**; corpus 15,957 (46.1%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. **Decided (Colton, 10-21):** the automatic payment holds back
@@ -75,7 +75,11 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-10-31 — **v0.169.0 TAGGED** (release run watching) — 33 commits since v0.168.0, every push CI green
+## 🚀 2026-10-31 — **v0.169.0 RELEASED** (published 2026-11-01T00:04:44Z) — 33 commits since v0.168.0, every push CI green
+
+> **Verified:** release run 41253064814 green on its first attempt; `releases/latest/download/latest.json` reads version 0.169.0
+> with its signature; all five assets present. The first Node 24 exe: the build log reads `Extracted node.exe (89.6 MB) and
+> LICENSE at v24.22.1` and `Bundled portable node.exe (89.6 MB) + licenses/node-LICENSE.txt`.
 
 > **The release (+128 cards; the Academy whole again; a run of rules fixes):** **Academy games are saved as you play again** (no
 > game had been written to disk since v0.161.0, and the failure was silent); **"Abandon game" really ends the game**, and **a game the

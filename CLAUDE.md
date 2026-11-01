@@ -548,7 +548,7 @@ Now go.
 *Project: MTG Tool — Multi-Agent Commander Assistant*
 *Owner: Colton (GitHub: Robak503)*
 *Repo: https://github.com/Robak503/mtg-tool*
-*Hardware: Windows 11, Core Ultra 9, RTX 5080, 32GB RAM (future: Mac mini 48GB)*
+*Hardware: OMNATH-2080, Windows 11 Pro, i9-10850K (10C/20T), RTX 2080 Ti 11GB, 32GB RAM (future: a Mac Studio, M5 generation)*
 *Built with: Tauri 2, Next.js 15, Rust, Ollama (local), bundled Node 24 LTS, GitHub Actions, gstack, GBrain, Anthropic Claude (fallback)*
 *Instruction set version: 2.0 (Tauri .exe era — 2026-05-28)*
 
