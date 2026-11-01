@@ -249,6 +249,39 @@ object. Use the same helper for another reader in that file only if it reads
 nothing but those two fields. On that wide board the next cost is `detectTriggers`
 (43%), re-read for every permanent on every event.
 
+**The hot-read memos (2026-11-01, `perf(learn)`).** v0.169.0 spent ~1.4× the CPU per
+self-play decision of 86389b97; the new time was five reads recomputing the same answer
+on every call. Each is now computed once — what keys it, what invalidates it:
+- **`faceUp.faceUpView` — one entry per card OBJECT** (`_faceMemo`, a WeakMap). Which
+  face is up depends only on `layout` and `type`/`type_line`, and no engine code writes
+  those on an existing card object (copies, riders and faces are new objects; the engine
+  never turns a back face up). A single-faced card maps to ITSELF, so every other field is
+  read live; a combined card maps to its front-face view, a copy of its fields at the first
+  read (as before). Nothing invalidates it — **to change a card's layout or type line,
+  build a new card object; never write those fields in place.**
+- **`keywords.hasKeyword` / `printedKeywordsOf` — keyed by the face-up rules TEXT**
+  (`_textMemo`): the leveler band split and each keyword's pattern answer, per text. The
+  `keywords` array is read live on every call (it is not in the key). An edited or derived
+  text is a new key. Bounded: 8,192 texts, 512 keywords per text (the pseudo-keywords
+  carry permanent ids); full → start again.
+- **`combatEvasion.teamPowerBlockGateOf`** (Champion of Lambholt) — `memoByCardText`
+  (name, then face-up text). It was asked for every permanent of the attacker's controller
+  for every blocker of every attacker. The permanent's layer-1 card (`deriveCharacteristics`
+  → `copiableValues`) and both powers are still read live per board.
+- **`layers.cardTypesOf` / `subtypesOf` — keyed by the face-up TYPE LINE**
+  (`_typeLineWordsMemo`, 8,192 lines). The stored arrays never leave the module: every
+  caller gets its own copy (the derive's `types`/`subtypes` are callers' to edit). Not
+  frozen — a frozen array takes `slice()` off its fast path (measured 6–12× slower).
+- **`protection.parseProtectionColors` / `parseProtectionClasses` — keyed by the TEXT**
+  (`_protectionTextMemo`, 8,192 texts), the own-clause read additionally by the card's NAME
+  (64 per text). Every caller still gets a fresh `Set`; granted protection is still read
+  per board (`layers.permanentProtectionColors`).
+Pinned by `textReadsOnce.test.js` (35198906's code as the reference over a bundled-corpus
+sample, both card shapes, plus the board-change and edited-text cases). Measured after it
+(seed 1469368463, the share of the game's CPU): `parseActivatedAbilities` has no cache at all
+(~17,000 calls a game, 18%) and `manaSources` rebuilds a player's sources for each reader of one
+legal-actions call (12%) — the next two, each needing its callers audited for writes first.
+
 ---
 
 ## 4. RUNTIME — how a game actually runs

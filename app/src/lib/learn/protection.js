@@ -78,6 +78,43 @@ function isOwnProtectionClause(oracle, index, name) {
 
 export function parseProtectionColors(card, { ownOnly = false } = {}) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const entry = protectionTextEntry(oracle);
+  let colors;
+  if (ownOnly) {
+    const nameKey = String(card?.name || ""); // isOwnProtectionClause reads the name as String(name || "")
+    colors = entry.ownColorsByName.get(nameKey);
+    if (colors === undefined) {
+      colors = protectionColorsOfText(oracle, true, card?.name);
+      if (entry.ownColorsByName.size >= OWN_NAMES_PER_TEXT_LIMIT) entry.ownColorsByName.clear();
+      entry.ownColorsByName.set(nameKey, colors);
+    }
+  } else {
+    colors = entry.colors ?? (entry.colors = protectionColorsOfText(oracle, false, null));
+  }
+  return new Set(colors);
+}
+
+/**
+ * THE PRINTED PROTECTION READS, ONCE PER TEXT (2026-11-01). Both readers below are pure functions of the card's rules text (and,
+ * for the own-clause read, its name), and the block gate, the protection state-based action and the targeting checks ask them
+ * for the same permanents over and over. Computed once per text — keyed by the text string itself, so an edited or derived card's
+ * new text is a new key — into arrays that never leave this module: every caller still gets a fresh Set, in the same order as
+ * before. Bounded: past the limit the memo starts again.
+ */
+const PROTECTION_TEXT_MEMO_LIMIT = 8192;
+const OWN_NAMES_PER_TEXT_LIMIT = 64;
+let _protectionTextMemo = new Map();
+function protectionTextEntry(oracle) {
+  let entry = _protectionTextMemo.get(oracle);
+  if (entry === undefined) {
+    entry = { colors: null, ownColorsByName: new Map(), classes: null };
+    if (_protectionTextMemo.size >= PROTECTION_TEXT_MEMO_LIMIT) _protectionTextMemo = new Map();
+    _protectionTextMemo.set(oracle, entry);
+  }
+  return entry;
+}
+
+function protectionColorsOfText(oracle, ownOnly, name) {
   const set = new Set();
   // Capture the quality phrase up to a sentence/clause boundary — stop at a comma so "protection from
   // red, flying" reads only "red"; stop at "(" so reminder text is excluded.
@@ -98,7 +135,7 @@ export function parseProtectionColors(card, { ownOnly = false } = {}) {
     // stays caught — it is inside the same sentence slice. The sentence ENDS at a line break too
     // (protectionSentence — stage ③ · 28).
     if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue;
-    if (ownOnly && !isOwnProtectionClause(oracle, m.index, card?.name)) continue; // another object's protection (isOwnProtectionClause)
+    if (ownOnly && !isOwnProtectionClause(oracle, m.index, name)) continue; // another object's protection (isOwnProtectionClause)
     const tail = m[1].toLowerCase().trim();
     if (/^all colors\b/.test(tail) || /^each color\b/.test(tail)) {
       for (const c of ALL_COLORS) set.add(c);
@@ -110,7 +147,7 @@ export function parseProtectionColors(card, { ownOnly = false } = {}) {
       if (COLOR_WORD[q]) set.add(COLOR_WORD[q]);
     }
   }
-  return set;
+  return [...set];
 }
 
 /**
@@ -125,6 +162,11 @@ export function parseProtectionColors(card, { ownOnly = false } = {}) {
  */
 export function parseProtectionClasses(card) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const entry = protectionTextEntry(oracle);
+  return new Set(entry.classes ?? (entry.classes = protectionClassesOfText(oracle)));
+}
+
+function protectionClassesOfText(oracle) {
   const set = new Set();
   for (const m of oracle.matchAll(/protection from ([^.;,()\n]+)/gi)) {
     const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
@@ -132,7 +174,7 @@ export function parseProtectionClasses(card) {
     if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue;
     if (m[1].toLowerCase().trim() === "creatures") set.add("creatures");
   }
-  return set;
+  return [...set];
 }
 
 /**

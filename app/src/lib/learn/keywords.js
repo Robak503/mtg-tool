@@ -159,17 +159,75 @@ const LEVEL_BAND_SPLIT_RE = /(?:^|\n)LEVEL \d+(?:-\d+|\+)\s*(?:\n|$)/;
  */
 export function hasKeyword(cardIn, keyword) {
   if (!cardIn || !keyword) return false;
-  const card = faceUpView(cardIn); // the face that is up — never a back face's keyword (CR 712.8a, 712.8d)
+  return faceHasKeyword(faceUpView(cardIn), keyword); // the face that is up — never a back face's keyword (CR 712.8a, 712.8d)
+}
 
+/**
+ * hasKeyword for each of `keywords` in turn, reading the face that is up ONCE: the ones the card has, in the order given.
+ * The layer derive seeds every permanent's printed keyword set from it (layers.printedKeywords) — once per permanent per
+ * game state, so this is the hottest keyword read in self-play.
+ */
+export function printedKeywordsOf(cardIn, keywords) {
+  const out = [];
+  if (!cardIn) return out;
+  const card = faceUpView(cardIn);
+  // faceHasKeyword for each keyword, its two reads taken once: the text entry, and the keywords array lowercased.
   const oracle = card.oracle || card.oracle_text || "";
-  const bandSplit = oracle ? oracle.search(LEVEL_BAND_SPLIT_RE) : -1;
-  if (bandSplit === -1) {
-    const kws = Array.isArray(card.keywords) ? card.keywords : [];
-    if (kws.length && kws.some(k => String(k).toLowerCase() === keyword.toLowerCase())) return true;
-    if (!oracle) return false;
-    return patternFor(keyword).test(oracle);
+  const entry = textEntry(oracle);
+  const kws = card.keywords;
+  const lowered = entry.bandSplit === -1 && Array.isArray(kws) && kws.length ? kws.map(k => String(k).toLowerCase()) : null;
+  for (const kw of keywords) {
+    if (!kw) continue;
+    if ((lowered && lowered.includes(kw.toLowerCase())) || textHasKeyword(entry, oracle, kw)) out.push(kw);
   }
-  // Leveler: the flat keywords array can't tell a band keyword from an always-on one — scan
-  // only the pre-band text (CR 711.4: those abilities are the normal, always-on ones).
-  return patternFor(keyword).test(oracle.slice(0, bandSplit));
+  return out;
+}
+
+/**
+ * THE TEXT READ, ONCE PER TEXT (2026-11-01). Whether a rules text prints a keyword at an ability position — and where a
+ * leveler's first band begins — depends on nothing but the text and the keyword, so it is computed once per text and
+ * reused: keyed by the face-up text itself (a string — an edited or derived card's new text is a new key, never a stale
+ * hit), each keyword's answer stored beside the band split. Before this every read scanned the whole text twice (the
+ * band search and the keyword pattern), about 750,000 scans in a 26-turn self-play game. Bounded: past the limit the
+ * memo starts again (the per-text keyword map likewise — the engine's pseudo-keywords carry permanent ids).
+ */
+const TEXT_MEMO_LIMIT = 8192;
+const KEYWORDS_PER_TEXT_LIMIT = 512;
+let _textMemo = new Map();
+
+function textEntry(oracle) {
+  let entry = _textMemo.get(oracle);
+  if (entry === undefined) {
+    entry = { bandSplit: oracle ? oracle.search(LEVEL_BAND_SPLIT_RE) : -1, byKeyword: new Map() };
+    if (_textMemo.size >= TEXT_MEMO_LIMIT) _textMemo = new Map();
+    _textMemo.set(oracle, entry);
+  }
+  return entry;
+}
+
+// The keyword pattern's answer on the text (the pre-band text of a leveler — CR 711.4: those abilities are the normal,
+// always-on ones; the flat keywords array can't tell a band keyword from an always-on one).
+function textHasKeyword(entry, oracle, keyword) {
+  let has = entry.byKeyword.get(keyword);
+  if (has === undefined) {
+    if (entry.bandSplit === -1) has = oracle ? patternFor(keyword).test(oracle) : false;
+    else has = patternFor(keyword).test(oracle.slice(0, entry.bandSplit));
+    if (entry.byKeyword.size >= KEYWORDS_PER_TEXT_LIMIT) entry.byKeyword.clear();
+    entry.byKeyword.set(keyword, has);
+  }
+  return has;
+}
+
+/** hasKeyword on the face that is up (`card` is already faceUp.faceUpView's answer). */
+function faceHasKeyword(card, keyword) {
+  const oracle = card.oracle || card.oracle_text || "";
+  const entry = textEntry(oracle);
+  if (entry.bandSplit === -1) {
+    const kws = card.keywords;
+    if (Array.isArray(kws) && kws.length) {
+      const want = keyword.toLowerCase();
+      if (kws.some(k => String(k).toLowerCase() === want)) return true;
+    }
+  }
+  return textHasKeyword(entry, oracle, keyword);
 }

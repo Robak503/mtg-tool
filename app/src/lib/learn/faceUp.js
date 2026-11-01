@@ -119,7 +119,17 @@ export function characteristicColors(card) {
   return frontFaceColors(card) ?? colorsOfSpell(card);
 }
 
-const _viewMemo = new WeakMap();
+// ONE FACE READ PER CARD OBJECT (2026-11-01): the face that is up, for every card object faceUpView has seen — the object
+// itself for a card whose characteristics are its own, else its front-face view. The readers that ask what a card is
+// (keywords.hasKeyword, parseStaticAbilities, detectTriggers, parseActivatedAbilities, combatEvasion's text reads) call
+// faceUpView about a thousand times per self-play decision, and before this every call re-read the card's layout and type
+// line (readsAsFrontFace — 0.15 s of a 26-turn game). Which face is up depends only on the object's `layout` and
+// `type`/`type_line`, and no engine code writes either on an existing card object: a copy, a rider or a face is a NEW
+// object (cloneCopy.snapshotCopiedCard, modalDfc.mdfcFaceCards, the token minters), and the engine never turns a back face
+// up. A card whose characteristics are its own maps to ITSELF, so every other field is still read live; a combined card's
+// view (a copy of its fields at the first read) was already memoized per object, and the per-card caches of
+// parseStaticAbilities and detectTriggers key on it. A WeakMap: an entry goes with its card.
+const _faceMemo = new WeakMap();
 
 /**
  * The card as its face that is up. For a combined multi-face card (not a split card): a view whose type line and rules
@@ -139,14 +149,16 @@ const _viewMemo = new WeakMap();
  * ability position.
  */
 export function faceUpView(card) {
-  if (!readsAsFrontFace(card)) return card;
-  let view = _viewMemo.get(card);
-  if (!view) {
+  if (!card || typeof card !== "object") return card;
+  const seen = _faceMemo.get(card);
+  if (seen !== undefined) return seen;
+  let view = card;
+  if (readsAsFrontFace(card)) {
     const type = faceUpTypeLine(card);
     const text = faceUpOracleOf(card);
     const front = frontFaceColors(card);
     view = { ...card, type, type_line: type, oracle: text, oracle_text: text, keywords: [], ...(front ? { colors: front } : {}) };
-    _viewMemo.set(card, view);
   }
+  _faceMemo.set(card, view);
   return view;
 }

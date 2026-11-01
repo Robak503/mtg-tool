@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- **The computer opponents and the simulations decide faster; no game plays differently.** Five rules checks the engine repeats thousands of times for every decision — which face of a double-faced card is up, whether a card has a keyword such as flying, Champion of Lambholt's "can't block" rule, a card's types and subtypes, and a card's printed protection — are now worked out once per card instead of on every look. A computer player's decision takes about 15–23% less processor time in the games measured, and a batch of 80 test games ran in 186 seconds instead of 233, every game playing out move for move as before.
+
 ## [0.169.0] - 2026-10-31
 
 ### Added

@@ -34,7 +34,7 @@ import {
   counterPowerDelta,
   counterToughnessDelta,
 } from "./ptPrimitive.js";
-import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
+import { hasKeyword, printedKeywordsOf, COMBAT_KEYWORDS } from "./keywords.js";
 import { faceUpTypeLine, faceUpView, characteristicTypeLine, frontFaceColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the type line the derive reads, the face-up card the host-keyword gate reads, and a double-faced permanent's front-face colours (permanentPrintedColors)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type matches only a CREATURE type (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for the subtype counts; a leaf over keywords.js
@@ -124,10 +124,31 @@ function typeLineOf(card) {
 export { faceUpTypeLine };
 
 function subtypesOf(card) {
-  const line = faceUpTypeLine(card);
-  const dash = line.indexOf("—");
-  if (dash === -1) return [];
-  return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+  return typeLineWords(faceUpTypeLine(card)).subtypes.slice();
+}
+
+/**
+ * TYPE-LINE WORDS, ONCE PER LINE (2026-11-01). The card types (cardTypesOf) and subtypes (subtypesOf) the derive and the type
+ * readers take off the face-up type line depend on nothing but that string, and the derive asks for them for every permanent
+ * of every game state. Split once per distinct line: keyed by the string itself (an edited or derived card's new line is a new
+ * key, never a stale hit). The stored arrays never leave this module: every caller gets its own copy, as before (they are not
+ * frozen — a frozen array takes slice() off its fast path). Bounded: past the limit the memo starts again.
+ */
+const TYPE_LINE_MEMO_LIMIT = 8192;
+let _typeLineWordsMemo = new Map();
+function typeLineWords(line) {
+  let words = _typeLineWordsMemo.get(line);
+  if (words === undefined) {
+    const head = line.split("—")[0];
+    const dash = line.indexOf("—");
+    words = {
+      types: head.trim().split(/\s+/).filter(w => w && w[0] === w[0].toUpperCase()),
+      subtypes: dash === -1 ? [] : line.slice(dash + 1).trim().split(/\s+/).filter(Boolean),
+    };
+    if (_typeLineWordsMemo.size >= TYPE_LINE_MEMO_LIMIT) _typeLineWordsMemo = new Map();
+    _typeLineWordsMemo.set(line, words);
+  }
+  return words;
 }
 
 // CHOSEN-TYPE membership (CR 614.12, the Kindred Discovery family) — does `card` carry the creature
@@ -1857,12 +1878,14 @@ function applyLayer7(state, perm, l7Effects) {
   return { power, toughness, basePower, baseToughness, powerSized, toughnessSized };
 }
 
-/** Printed keyword set (the seed for layer 6), from the printed-keyword primitive. */
+// The combat keywords as the keyword set stores them (lowercase) — the keyword counters' names (keywordSet).
+const COMBAT_KEYWORDS_LOWER = COMBAT_KEYWORDS.map((kw) => kw.toLowerCase());
+
+/** Printed keyword set (the seed for layer 6), from the printed-keyword primitive (hasKeyword for each combat keyword, the
+ * face that is up read once — keywords.printedKeywordsOf). */
 function printedKeywords(card) {
   const out = new Set();
-  for (const kw of COMBAT_KEYWORDS) {
-    if (hasKeyword(card, kw)) out.add(kw.toLowerCase());
-  }
+  for (const kw of printedKeywordsOf(card, COMBAT_KEYWORDS)) out.add(kw.toLowerCase());
   return out;
 }
 
@@ -1975,8 +1998,7 @@ export function deriveCharacteristics(state, permanentId) {
 }
 
 function cardTypesOf(card) {
-  const head = faceUpTypeLine(card).split("—")[0]; // the face that is up (CR 712.8d), never the back face's types
-  return head.trim().split(/\s+/).filter(w => w && w[0] === w[0].toUpperCase());
+  return typeLineWords(faceUpTypeLine(card)).types.slice(); // the face that is up (CR 712.8d), never the back face's types
 }
 
 /** Layer 4 (type) + layer 5 (color). Type effects ADD types (animate) or, for the GOD-DEVOTION gate,
@@ -2058,8 +2080,11 @@ function everyCreatureTypeFrom(l4, isCreature) {
 function keywordSet(perm, l6Effects, state) {
   const set = printedKeywords(perm.card);
   // Keyword counters (613.1f), e.g. counters.flying > 0.
-  for (const kw of COMBAT_KEYWORDS) {
-    if ((perm.counters?.[kw.toLowerCase()] || 0) > 0) set.add(kw.toLowerCase());
+  const counters = perm.counters;
+  if (counters) {
+    for (const kw of COMBAT_KEYWORDS_LOWER) {
+      if ((counters[kw] || 0) > 0) set.add(kw);
+    }
   }
   // SUSPECTED (BLITZ EK-1, CR 701.60c) — a suspected permanent has menace and "This creature can't block"
   // for as long as it's suspected. Seeded like a keyword counter (before the layer-6 loop), so a later

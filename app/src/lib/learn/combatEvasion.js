@@ -1009,12 +1009,16 @@ export function selfPowerBlockGateOf(card) {
   const m = selfOracle(card).match(reSelfPowerCantBlock);
   return m ? m[1] : null;
 }
+// Asked of EVERY permanent the attacker's controller controls, for every blocker of every attacker (canBlockAttacker), so the
+// unanchored sentence scan ran ~150,000 times in a 26-turn self-play game for one corpus-unique card (2026-11-01). The answer
+// is a pure function of the face-up name and text — the TEXT MEMO's contract — so it is read once per text.
+const teamPowerBlockGateMemo = memoByCardText((card) => String(card?.oracle || ""), (card) => reTeamPowerCantBlock.test(selfOracleMemo(card)));
 /**
  * TEAM SELF-POWER BLOCK GATE — does this card print Champion of Lambholt's team static? canBlockAttacker asks it of each
  * permanent's layer-1 card (copy-aware), and isEnforcedEvasionClause mirrors it from the same core string.
  */
 export function teamPowerBlockGateOf(card) {
-  return reTeamPowerCantBlock.test(selfOracle(card));
+  return teamPowerBlockGateMemo(faceUpView(card));
 }
 /** BLOCK-COUNT CAP (CR 509.1c) — this attacker "can't be blocked by more than one creature" (menace-inverse). */
 export function isBlockedByAtMostOne(card) { return reBlockedByAtMostOne.test(selfOracle(card)); }
