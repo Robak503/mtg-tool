@@ -116,7 +116,25 @@ function sweepAttachmentLegality(state) {
         continue;
       }
       if (!perm.attachedTo) continue;
-      if (perm.bestowed) continue; // bestow's host-exit transform owns this case (CR 702.103e)
+      // A BESTOWED Aura on a host it may no longer enchant (the ability-loss S2 review's F3 — CR 702.103f: "If a bestowed Aura is attached
+      // to an illegal object or player, it becomes unattached and ceases to be bestowed. This is an exception to rule 704.5m."): its
+      // enchant creature (CR 702.103b) — a host that is no creature now — or protection from its colour (CR 702.16c, the plain Auras'
+      // read: protectionRemovesAttachment). It stays on the battlefield an enchantment creature (layers stops emitting its Creature
+      // removal once it is unattached) and the host loses the Aura's bonus — a bestowed Trickster's Elk under Mother of Runes' protection
+      // from green is a 3/3 Elk creature again and its host itself. A host that LEFT is bestow's host-exit transform (gameState).
+      if (perm.bestowed) {
+        const bHost = findPermanent(next, perm.attachedTo);
+        if (bHost?.permanent) {
+          const notCreature = !permanentIsCreature(next, bHost.permanent.id);
+          if (notCreature || protectionRemovesAttachment(next, bHost.permanent.id, perm.id)) {
+            const hostId = perm.attachedTo;
+            next = updatePermanentSafe(next, perm.id, (p) => ({ ...p, attachedTo: null, bestowed: false }));
+            next = updatePermanentSafe(next, hostId, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
+            next = logEvent(next, { kind: "bestow-unattached", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", reason: notCreature ? "host is no creature" : "protection" });
+          }
+        }
+        continue;
+      }
       if (perm.enchantedPlayerId) continue; // player-aura — legality is the enchanted player's existence
       const type = String(perm.card?.type || perm.card?.type_line || "");
       const isAura = /\bAura\b/.test(type);

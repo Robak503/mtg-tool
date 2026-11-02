@@ -40,3 +40,17 @@ export function abilityViewOf(state, perm, card = perm?.card) {
   storedLossWithoutLayers(state);
   return card;
 }
+
+/**
+ * THE TYPE LINE AS IT IS NOW (the ability-loss S2 review's F2) for the same leaf modules: layers.typeLineNow, registered by layers.js
+ * as it loads — on a board that sets card or creature types, a battlefield permanent's derived type line (a look-back's stamped one),
+ * else `printedLine` unchanged. Unregistered (a module graph that never loaded layers.js) it returns `printedLine`: no such board can
+ * exist there, since only layers.js derives an S1 / S2 type effect.
+ */
+let _typeLineNow = null;
+export function registerTypeLineView(fn) {
+  _typeLineNow = fn;
+}
+export function typeLineViewOf(state, perm, printedLine) {
+  return _typeLineNow ? _typeLineNow(state, perm, printedLine) : printedLine;
+}

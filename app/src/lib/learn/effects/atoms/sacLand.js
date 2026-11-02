@@ -32,6 +32,7 @@ import { logEvent } from "../../gameState.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { sacrificeCreatureEffect, sacrificeCreaturesTogether } from "./removal.js";
 import { isLandCard } from "./shared.js";
+import { boardSetsTypes, permanentHasCardType } from "../../layers.js"; // the ability-loss S2: on a board that sets types, a land as it is now
 
 /**
  * SAC-LAND — the controller sacrifices one of their own lands of their choice (CR 701.16). Single-victim only
@@ -42,8 +43,9 @@ export function applySacrificeLand(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players?.[controller];
   if (!player) return state;
+  const setsTypes = boardSetsTypes(state); // CR 205.1a — a land an S2 Aura made "a … creature" is no land to sacrifice
   const lands = (player.battlefield || [])
-    .filter((p) => isLandCard(p.card))
+    .filter((p) => (setsTypes ? permanentHasCardType(state, p.id, "Land") : isLandCard(p.card)))
     .map((p) => ({ id: p.id, name: p.card?.name }));
   if (lands.length === 0) {
     // No land to sacrifice — a clean no-op (the following fetch still resolves; you sacrificed nothing).

@@ -34,8 +34,9 @@
  */
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed CR 205.3m creature-type vocabulary (an import-free leaf)
 
-/** The program's stages (ABILITY-LOSS-PROGRAM.md §3). S1 is on: loss with the ops the engine already had. */
-export const ABILITY_LOSS_STAGES = Object.freeze({ S1: true, S2: false, S3: false, S4: false, S5: false });
+/** The program's stages (ABILITY-LOSS-PROGRAM.md §3). S1 is on (loss with the ops the engine already had), and S2 ("loses all other
+ *  card types": the setCardTypes op). */
+export const ABILITY_LOSS_STAGES = Object.freeze({ S1: true, S2: true, S3: false, S4: false, S5: false });
 
 /** The consult points (see the header). */
 export const ABILITY_LOSS_CONTEXTS = Object.freeze(["attached", "static", "spell", "side"]);
@@ -147,6 +148,33 @@ const S1_SHAPES = [
     emit: { spell: () => ({ op: "lose-all-abilities", target: "self", itReferent: true, until: "endOfTurn" }) } },
 ];
 
+// ─── S2: "loses all other card types" (ABILITY-LOSS-PROGRAM.md §3) ───────────────────────────────────────────────────────────────
+// "Enchanted creature loses all abilities and is a green Elk CREATURE with base power and toughness 3/3." The word "creature" after the
+// creature type SETS the card types (CR 205.1a — "the new card type(s) replaces any existing card types"): the layer-4 `setCardTypes`
+// op (layers.js, built in S0a) keeps the supertypes (CR 205.4b — a legendary creature stays legendary, so the legend rule still reads
+// it) and drops every subtype correlated only with a card type that is gone (an Equipment's Equipment, a Vehicle's Vehicle, Dryad
+// Arbor's Forest — CR 205.1a, 205.3c); then the creature type REPLACES the creature types (CR 205.1a, the S1 op — Changeling's every
+// creature type included). Not CR 205.1b's "[creature type] artifact creature" (which keeps the other card types): the corpus's S2 form
+// names no other card type. The colour word sets the colour (CR 105.3); with none the colour stays (Reprobation). The bundled rulings
+// say the same of each: "The creature keeps any supertypes (such as legendary) it has, but loses any other card types it has (such as
+// artifact)", and it stays a creature after an effect that only temporarily made it one ends (a crewed Vehicle).
+const CARD_TYPES = (types) => ({ layer: 4, op: { layerOp: "setCardTypes", types: [...types] }, duration: PERMANENT() });
+
+const S2_SHAPES = [
+  // Kenrith's Transformation, Trickster's Elk (bestowed — "… is a green Elk creature with base power and toughness 3/3."), Frogify and
+  // Amphibian Downpour (a blue Frog 1/1), Eaten by Piranhas (a black Skeleton 1/1), Reprobation ("… is a Coward creature with base power
+  // and toughness 0/1." — no colour word), Fowl Play (a Bird 1/1).
+  { id: "s2-aura-loss-is-type-creature-base-pt", stage: "S2",
+    pattern: new RegExp(`^enchanted creature loses all abilities and is an? (?:(${COLOR_WORDS_RE}) )?([a-z-]+) creature with base power and toughness (\\d+)\\/(\\d+)$`, "i"),
+    emit: {
+      attached: (m, ctx) => {
+        const tc = AURA_ONLY(ctx) ? typeAndColor(m[1], m[2]) : null;
+        return tc ? [LOSS(), CARD_TYPES(["Creature"]), CREATURE_TYPE(tc.subtype), ...(tc.colors ? [COLOR(tc.colors)] : []), BASE_PT(m[3], m[4])] : null;
+      },
+      side: (m) => (typeAndColor(m[1], m[2]) ? ENEMY : null),
+    } },
+];
+
 /** The S1 spell atom (effects/atoms/combat.js applyLoseAllAbilities): one chosen creature; its creature type, colours and base P/T. */
 function lossAtom({ defending, subtype = null, colors = null, basePt = null }) {
   return {
@@ -163,7 +191,7 @@ function lossAtom({ defending, subtype = null, colors = null, basePt = null }) {
  * consult point lowercases), `emit[context]` the value to answer there, or a function (match, ctx) → value | null. Closed: a shape is
  * added here, with its stage, in the slice that turns the stage on.
  */
-const SHAPES = Object.freeze(S1_SHAPES.map((s) => Object.freeze({ ...s, emit: Object.freeze({ ...s.emit }) })));
+const SHAPES = Object.freeze([...S1_SHAPES, ...S2_SHAPES].map((s) => Object.freeze({ ...s, emit: Object.freeze({ ...s.emit }) })));
 
 let _testShapes = null;
 let _testStages = null;

@@ -91,7 +91,7 @@ import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, i
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes, withAbilityLoss, enteringAbilityCard } from "./layers.js"; // + the ability view (CR 613.1f — a Vehicle that lost its abilities has no crew) // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes, withAbilityLoss, enteringAbilityCard, boardSetsTypes, permanentHasTypeWord, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — a Vehicle that lost its abilities has no crew) // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -814,11 +814,13 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Alt-cost cast requires ${printed.count} ${printed.subtype} to sacrifice, got ${alt.sacLandIds?.length ?? 0}`, "ALTCOST_UNPAID");
       }
       const subRe = new RegExp(`\\b${printed.subtype}\\b`, "i");
+      const setsTypes = boardSetsTypes(working); // the ability-loss S2: on a board that sets types, the land as it is now (CR 205.1a)
       const lands = alt.sacLandIds.map((lid) => {
         const land = working.players[action.playerId]?.battlefield.find((p) => p.id === lid);
         if (!land) throw new DispatcherError(`Alt-cost sacrifice land ${lid} not on battlefield`, "PERM_NOT_FOUND");
         const tl = String(land.card?.type || land.card?.type_line || "");
-        if (!/\bLand\b/.test(tl) || !subRe.test(tl)) throw new DispatcherError(`Alt-cost sacrifice ${lid} is not a ${printed.subtype}`, "ALTCOST_UNPAID");
+        const isOne = setsTypes ? permanentHasTypeWord(working, land.id, "Land") && permanentHasTypeWord(working, land.id, printed.subtype) : /\bLand\b/.test(tl) && subRe.test(tl);
+        if (!isOne) throw new DispatcherError(`Alt-cost sacrifice ${lid} is not a ${printed.subtype}`, "ALTCOST_UNPAID");
         return land;
       });
       working = sacrificePermanentsForCost(working, action.playerId, lands);
@@ -1566,7 +1568,7 @@ function applyActivateAbility(state, action) {
   // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
   // `activatingPermanentId` only orders the taps (manaModel tapAny never promotes the permanent whose ability this pays
   // for: Mutavault's {1} would tap Mutavault and animate it tapped); affordability is order-free, so legalChoices omits it.
-  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), activatingPermanentId: perm.id, ...lifePaymentContext(state, action.playerId) }); // + the payer's life — a Phyrexian symbol (Birthing Pod's {G/P}, an Equip {B/P}) may be paid with 2 life (2026-10-17)
+  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")), activatingColors: permanentColors(state, perm.id), activatingPermanentId: perm.id, ...lifePaymentContext(state, action.playerId) }); // + the payer's life — a Phyrexian symbol (Birthing Pod's {G/P}, an Equip {B/P}) may be paid with 2 life (2026-10-17)
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
   let working = commitPaymentPlan(state, action.playerId, plan, { reserved: costReservedPermanentIds(action) });

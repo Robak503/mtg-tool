@@ -44,14 +44,18 @@ import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree m
 // (Waterspout Djinn "an untapped Island", Living Tsunami "a land"), used by BOTH autoPickSacUnlessPay
 // and resolveSacUnlessPayChoice so offer and payment cannot disagree. Word-anchored subtype read
 // (a nonbasic Island qualifies); the untapped requirement is the Djinn's printed gate.
-const returnLandPoolMatch = (cost, p) =>
-  isLandCard(p.card)
+// On a board that sets types (the ability-loss S2 — layers.boardSetsTypes) the land, its subtype and the excluded subtype are read as they
+// are NOW (CR 205.1a — a Dryad Arbor under Frogify is no land); on every other board the printed type line, as before.
+const returnLandPoolMatch = (cost, p, state = null) => (state && boardSetsTypes(state)
+  ? permanentHasTypeWord(state, p.id, "Land") && (!cost.subtype || permanentHasTypeWord(state, p.id, cost.subtype))
+    && (!cost.notSubtype || !permanentHasTypeWord(state, p.id, cost.notSubtype)) && (!cost.untapped || !p.tapped)
+  : isLandCard(p.card)
   && (!cost.subtype || new RegExp(`\\b${cost.subtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
   // LANDS-13 — the lairs' "a non-Lair land": a land carrying the excluded subtype cannot pay.
   && (!cost.notSubtype || !new RegExp(`\\b${cost.notSubtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
-  && (!cost.untapped || !p.tapped);
+  && (!cost.untapped || !p.tapped));
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
-import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
+import { addContinuousEffect, boardSetsTypes, permanentHasTypeWord } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 import { canPayWardCost } from "../ward.js"; // the ward-cost affordability the soft-counter settle and autoPickSoftCounterPay read (ward.js never reaches runProgram)
 import { punisherTakeable, punisherAutoTake } from "./atoms/punisher.js"; // the punisher (CR 118.12) — whether its decider can take it, and the default AI decision (a sibling atom module; runProgram already reaches atoms through effectAtoms)
@@ -2182,7 +2186,7 @@ export function resolveOptionalSacChoice(state, doSac, victimId = null) {
   const victim = !doSac ? null
     : Array.isArray(pc.candidates)
       ? (victimId && pc.candidates.some((c) => c.id === victimId) ? (player.battlefield || []).find((p) => p.id === victimId) ?? null : null)
-      : (player.battlefield || []).find((p) => controllerSacSubtypeMatch(p, pc.subtype));
+      : (player.battlefield || []).find((p) => controllerSacSubtypeMatch(p, pc.subtype, state));
   let sacrificed = false;
   let sacrificedLki = null;
   if (victim) {
@@ -2273,7 +2277,7 @@ export function autoPickSacUnlessPay(state, pc) {
   // SAC-UNLESS-RETURN-LAND (2026-08-12) — pay iff a pool-matching land is on the battlefield (the
   // Djinn's untapped gate lives in the shared predicate, so a fully-tapped board honestly refuses).
   if (pc.cost?.kind === "return-land") {
-    return (player.battlefield || []).some((p) => returnLandPoolMatch(pc.cost, p));
+    return (player.battlefield || []).some((p) => returnLandPoolMatch(pc.cost, p, state));
   }
   // PAY N LIFE (stage ③ · 45) — the same warning: without this arm a life cost falls through to canAfford(…, {}) and
   // says "pay" at any life total. Pay only while the payment leaves at least 10 life — the floor opponentAI already
@@ -2524,7 +2528,7 @@ export function resolveSacUnlessPayChoice(state, pay) {
     // watchers (a bounce is not dying, CR 700.4). Victim policy: prefer a TAPPED land when the cost
     // allows one (least mana access lost — strictly dominant, unlike the sacrifice arm's fungible
     // pools), id tie-break; the Djinn's untapped-only pool makes the preference inert there.
-    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => returnLandPoolMatch(pc.cost, p));
+    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => returnLandPoolMatch(pc.cost, p, next));
     if (pool.length) {
       const vic = pool.slice().sort((a, b) => (a.tapped === b.tapped ? String(a.id).localeCompare(String(b.id)) : a.tapped ? -1 : 1))[0];
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: "battlefield", toZone: "hand", cardId: vic.id });

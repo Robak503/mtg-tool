@@ -9,7 +9,7 @@
 import { findPermanent, creaturePower, creatureToughness, opponentsOf, departedSourceLki } from "../../gameState.js"; // + departedSourceLki: a departed source's last known information, the one reader damageSourceFor and the CR 608.2b re-check share
 import { characteristicTypeLine, characteristicColors } from "../../faceUp.js"; // THE FACE THAT IS UP (CR 712.8a) — a graveyard card's type line and colours for the counts; a spell's colours as a damage source (CR 712.8c)
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentIsCreature, permanentHasCardType, permanentHasTypeWord, permanentTypes, permanentCreatureTypes, domainCount, partyCount, permIsEveryCreatureType, deriveCharacteristics, permanentManaValue, permanentsShareCreatureType, boardSetsTypes, typeLineNow } from "../../layers.js"; // + permanentsShareCreatureType (#684 — Shared Animosity's count) // + permanentHasTypeWord (the type-line audit): a subtype filter reads the permanent as it is now // + permanentHasCardType (#651): the layer-aware, face-up land read of the opponents' nonland set // + deriveCharacteristics (#587): a permanent's copiable values + layer-4 types for the nonland mana-value set // + permIsEveryCreatureType (P·39): the one every-creature-type read for these battlefield filters and counts // + partyCount (2026-09-30): ONE party evaluator for both twins; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { isBlockingCreature } from "../../combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf)
 import { cardIsEveryCreatureType } from "../../everyCreatureType.js"; // a graveyard card that is every creature type (changeling; Maskwood Nexus) — the leaf library.js reads too
@@ -450,7 +450,7 @@ export const atomTargets = (state, atom, ctx) => {
   // reused (it filters on the PRINTED creature type, missing animated lands). Read at resolution (CR 611.2c).
   if (atom.scope === "landCreaturesYouControl") {
     return (state.players[ctx.controller]?.battlefield || [])
-      .filter((p) => permanentIsCreature(state, p.id) && /\bLand\b/.test(p.card?.type || ""))
+      .filter((p) => permanentIsCreature(state, p.id) && /\bLand\b/.test(typeLineNow(state, p, p.card?.type || ""))) // as it is now on a board that sets types (S2)
       .map((p) => ({ type: "creature", id: p.id, controller: ctx.controller }));
   }
   // ONE-YOU-CONTROL — a non-targeted "a creature you control" the CONTROLLER picks ONE of (Titan of Industry's
@@ -725,7 +725,9 @@ export function countForSpec(state, ctx, spec) {
     const pt = (ctx?.targets || []).find((t) => t.type === "player" && state?.players?.[t.id]);
     if (!pt) return 0;
     const re = new RegExp(`\\b${String(spec.subtype || "")}\\b`);
-    return (state.players[pt.id].battlefield || []).filter((perm) => /\bLand\b/.test(typeLineStr(perm.card)) && re.test(typeLineStr(perm.card))).length;
+    const setsTypes = boardSetsTypes(state); // the ability-loss S2: on a board that sets types, a land and its basic type as they are now
+    return (state.players[pt.id].battlefield || []).filter((perm) => (setsTypes ? permanentHasTypeWord(state, perm.id, "Land") && permanentHasTypeWord(state, perm.id, spec.subtype)
+      : /\bLand\b/.test(typeLineStr(perm.card)) && re.test(typeLineStr(perm.card)))).length;
   }
   if (spec.kind === "cardsNamedInAllGraveyards") { // Rite of Flame (KT-3): every player's graveyard, by name
     const want = String(spec.name || "").toLowerCase();
@@ -1313,8 +1315,9 @@ export const resolveScaledAmount = (state, atom, ctx) => {
   // when the threshold holds. Narrow by construction — only the artifactsYouControl kind exists; the parser
   // emits it only from the exact two-sentence collapse, so no other amount path changes.
   if (atom.amountUpgrade?.kind === "artifactsYouControl") {
+    const setsTypes = boardSetsTypes(state); // the ability-loss S2: an artifact creature an S2 Aura made "a … creature" is no artifact (CR 205.1a)
     const n = (state.players?.[ctx.controller]?.battlefield || [])
-      .filter((p) => /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || ""))).length;
+      .filter((p) => (setsTypes ? permanentHasCardType(state, p.id, "Artifact") : /\bArtifact\b/i.test(String(p.card?.type || p.card?.type_line || "")))).length;
     if (n >= (atom.amountUpgrade.atLeast ?? Infinity)) return atom.amountUpgrade.amount;
   }
   // CONDITION-GATED AMOUNT UPGRADE (BLITZ INST-1, CR 608.2 + 614 "instead") — the generalized ability-word

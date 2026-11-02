@@ -227,6 +227,7 @@ ledger) · [SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md) (§0–§3 only; Cindy's l
 | [PROJECT-SCAFFOLD.md](PROJECT-SCAFFOLD.md) / [ENGINE-SCAFFOLD.md](ENGINE-SCAFFOLD.md) | the two maps (whole system / rules engine + add-a-mechanic recipe) |
 | [PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md) | the locked, versioned, canaried engine↔Omnath seam (v1.2.0) |
 | [UPGRADE-BACKLOG.md](UPGRADE-BACKLOG.md) | LIVING ranked feature/upgrade queue (2026-07-04 creative review) |
+| [GROWTH.md](GROWTH.md) | LIVING month-by-month growth table: corpus, play-weighted top 1,000 / 2,500 / 5,000, tests, releases, commits by kind |
 | [ui-overhaul-log.md](ui-overhaul-log.md) §0 | the UI method (LEYLINE law); §1+ = frozen wave records |
 | [seam-migration-map.md](seam-migration-map.md) | live plan for the bounded parser→atoms migration (re-grep line numbers per batch) |
 | ../gotchas.md · ../agents.md · ../HOW-TO-ADD-AN-AREA.md · ../../RELEASE.md · CLAUDE.md | hazards · in-app personas · kiosk extension · release flow · the law |

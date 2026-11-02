@@ -55,7 +55,7 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTrigger
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { departedSourceLki, lkiRecordIsCreature } from "./gameState.js"; // a departed ability source's last known information (CR 113.7a, 608.2b) — the re-check's colours and creature-ness, the damage path's one reader
-import { permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { typeLineNow, permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -1139,9 +1139,12 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       for (const perm of state.players[pid].battlefield) {
         const tl = String(perm.card?.type || perm.card?.type_line || "");
         if (tl.includes(" // ")) continue; // DFC — current face untracked (mirror addPermanents' safe skip)
-        // #511 — an artifact by a layer-4 effect (Liquimetal Coating's land) is an artifact here too (CR 613.1d)
-        const artifactOrEnchantment = /\bArtifact\b|\bEnchantment\b/.test(tl) || permanentHasCardType(state, perm.id, "Artifact");
-        const flyingCreature = /\bCreature\b/.test(tl) && permanentHasKeyword(state, perm.id, "flying");
+        // The types it has NOW (CR 613.1d — addPermanents' `has`, the type-line audit): an artifact by a layer-4 effect (Liquimetal
+        // Coating's land) is one, and one an effect took away is not — a creature an S2 Aura made "a blue Frog creature" is no artifact
+        // and no enchantment (CR 205.1a; the ability-loss S2 review's F1). The creature arm the same way, with flying through the view
+        // (layer 6 — a Frog that lost its flying is no "creature with flying", CR 613.1f).
+        const artifactOrEnchantment = permanentHasCardType(state, perm.id, "Artifact") || permanentHasCardType(state, perm.id, "Enchantment");
+        const flyingCreature = permanentIsCreature(state, perm.id) && permanentHasKeyword(state, perm.id, "flying");
         if (!artifactOrEnchantment && !flyingCreature) continue;
         if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && targetable(perm, pid)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
@@ -1316,7 +1319,7 @@ function spellTargetsMatchFilter(state, stackObj, filter, casterId) {
     if (filter.permanent.youControl && lk.permanent.controller !== casterId) return false;
     const types = filter.permanent.types;
     if (!types) return true; // "a permanent"
-    const line = String(lk.permanent.card?.type || lk.permanent.card?.type_line || "").split(" // ")[0];
+    const line = String(typeLineNow(state, lk.permanent, String(lk.permanent.card?.type || lk.permanent.card?.type_line || "").split(" // ")[0])); // as it is now on a board that sets types (S2)
     return types.some((ty) => new RegExp(`\\b${ty}\\b`, "i").test(line));
   });
 }

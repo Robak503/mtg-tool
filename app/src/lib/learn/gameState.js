@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss } from "./layers.js";
+import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, lkiSubtypesStamp, typeLineNow, boardSetsTypes, permanentHasCardType } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -359,9 +359,13 @@ export function setDoesNotUntapNext(state, permanentId, value = true) {
  */
 export function destroyZeroLoyaltyPlaneswalkers(state) {
   const dead = [];
+  // A planeswalker as it is NOW on a board that sets types (the ability-loss S2 survey — layers.boardSetsTypes): a planeswalker an S2 effect
+  // made "a blue Frog creature" is no planeswalker (CR 205.1a), so 0 loyalty is no reason to put it into the graveyard (CR 704.5i). The
+  // printed card on every other board, as before.
+  const setsTypes = boardSetsTypes(state);
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
-      if (!isPlaneswalker(perm.card)) continue;
+      if (!(setsTypes ? permanentHasCardType(state, perm.id, "Planeswalker") : isPlaneswalker(perm.card))) continue;
       const loy = perm.counters?.loyalty;
       if (loy == null) continue; // entered without a finite loyalty counter → SBA doesn't apply
       if (loy <= 0) dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card, ...abilityLossStamp(state, perm) });
@@ -1685,6 +1689,10 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   // board it was still on (deathLookback's field, so lastKnownIsCreature answers every leave scope the same way): a God below its
   // devotion leaving is not a creature leaving (The Ozolith, Ninth Bridge Patrol); an animated land is one.
   if (before && findPermanent(before, permanent.id)) ev.lkiTypes = [...permanentTypes(before, permanent.id).types];
+  // `lkiSubtypes` — on a board that sets types (the ability-loss S2 — layers.lkiSubtypesStamp), the subtypes it had as it last existed
+  // (CR 603.10a), so a leave or graveyard scope reads what it WAS (a creature Kenrith's Transformation made a green Elk was no artifact
+  // and no Food — layers.typeLineNow); written only there, so every other leave event is unchanged.
+  if (before && findPermanent(before, permanent.id)) Object.assign(ev, lkiSubtypesStamp(before, permanent.id));
   // `lkiAbilityLoss` — the abilities it had as it last existed (CR 603.10a, 613.1f): a permanent that had lost its abilities leaves
   // with none, so its own leave triggers do not fire and a grant cut by the loss stays cut (layers.abilityLossStamp, read off `before`,
   // the board it was still on). Written only when it had lost them, so every other leave event is unchanged.
@@ -1738,7 +1746,21 @@ export function groupLeaveEvents(state, memberIds, { before = null, lookBacks = 
   if (members.length < 2) return state;
   const group = `leave:${members[0].id}`;
   const lookBackOf = lookBacks ? new Map(lookBacks.filter((d) => d?.id != null).map((d) => [d.id, d])) : null;
-  const restamped = (e) => {
+  // …and its TYPES on a board that sets types (the ability-loss S2): an S2 Aura moved before its host hands the host back its printed
+  // types on the board it left, so every member is restamped from the event's start (`lkiTypes`, `lkiSubtypes`) — never on another board.
+  const retyped = (e) => {
+    let lkiTypes, lkiSubtypes;
+    if (before) {
+      const st = lkiSubtypesStamp(before, e.id);
+      if (!st.lkiSubtypes) return e;
+      lkiSubtypes = st.lkiSubtypes;
+      lkiTypes = [...permanentTypes(before, e.id).types];
+    } else if (Array.isArray(lookBackOf?.get(e.id)?.lkiSubtypes)) ({ lkiTypes, lkiSubtypes } = lookBackOf.get(e.id));
+    else return e;
+    return { ...e, lkiTypes: [...lkiTypes], lkiSubtypes: [...lkiSubtypes] };
+  };
+  const restamped = (e0) => {
+    const e = retyped(e0);
     let stamp;
     if (before) {
       const lk = findPermanent(before, e.id);
@@ -2047,10 +2069,12 @@ export function addPreventionShield(state, { targetKind, targetId, amount, turn,
 /** SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — record a sacrifice under its player for the "if you sacrificed a
  *  <Type> this turn" readers. Name + type line only (a look-back — the permanent is already gone). Called from the one
  *  sacrifice chokepoint (triggers.checkSacrificeTriggers), so every sacrifice path stamps it. */
-export function recordSacrificeThisTurn(state, playerId, card) {
+export function recordSacrificeThisTurn(state, playerId, card, lookBack = null) {
   const p = state?.players?.[playerId];
   if (!p || !card) return state;
-  const entry = { name: String(card.name || ""), type: String(card.type || card.type_line || "") };
+  // The type line as it last existed when the look-back carries it (the ability-loss S2 — layers.typeLineNow, CR 603.10a): a Food
+  // creature Kenrith's Transformation made an Elk was no Food sacrificed ("you sacrificed a Food this turn"). Otherwise the printed one.
+  const entry = { name: String(card.name || ""), type: String(typeLineNow(null, lookBack, card.type || card.type_line || "")) };
   return { ...state, players: { ...state.players, [playerId]: { ...p, sacrificedThisTurn: [...(p.sacrificedThisTurn || []), entry] } } };
 }
 
@@ -3058,6 +3082,7 @@ export function deathLookback(state, perm, controller) {
     basePower: Number.isFinite(bpw) ? bpw : null,
     counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
     lkiTypes: [...permanentTypes(state, perm.id).types],
+    ...lkiSubtypesStamp(state, perm.id), // + its subtypes, on a board that sets types (the ability-loss S2 — CR 603.10a)
     lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
     lkiKeywords: damageResultKeywords(state, perm.id), // its lifelink / deathtouch / infect / wither as it last existed (CR 702.15c, 702.2e, 702.80b) — its own dies trigger's damage
     // FLYING AS IT LAST EXISTED (CR 603.10a — Luminous Broodmoth's "a creature you control without flying dies"): printed or granted,

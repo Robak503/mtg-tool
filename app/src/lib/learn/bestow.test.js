@@ -102,9 +102,15 @@ describe("isNativeBestow / coverage — all-or-nothing native gate", () => {
     // still guard that an unmodeled aura bonus or a non-routing trigger parks the whole card.
     expect(classifyCard({ name: "Herald of Torment", type: "Enchantment Creature — Demon", mana: "{1}{B}{B}", power: 3, toughness: 3,
       oracle: "Flying\nBestow {3}{B}{B} (reminder)\nAt the beginning of your upkeep, you lose 1 life.\nEnchanted creature gets +3/+3 and has flying." })).toBe("native-aura");
-    // an unmodeled aura bonus (loses-all-abilities / set base P/T).
+  });
+  it("✅ GRADUATED (the ability-loss S2, 2026-11-02) — Trickster's Elk: both modes are read, so the card is native-aura", () => {
+    // It sat in the unmodeled-mode row above while its Aura bonus ("loses all abilities and is a green Elk creature with base power and
+    // toughness 3/3") was unread. S2 reads it (abilityLossShapes.js: the loss, card types set to Creature — CR 205.1a — the creature type
+    // replaced, green, base 3/3). Cast bestowed it is an Aura spell with enchant creature (CR 702.103b) and that bonus is its host's; cast
+    // for its mana cost, or unattached, it is a 3/3 enchantment creature whose "Enchanted creature …" names nothing (CR 702.103f) — no
+    // residue in either mode. Its play is abilityLossS2.test.js's (the bestowed Elk on a Serra Angel, the Elk again when the host leaves).
     expect(classifyCard({ name: "Trickster's Elk", type: "Enchantment Creature — Elk", mana: "{2}{G}", power: 3, toughness: 3,
-      oracle: "Bestow {1}{G} (reminder)\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3." })).toBe("body-only");
+      oracle: "Bestow {1}{G} (reminder)\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3." })).toBe("native-aura");
   });
   it("a non-bestow Enchantment Creature is UNAFFECTED (still classifies on its own body)", () => {
     expect(isNativeBestow({ type: "Enchantment Creature — Spirit", oracle: "Vigilance" })).toBe(false);

@@ -37,7 +37,7 @@
 
 import { findPermanent, opponentsOf } from "./gameState.js";
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // an Aura is a widened-scope copy candidate only with an Enchant line the engine lists (CR 303.4f) — staticAbilityParser reaches no clone module (checked 2026-10-16)
-import { permanentHasCardType, permanentHasTypeWord, permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle); + the combat reads of the temporary copy's policy (pickTemporaryCopy)
+import { permanentHasCardType, permanentHasTypeWord, permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, boardSetsTypes } from "./layers.js"; // the type-line audit: a copy CHOICE is the permanent's types now (layers imports nothing of this module, so no cycle); + the combat reads of the temporary copy's policy (pickTemporaryCopy)
 import { hasKeyword } from "./keywords.js"; // the temporary copy's policy reads the copied body's keywords (keywords.js imports only faceUp.js)
 
 const typeLine = (card) => String(card?.type || card?.type_line || "");
@@ -631,9 +631,9 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
         // MIRRORMADE: an artifact as the anyArtifact pool reads it (the types it has now) OR an enchantment as the anyEnchantment pool
         // does (never a Saga; an Aura only with a listable Enchant line) — one permanent offered once.
         : artifactOrEnchantment
-        ? (permanentHasCardType(state, perm.id, "Artifact") || cloneWidenedCopiable(perm.card, "anyEnchantment"))
+        ? (permanentHasCardType(state, perm.id, "Artifact") || cloneWidenedCopiableNow(state, perm, "anyEnchantment"))
         : (nonlandAny || enchantmentOnly)
-        ? cloneWidenedCopiable(perm.card, scope)
+        ? cloneWidenedCopiableNow(state, perm, scope)
         // The types it has NOW, its face that is up (the type-line audit — CR 613.1d): Clone may copy an animated Mutavault (a
         // creature now; the copy is of its copiable values, CR 707.2) and may not copy a God below its devotion, a bestowed Aura
         // or an attached Lizard Blades, none of which is a creature now.
@@ -654,6 +654,23 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
  * (Copy Enchantment), never a Saga (see parseCloneSpec). Reads the FRONT face's type line. An AURA (2026-10-16): its copy enters
  * as an Aura choosing what it enchants (CR 303.4f — resolvers.resolveCloneChoice), so it is copiable when its Enchant line is one
  * the engine lists (staticAbilityParser.auraEntryHostSpec); a Curse or Animate Dead is not. */
+/**
+ * THE SAME SCOPES, read off a BATTLEFIELD permanent as it is now on a board that sets types (the ability-loss S2 review's F1 —
+ * layers.boardSetsTypes): its card types and its Saga / Aura subtype after layer 4 (CR 205.1a — a Nyx-Fleece Ram under Frogify is a
+ * blue Frog creature and no enchantment, so Copy Enchantment may not copy it; a Frogified Dryad Arbor is no land, so Clever
+ * Impersonator may). On every other board the printed front line, as cloneWidenedCopiable reads it. Every battlefield caller asks this;
+ * cloneWidenedCopiable stays the card read.
+ */
+export function cloneWidenedCopiableNow(state, perm, scope) {
+  if (!perm?.card) return false;
+  if (!boardSetsTypes(state) || !findPermanent(state, perm.id)) return cloneWidenedCopiable(perm.card, scope);
+  const has = (T) => permanentHasCardType(state, perm.id, T);
+  if (has("Land") || permanentHasTypeWord(state, perm.id, "Saga")) return false;
+  if (permanentHasTypeWord(state, perm.id, "Aura") && !auraEntryHostSpec(perm.card)) return false;
+  if (scope === "anyEnchantment") return has("Enchantment");
+  if (scope === "anyNonlandPermanent") return ["Creature", "Artifact", "Enchantment", "Planeswalker", "Battle"].some(has);
+  return false;
+}
 export function cloneWidenedCopiable(card, scope) {
   const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
   if (/\bLand\b/.test(tl)) return false;
@@ -669,7 +686,7 @@ export function cloneWidenedCopiable(card, scope) {
  * current turn (every enter path writes it; an unstamped permanent never qualifies). Shared by the enumerator and the
  * resolution-time re-check so the two cannot drift. */
 export function enteredThisTurnCopiable(state, perm) {
-  return cloneWidenedCopiable(perm?.card, "anyNonlandPermanent") && (perm?.enteredOnTurn ?? -1) === state.turn;
+  return cloneWidenedCopiableNow(state, perm, "anyNonlandPermanent") && (perm?.enteredOnTurn ?? -1) === state.turn;
 }
 
 function addSubtypeToLine(line, subtype) {

@@ -334,6 +334,28 @@ describe("migrate", () => {
     expect(permanentHasKeyword(back.session.state, "perm-1", "flying")).toBe(true);
   });
 
+  // CONTRACT-MIG (the ability-loss S2): a v9 leave event may carry `lkiSubtypes` (the subtypes it had as it left, on a board that sets
+  // types — layers.lkiSubtypesStamp, CR 603.10a). A v8 save has none; absent means the printed type line answers, so the migration stamps
+  // the version only, and a v9 leave event's stamp survives save → JSON → migrate.
+  it("carries a v8 save forward to v9 (stamp-only; a v9 leave event's type stamp round-trips)", () => {
+    const leave = { id: "perm-0", controller: "user", card: { id: "card-0", name: "Ornithopter", type: "Artifact Creature — Thopter", oracle: "Flying" }, toGraveyard: true, counters: {} };
+    const v8 = {
+      schemaVersion: 8, kind: "learn-session-save", savedAt: "2026-11-02T00:00:00.000Z", sessionId: "learn-v8", serializable: true,
+      session: { id: "learn-v8", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, pendingLeaveEvents: [leave],
+          players: { user: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] }, ai: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[8]).toBe("function"); // the v8 → v9 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[8](JSON.parse(JSON.stringify(v8)))).toEqual({ ...v8, schemaVersion: 9 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v8)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded) }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true });
+    expect(upgraded.session.state.pendingLeaveEvents).toEqual([leave]); // no field added: absent means the printed type line
+    const stamped = { ...leave, lkiTypes: ["Creature"], lkiSubtypes: ["Frog"] };
+    const v9 = { ...upgraded, session: { ...upgraded.session, state: { ...upgraded.session.state, pendingLeaveEvents: [stamped] } } };
+    expect(migrate(JSON.parse(JSON.stringify(v9))).session.state.pendingLeaveEvents).toEqual([stamped]);
+  });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration
   // stamps the version only. The round trip: a v7 game with an undrained leave event resumes unchanged, and a v8 leave event's stamp

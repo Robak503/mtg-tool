@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -132,6 +132,14 @@ export const MIGRATIONS = {
   // meaning there: it left with every ability it printed — what a v7 game's leave events say (no v7 save holds a loss; no build emits
   // one). So a v7 save needs no backfill; this migration only stamps the version forward, as v6 → v7 does. (CONTRACT-MIG.)
   7: (doc) => ({ ...doc, schemaVersion: 8 }),
+
+  // v8 → v9 — the ability-loss S2 (2026-11-02): a leave event on `pendingLeaveEvents` (gameState.recordLeaveEvent) may carry `lkiSubtypes`
+  // — the subtypes the permanent had as it left, written only on a board that sets card or creature types (layers.lkiSubtypesStamp, CR
+  // 603.10a), read with its `lkiTypes` by the leave and graveyard scopes (layers.typeLineNow: a creature Kenrith's Transformation made an
+  // Elk was no artifact as it left). An ABSENT stamp already has its meaning there: the printed type line answers, as every v8 leave event
+  // says (no v8 save holds a stage-S2 effect). So a v8 save needs no backfill; this migration only stamps the version forward, as v7 → v8
+  // does. (CONTRACT-MIG.)
+  8: (doc) => ({ ...doc, schemaVersion: 9 }),
 };
 
 export class SaveMigrationError extends Error {

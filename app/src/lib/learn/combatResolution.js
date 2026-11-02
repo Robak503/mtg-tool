@@ -55,7 +55,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss, boardSetsTypes, permanentIsCreature } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
@@ -72,6 +72,17 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTrig
 // precedes any GRANTED "…gains toxic 1" / "Other Rats have toxic 1" clause — verified across the
 // corpus). Granted-toxic riders stay unmodeled (those cards aren't keyword-only → never claimed
 // native), so reading the first match never over-credits.
+/**
+ * IS THE DAMAGE SOURCE A CREATURE? (Ironscale Hydra's "If a creature would deal combat damage to this creature".) Its printed type
+ * line — and, on a board that sets types (the ability-loss S2 recheck — layers.boardSetsTypes), a battlefield source as it is now: a
+ * crewed Smuggler's Copter an S2 Aura made a Frog is a creature for good (CR 205.1a), so its damage is prevented. Every other board reads
+ * the printed line, as before (a crewed Vehicle there stays the under-read it was).
+ */
+function sourceIsCreature(state, sourcePerm) {
+  if (sourcePerm?.id && boardSetsTypes(state) && findPermanent(state, sourcePerm.id)) return permanentIsCreature(state, sourcePerm.id);
+  return /\bcreature\b/i.test(String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? ""));
+}
+
 function toxicValue(card) {
   const m = String(card?.oracle ?? card?.oracle_text ?? "").match(/\btoxic\s+(\d+)/i);
   return m ? parseInt(m[1], 10) : 0;
@@ -322,8 +333,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // — checked live off the dealer's type line. A sourceless hit can't satisfy "a creature would deal", so
     // it is NOT prevented (FN-safe: the Hydra takes it, never an invented wall).
     if (selfPreventPutCounters(withAbilityLoss(state, lk.permanent))) {
-      const type = String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? "");
-      if (!/\bcreature\b/i.test(type)) return false;
+      if (!sourceIsCreature(state, sourcePerm)) return false;
       pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + 1);
       notePlacer(targetId, lk.controller); // its own wall
       return true;
@@ -511,7 +521,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const cs = counterShieldPrevention(card);
     if (cs === "phantom" || (cs === "bloatfly" && csCountersLeft(targetId) > 0)) return true;
     if (attachedPreventPutCounters(state, targetId) || groupPreventPutCounters(state, targetId)) return true;
-    if (selfPreventPutCounters(card) && /\bcreature\b/i.test(String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? ""))) return true;
+    if (selfPreventPutCounters(card) && sourceIsCreature(state, sourcePerm)) return true;
     if (attachedDamagePrevention(state, targetId).to) return true;
     return !!(sourcePerm?.id && (attachedDamagePrevention(state, sourcePerm.id).by || selfDamagePreventionBy(withAbilityLoss(state, sourcePerm))));
   };

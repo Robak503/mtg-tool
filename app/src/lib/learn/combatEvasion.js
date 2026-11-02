@@ -66,7 +66,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
 import { findPermanent, creaturePower } from "./gameState.js";
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the evasion text is the front face's
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
@@ -1212,7 +1212,10 @@ function defenderControlsLandType(state, defenderId, subtype) {
   // Swamp, Dryad of the Ilysian Grove's every basic type — so the derived subtypes are read beside the printed line (which
   // still answers the supertype form, "snow land").
   const want = String(subtype).toLowerCase();
-  return bf.some((p) => re.test(String(p?.card?.type || p?.card?.type_line || ""))
+  // On a board that sets types (the ability-loss S2 — layers.boardSetsTypes) a printed land type an effect TOOK is gone too (CR 205.1a
+  // — a Dryad Arbor under Frogify is a Frog creature and no Forest, so forestwalk doesn't see it): the derived subtypes alone answer.
+  const setsTypes = boardSetsTypes(state);
+  return bf.some((p) => (!setsTypes && re.test(String(p?.card?.type || p?.card?.type_line || "")))
     || permanentTypes(state, p.id).subtypes.some((s) => String(s).toLowerCase() === want));
 }
 // NONBASIC LANDWALK (CR 702.14c — "without the specified type or supertype (as in 'nonbasic landwalk')"): does the defending
@@ -1342,7 +1345,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
     const cond = typeConditionalUnblockableOf(aCard);
     if (cond) {
       const bf = state.players?.[defenderId]?.battlefield || [];
-      const has = (p, T) => new RegExp(`\\b${T}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")) || permanentHasCardType(state, p.id, T);
+      const has = (p, T) => new RegExp(`\\b${T}\\b`, "i").test(String(typeLineNow(state, p, p.card?.type || p.card?.type_line || ""))) || permanentHasCardType(state, p.id, T); // as it is now on a board that sets types (S2)
       const met = cond === "artifact" ? bf.some((p) => has(p, "Artifact"))
         : cond === "enchantment" ? bf.some((p) => has(p, "Enchantment"))
         : bf.some((p) => has(p, "Land") && !p.tapped);

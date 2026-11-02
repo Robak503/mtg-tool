@@ -47,7 +47,7 @@
  * reads.
  */
 
-import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // a Propaganda that lost its abilities taxes nothing (CR 613.1f — the ability view; a zero-import leaf)
+import { abilityViewOf, abilityViewLossy, typeLineViewOf } from "./abilityView.js"; // a Propaganda that lost its abilities taxes nothing (CR 613.1f — the ability view; a zero-import leaf)
 import { parseCountSource } from "./effects/parseHelpers.js"; // the shared "for each <X> you control" count-source reader (parseHelpers imports only keywords.js — no cycle)
 
 /**
@@ -131,7 +131,10 @@ function countedTaxAmount(state, defenderId, spec) {
   const word = String(spec?.cardType || "");
   if (!word) throw new Error("attack tax: a counted tax without a card type"); // unreachable by construction — never a free attack
   const re = new RegExp(`\\b${word.charAt(0).toUpperCase()}${word.slice(1)}\\b`);
-  return (state?.players?.[defenderId]?.battlefield || []).filter((perm) => re.test(String(perm?.card?.type ?? perm?.card?.type_line ?? ""))).length;
+  // The card type each has NOW on a board that sets types (the ability-loss S2 review's F2 — abilityView.typeLineViewOf): a Nyx-Fleece Ram
+  // under Frogify is no enchantment, so Sphere of Safety taxes 1, not 2 — a higher tax overcharges or refuses an attack the card allows
+  // (CR 508.1h). Every other board: the printed line, as before.
+  return (state?.players?.[defenderId]?.battlefield || []).filter((perm) => re.test(String(typeLineViewOf(state, perm, perm?.card?.type ?? perm?.card?.type_line ?? "")))).length;
 }
 
 /** True iff this exact clause (lowercased, whole) is the modeled attack tax — the coverage-side gate (the reader's sentence, whole). */

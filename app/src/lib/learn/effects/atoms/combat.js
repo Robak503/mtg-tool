@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasCardType, permanentHasKeyword, permanentTypes, hasAuraAttached, permIsEveryCreatureType, boardSetsTypes, permanentHasTypeWord, typeLineNow } from "../../layers.js"; // permanentHasCardType — #666, the nonland untap's layer-aware, face-up land read // permIsEveryCreatureType — P·39, the set-base-pt-team subtype filter (changeling / every creature type) // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect, dealSimultaneousDamage } from "../../spellEffects.js"; // the shared deal path: a bite of a planeswalker (applyDamageEffect) and the fights, bites and self-fights (dealSimultaneousDamage) — call-time binding, cycle-safe (removal.js precedent)
 import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -73,7 +73,7 @@ export function applyTapEffect(state, atom, ctx, tap) {
   for (const t of list) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
-    const tl = typeLineStr(lk.permanent.card);
+    const tl = typeLineNow(next, lk.permanent, typeLineStr(lk.permanent.card)); // as it is now on a board that sets types (S2)
     const isLand = /\bland\b/i.test(tl);
     // UNTAP-LAND: only act on a land target (verified live). UNTAP-BASIC-SUBTYPE: only a land of the named
     // basic subtype (verified live). TAP-PERMANENT: act on ANY live permanent. CREATURE form: a creature.
@@ -3015,7 +3015,10 @@ export function applySetBasePtTeam(state, atom, ctx) {
   // The controller's creatures, locked at resolution (CR 611.2c) — LAYER-AWARE (P·39): an animated land (Mutavault) is a creature
   // you control, so Mirror Entity's X/X reaches it. The Shepherd form narrows to a subtype: printed, or every creature type
   // (changeling, Mirror Entity's activation, an animated Mutavault — permIsEveryCreatureType).
-  const targets = (player.battlefield || []).filter((perm) => permanentIsCreature(next, perm.id) && (!subtypeRe || permIsEveryCreatureType(next, perm.id) || subtypeRe.test(typeLineStr(perm.card)))).map((perm) => perm.id);
+  // (on a board that sets types — the ability-loss S1 / S2 replace a creature's creature types, CR 205.1a — the subtype it has NOW)
+  const setsTypes = boardSetsTypes(next);
+  const targets = (player.battlefield || []).filter((perm) => permanentIsCreature(next, perm.id) && (!subtypeRe || permIsEveryCreatureType(next, perm.id)
+    || (setsTypes ? permanentHasTypeWord(next, perm.id, atom.subtype) : subtypeRe.test(typeLineStr(perm.card))))).map((perm) => perm.id);
   const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
   for (const id of targets) {

@@ -1292,7 +1292,8 @@ player.
 
 **"Loses all abilities" — the ability-loss core (S0a, 2026-11-01; the program: [ABILITY-LOSS-PROGRAM.md](ABILITY-LOSS-PROGRAM.md),
 the inventory: [ABILITY-LOSS-RESEARCH.md](ABILITY-LOSS-RESEARCH.md)).** Built inside the layer system. Until S1 (2026-11-02) no parser
-emitted it (every shape in `abilityLossShapes.js` was off); S1 turned the first stage on — its shapes and cards are the last bullet below.
+emitted it (every shape in `abilityLossShapes.js` was off); S1 turned the first stage on and S2 the second — their shapes and cards are the
+last two bullets below.
 - **The op.** A layer-6 effect `{ layerOp: "loseAllAbilities", exceptMana? }` (CR 613.1f), any affects mode, injectable through
   `addContinuousEffect`. A grant made by the same effect is a sibling descriptor with `grantedWith`: the loss's id (a stored effect)
   or `true` (beside a loss from the same static source with the same timestamp — an Aura's).
@@ -1521,6 +1522,132 @@ emitted it (every shape in `abilityLossShapes.js` was off); S1 turned the first 
   - **known, not S1's**: a permanent that loses its abilities while it is the SOURCE of an S1 Aura's effects (an Aura that lost its
     abilities) keeps its layer 1–5 parts and drops its layer 6–7 parts (`withoutLostStatics` — S0a's F6, an S3 prerequisite; no S1 effect
     makes an Aura lose its abilities: every S1 spell and ability targets a creature).
+- **S2 — "loses all other card types" (2026-11-02; the program's second stage ON, `ABILITY_LOSS_STAGES.S2`)** — one shape in
+  `abilityLossShapes.js` (`s2-aura-loss-is-type-creature-base-pt`):
+  - **the Aura form** ("attached" / "side" — "enemy"): "enchanted creature loses all abilities and is a [colour] <creature type> CREATURE
+    with base power and toughness N/N" (Kenrith's Transformation and Trickster's Elk — a green Elk 3/3; Frogify and Amphibian Downpour —
+    a blue Frog 1/1; Eaten by Piranhas — a black Skeleton 1/1; Reprobation — a Coward 0/1, no colour word; Fowl Play — a Bird 1/1). The
+    word "creature" after the creature type sets the card types (CR 205.1a), so the descriptors are S1's plus one: the loss (layer 6),
+    `setCardTypes ["Creature"]` (layer 4 — S0a's op: supertypes kept, CR 205.4b; a subtype kept only while correlated with a card type
+    left, CR 205.1a, 205.3c), `replaceCreatureTypes` (layer 4), `setColor` when a colour word is printed (layer 5), `ptSet` (7b), all at
+    the Aura's attach timestamp. The order inside layer 4 does not matter (the set keeps the creature types; the replace keeps every
+    other subtype). Anchored to the printed form: reordered, a CR 205.1b "[creature type] artifact creature" (Darksteel Mutation), "in
+    addition to its other types" (Unable to Scream), two colours or a name (Witness Protection) answer null. Trickster's Elk reads it as
+    a bestowed Aura (CR 702.103b — staticEffectsOf's attached bonus, the bestow layer-4 Creature removal on the Elk itself); unattached
+    it is an enchantment creature whose sentence names nothing (CR 702.103f).
+  - **the type readers outside the layers, on a board that sets types** (`layers.boardSetsTypes` — a `setCardTypes` or
+    `replaceCreatureTypes` effect on the board; recursion-free, the raw layer-4 list). Until S2 no effect took a card type away except
+    "Creature" (bestow, reconfigure, a God below its devotion — read through permanentIsCreature), so a printed "is it an artifact / a
+    land / a Forest?" off the type line was exact, and the earlier type-line audit had routed the sacrifice pools, the target filters (all
+    but one — the review's F1, below) and combat. The rest now ask the layer-aware readers (`permanentHasTypeWord` / `permanentHasCardType`) on such a board and read the printed
+    line, exactly as before, on every other: creatureRestrictions' `typeNeg` (Terror's "nonartifact") and `cardType` (Molten Frame's
+    "target artifact creature"); legalChoices' land conditions (Submerge's gate, "If you control a <basic land type>" — Snuff Out), the
+    return-lands and sacrifice-lands alternative costs (Gush, Fireblast — and actionDispatcher's check of the paid lands), the
+    return-a-land cost (Quirion Ranger) and the activated cost reducers' artifact / land / subtype subjects; runProgram's return-a-land
+    upkeep cost (Waterspout Djinn); the "Sacrifice a land." atom; the iterated edict's nonland pool; Carpet of Flowers' count; metalcraft
+    (Galvanic Blast); the Shepherd form's subtype (Allosaurus Shepherd — an S1 / S2 replace); landwalk (`defenderControlsLandType`, which
+    read the printed line OR the derived subtypes). **The word readers** go through one helper, `layers.typeLineNow(state, perm, printed)`:
+    a LOOK-BACK stamped on such a board answers the types it had as it left (its `lkiTypes` and `lkiSubtypes`), a battlefield permanent there
+    its derived type line ("Creature — Elk"), anything else the caller's own printed line — the trigger scopes (triggers.js `scopeTypeStr`:
+    the creature- and land-type filters `permMatchesSubtypeFilter`, the graveyard scopes — Disciple of the Vault, Marionette Master,
+    Titania, Wicked Visitor — the batch combat-damage dealer, the attack subtype and company filters, the tapped-for-mana and
+    ability-activated filters, the intervening "you control N or more <type>" count), interveningIf (Padeem's greatest-MV artifact, the
+    damaged Dinosaur, "lands with different names", and "you sacrificed a Food this turn" through the memo `recordSacrificeThisTurn` now
+    writes), the defender-board type condition (Neurok Spy), "land creatures you control", amass's Army, the tap-another payer filter, the
+    reflexive "sacrifice a <subtype>", the graveyard recursion's tap cost, the damage replacements' subtype scopes, "a spell that targets a
+    <type>", the untap-a-land check, and the mana-spend restrictions' activating type line. **The look-back stamp** (`lkiSubtypesStamp`,
+    CR 603.10a — written only on a board that sets types): the death look-back (`deathLookback`), the leave event (`recordLeaveEvent` —
+    stored on `pendingLeaveEvents`, so the save format is v9, a stamp-only migration), the sacrifice look-backs; triggers.js's look-back
+    copies carry it on, and `groupLeaveEvents` restamps every member's `lkiTypes` / `lkiSubtypes` from the event's starting board (or the
+    death batch's look-backs) beside the loss stamp — an S2 Aura destroyed with its host and moving first no longer hands the host back its
+    printed types (the S0b review's F1, for types). `sacScopeMatches` reads the stamp ("Whenever you sacrifice an artifact / a Food" —
+    Crime Novelist, Rapacious Guest — stay silent for a Frogified Gingerbrute). Left printed, each with its reason: the re-survey
+    below (207 sites).
+  - **the Aura re-check at resolution** (resolvers.js, CR 608.2b): a Creature a layer-4 effect added now satisfies an "Enchant creature"
+    host (`layerCreatureHost`, beside #511's `layerArtifactHost`) — a crewed Vehicle or an animated land is a creature as the Aura
+    resolves, as the offer enumerated it; before, the re-check read the printed type line and the Aura fizzled. And on a board that sets
+    types the host's line is the one it has now (`typeLineNow` — the re-survey): an "Enchant Forest" Aura cast at a Dryad Arbor made a
+    Skeleton in response is not put onto the battlefield.
+    The S2 rulings name the case: each S2 Aura "may enchant a permanent that is only temporarily a creature, such as a Vehicle", and the
+    permanent stays a creature after the temporary effect ends (its own setCardTypes, later in timestamp order).
+  - **the S1 recheck's R1** — `starCdaStats` reads `STAR_CDA_PATTERNS` (exported; the twin tool imports the same two): "is" / "are" and
+    "each" optional, so Drop Bear's "has power and toughness each equal to" and Lydari Elephant's "… and its toughness equal to" are
+    read. Over the bundled corpus the widening reads three more "*" stats, each a P/T-defining ability (those two and 1996 World
+    Champion).
+  - **the twin tool's S2 mode** (`scripts/ability-loss-twin-diff.mjs --effect=s2`): every permanent card but an Aura (a creature card,
+    and a noncreature card an effect can make a creature — a Vehicle, a land, an artifact, an enchantment, a planeswalker; an Aura never,
+    CR 303.4d) takes the S2 effect (Frogify's, stored part by part) and its twin is the creature that effect makes it, PRINTED (its
+    supertypes, "Creature — Frog", blue, 1/1, no text), under the same effect, with type readers in hand and on the battlefield (Shatter,
+    Terror, Stone Rain, Disenchant, Doom Blade, Frogmite, Broken Wings; Tempered Steel, Quirion Ranger, Atog), the probe fighting when it
+    is a creature now, and a `readers` scenario that reads the board counts and pools straight off the probe (domain and party alone, the
+    six widened clone scopes, Sphere of Safety's tax, ten sacrifice pools, the board-snapshot row). The loss twin shares the printed type
+    line with the creature, so it cannot see a printed type read; this twin differs exactly there. In this mode a card wins over a token
+    of its name (52 names' first bundled record is a token — Ornithopter, Tarmogoyf — and the loss mode, which keeps the first record so
+    its corpus stays its baseline's, still skips them: found, not fixed there), and a pair of values over 4 KB is stored as hashes with an
+    excerpt at the first difference (over the base engine the whole --out outgrew V8's string limit).
+  - **the review fixes (the blind review of the first S2 commit, FIX-BEFORE-LAND — amended in)**: F1 — the "artifact, enchantment, or
+    creature with flying" target pool (spellEffects `addArtifactEnchantmentOrFlyingCreature` — Broken Wings, Return to the Earth, Shoot
+    Down) reads the card types a permanent has now and its flying through the view (a Frogified Ornithopter or Nyx-Fleece Ram is no
+    target), and the widened clone scopes read a battlefield permanent as it is now (`cloneCopy.cloneWidenedCopiableNow` — Copy
+    Enchantment and Mirrormade may not copy a Frogified Nyx-Fleece Ram; Clever Impersonator may copy a Frogified Dryad Arbor, no land
+    now); F2 — domain (`layers.domainCount`, Leyline Binding — CR 305.6) reads the identity's land types on a board that sets types, and a
+    counted attack tax (`attackTax.countedTaxAmount`, Sphere of Safety) the type line as it is now (`abilityView.typeLineViewOf`, the leaf
+    registration of `typeLineNow`) — a higher tax is no safe side: it overcharges an attack the card allows (CR 508.1h), and the earlier
+    note that called it one was wrong; F3 — a bestowed Aura on a host that gained protection from its quality becomes unattached and is a
+    creature again (sba.js — CR 702.16c, 702.103f; Trickster's Elk, Boon Satyr); F4 — party (`layers.partyCount`, CR 700.8) reads the
+    identity's creature-ness and creature types on such a board; F5 — the AI's held Aura cast no longer holds the card: when
+    `pickAuraCast` returns nothing, a bestow card's group drops its Aura offers and its creature cast is scored like any other card
+    (opponentAI — Trickster's Elk is cast as a 3/3, and Boon Satyr with no creature of the AI's own as a creature, a hold c0550fa2 already
+    had); F6 — the over-suppression rows (an UNAFFECTED permanent on an S2 board still reads every type it has: Terror, Shatter, Stone
+    Rain, Atog, Quirion Ranger, metalcraft, Disciple of the Vault, Elderfang Venom, Captain Lannery Storm, forestwalk, Neurok Spy).
+  - **the re-survey (F7)** — every read of a printed type line in lib/learn, layers.js included, by an AST scan (espree): direct
+    (`x.card.type`), aliased (a local bound to `x.card`) and through any function whose parameter reads a type line, to a fixpoint
+    (356 such functions); 207 sites (208 until the recheck folded Ironscale Hydra's two reads into one helper), each routed or left printed with its reason (C:/Projects/.mtg-fleet/abloss-s2-evidence/survey/
+    survey-classified.tsv). 58 were routed before the review; this amend routes the review's sites and the survey's finds, each with a
+    row that fails on the first commit: Banner of Kinship's chosen-type count (enterReplacements), the named-token sacrifice pool ("Sacrifice
+    a Treasure" — removal.sacrificePoolMatchNow also asks the predefined token's subtype, CR 111.10), The Ur-Dragon's attacking Dragons
+    (urDragonAttack), Vihaan's Treasures (vihaanAnimate — a Treasure an S2 Aura made a Skeleton is not animated again), Excalibur's
+    historic total (legalChoices — Legendary is a supertype the effect keeps, CR 205.4b), the Aura re-check's host line (resolvers — Utopia
+    Sprawl's "Enchant Forest" on a Dryad Arbor made a Skeleton in response, CR 608.2b), the zero-loyalty SBA (gameState — a planeswalker an
+    S2 effect made a creature is no planeswalker, CR 704.5i; the twin tool found it on Dakkon, Shadow Slayer) and the board snapshot's type
+    line and row. Left printed, by class: an entering object (29 — no S2 effect reaches an object before it is on the battlefield), the AI's
+    estimates and orders among offered candidates (16), an Aura read (13 — an Aura is never S2-affected: one that is also a creature can't
+    enchant, CR 303.4d), an under-read of "Creature" (9 after the recheck routed Ironscale Hydra's two — a printed creature is still one
+    under S2; a noncreature an S2 Aura made a creature reads as none, the false-negative side), an attached permanent's Equipment read
+    (11 — an S2-affected permanent is a creature, attached to nothing, CR 301.5c, 704.5p), the layers' own input (10), a text parse of the
+    source's own abilities (9), a supertype (9, CR 205.4b), a planeswalker read (7 — reachable only once a planeswalker is a creature, which
+    no engine effect does today: **a tripwire — route them when a planeswalker animation lands**), a card in another zone (4), the
+    permanent's own lost ability (4), an unstamped look-back (3), and seven singles (the sickness split ×2, a write, an id guard, the
+    earthbend pick, a DFC skip, and manaModel.landsCouldProduce — unobservable: a Frogified land produces nothing either way, a control row
+    shows it, so the edit was reverted). Checked by hand beyond the scan: a card list built by a map (one — the commander cards, read for
+    colour identity) and a destructured `{ card }` parameter (none).
+  - **known, not S2's**: a creature an S2 Aura enchants becomes a noncreature only through a later layer-4 effect that removes the
+    Creature type — no engine effect does that to another permanent today (S5's Imprisoned in the Moon and Sugar Coat parse to nothing);
+    if one did, the Aura's "Enchant creature" would be illegal and sba.js would put it into the graveyard (CR 704.5m), ending the loss
+    with it (witnessed with an injected effect). Outside the replace, the engine's closed creature-type vocabulary (effects/creatureTypes.js
+    — the bundled CR 205.3m, older than Spy, Gamma, Klingon, Officer and some 70 more words on 184 creature cards) still decides what is
+    a creature type (the shared-type allowlist reads such a word as none — the under-read side); refreshing it is a vocabulary slice.
+  - **the recheck of the amended commit (FIX-BEFORE-LAND — amended in)**: R1 — a regression from the re-survey's named-token routing:
+    `sacrificePoolMatchNow` split the predefined token's type line on `/s+/` (the letter s), so on any board with an S1 / S2 type effect every
+    "Sacrifice a Treasure / Food / Powerstone" pool was empty (The Cabbage Merchant kept its Food beside a Lignify); now `/\s+/`. The same
+    typo class (a regex or a RegExp string missing its backslash) was scanned over every literal on the commit's added lines with espree
+    — 44 regex literals and 4,209 string / template literals in 39 files: that one hit. R2 — the creature-type replace (`withoutCreatureTypes`,
+    the derive's and the identity's one helper) also drops every subtype word no subtype list places (`subtypeFamilyOf` → []), and one
+    of another family whose card type the object does not have (Swarm of Locus's "Locus", a land type's spelling on a plain creature —
+    an object's subtypes correspond to its types, CR 205.3d): on a creature each is a creature type the bundled list does not name, and
+    the replace takes every creature type (CR 205.1a). The
+    reach the earlier note denied was real — `triggers.parseSubtypeList` takes any word of three or more letters, so Abomination,
+    Irradiated Brute's "Whenever a Gamma or Villain you control" fired for Brawn, Amadeus Cho under Lignify (on master since S1) and
+    Kenrith's Transformation; it no longer does, and the snapshot reads "Creature — Elk". Dropping an unplaceable word is the under-read
+    side (a newer artifact or land type would go too — the rule subtypesAfterCardTypeChange already keeps). R3 — the rows (an unaffected
+    Treasure, Food and Powerstone in their pools beside a Frogify and a Lignify; The Cabbage Merchant; Abomination under both Auras) and
+    their mutants; the twin's readers scenario also reads UNAFFECTED permanents on every S2 board (a Treasure and a Food token beside the
+    probe, the board's Forest — their pools and the Forest's type) and counts the boards where one reads wrong (`bystanderFails`: on
+    a5779b1a's engine every board, now none) — a lost-vs-twin difference cannot show it, both sides sit on an S2 board. And the LOW gap:
+    Ironscale Hydra's "If a creature would deal combat damage" (combatResolution `sourceIsCreature`, both reads) asks the source as it is now
+    on a board that sets types, so a crewed Smuggler's Copter an S2 Aura made a Frog for good has its damage prevented; the survey's other
+    under-reads of "Creature" (nine — the damage ledger, the regain-control atom, a token-copy source, emerge, soulbond, the dies context,
+    the lethal-damage guard, the end-of-turn copy revert) stay under-reads for such a permanent, the false-negative side.
 
 ### 4.7 Mana (`manaModel.js`)
 

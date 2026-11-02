@@ -27,13 +27,13 @@ import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTrigge
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
-import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiable, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
+import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate, cloneWidenedCopiableNow, enteredThisTurnCopiable } from "./cloneCopy.js"; // + cloneWidenedCopiable (KN-2) + enteredThisTurnCopiable (shelf D36)
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check for an Aura no modeled lane casts — the host list its cast was offered from (CR 608.2b)
 import { characteristicColors } from "./faceUp.js"; // the resolving Aura spell's colours — a double-faced spell is its front face's (CR 712.8c) (a leaf)
 import { auraEntryHasHost, enteringAuraHost, mayBeEnchantedBy } from "./auraEntry.js"; // mayBeEnchantedBy: AURA_ETB's re-check (CR 608.2b, 702.16c). A clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a soulbond creature that lost its abilities pairs with nothing) // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect, withAbilityLoss, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — a soulbond creature that lost its abilities pairs with nothing) // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -338,8 +338,8 @@ export function resolveCloneChoice(state, chosenPermId) {
     const is = (T) => permanentHasCardType(next, id, T);
     if (scope === "anyEquipment") return is("Artifact") && permanentHasTypeWord(next, id, "Equipment");
     if (scope === "anyArtifact") return is("Artifact");
-    if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiable(c.permanent.card, scope); // KN-2
-    if (scope === "anyArtifactOrEnchantment") return is("Artifact") || cloneWidenedCopiable(c.permanent.card, "anyEnchantment"); // Mirrormade — cloneCandidates' read
+    if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiableNow(next, c.permanent, scope); // KN-2 (as it is now on an S2 board)
+    if (scope === "anyArtifactOrEnchantment") return is("Artifact") || cloneWidenedCopiableNow(next, c.permanent, "anyEnchantment"); // Mirrormade — cloneCandidates' read
     if (scope === "anyPermanentEnteredThisTurn") return enteredThisTurnCopiable(next, c.permanent); // shelf D36 (Sakashima's Protege)
     if (scope === "opponentCreature") return is("Creature") && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
     return is("Creature") || (scope === "youControlCreatureOrPw" && is("Planeswalker")) || (scope === "anyArtifactOrCreature" && is("Artifact"));
@@ -535,7 +535,10 @@ export const RESOLVERS = Object.freeze({
       return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) });
     }
     const tgt = findPermanent(state, targetId);
-    const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
+    // The host's type line as it is NOW on a board that sets types (the ability-loss S2 survey — layers.typeLineNow, CR 608.2b): a Dryad
+    // Arbor an S2 Aura made "a blue Frog creature" in response is no land and no Forest (CR 205.1a), so an "Enchant land" or "Enchant
+    // Forest" Aura cast at it is not put onto the battlefield; on every other board the printed line, as before.
+    const tgtType = String(tgt?.permanent ? typeLineNow(state, tgt.permanent, tgt.permanent.card?.type || tgt.permanent.card?.type_line || "") : "");
     // AURA-LAND-MANA-BOOST: a land-enchant mana Aura (Wild Growth / Overgrowth / Fertile Ground) must
     // still be attached to a LAND at resolution; every other native Aura enchants a Creature. The
     // required target type follows the card (single source of truth — isNativeManaAura), so the
@@ -564,6 +567,7 @@ export const RESOLVERS = Object.freeze({
       nonlandPermanent: /^(?!.*\bLand\b)/, creatureOrPlaneswalker: /Creature|Planeswalker/,
       artifactCreatureOrPlaneswalker: /Artifact|Creature|Planeswalker/,
     };
+    const CREATURE_HOST_TYPES = new Set(["creature", "creatureOrArtifact", "creatureOrVehicle", "creatureOrPlaneswalker", "artifactCreatureOrPlaneswalker"]);
     const requiredType = HOST_TYPE_RE[hostType]
       || (isNativeManaAura(card) ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/) : /Creature/);
     // #511 — the host-type read the cast enumerated with (spellEffects' PERMANENT_PREDICATES `has`): an Artifact a layer-4
@@ -572,12 +576,19 @@ export const RESOLVERS = Object.freeze({
     const layerArtifactHost = !!tgt && (hostType === "artifact" || hostType === "creatureOrArtifact" || hostType === "artifactCreatureOrPlaneswalker")
       && permanentHasCardType(state, tgt.permanent.id, "Artifact");
     const layerLandBreaksNonland = !!tgt && hostType === "nonlandPermanent" && permanentHasCardType(state, tgt.permanent.id, "Land");
+    // …and a Creature a layer-4 effect added (CR 608.2b — "its characteristics may have changed"; the ability-loss S2): a crewed Vehicle
+    // or an animated land is a creature as the Aura resolves, as the offer enumerated it (layer-aware), so an "Enchant creature" Aura
+    // cast at it resolves instead of fizzling on its printed type line. The bundled rulings of Frogify, Kenrith's Transformation,
+    // Amphibian Downpour, Reprobation and Trickster's Elk: each "may enchant a permanent that is only temporarily a creature, such as a
+    // Vehicle". Only ever an added acceptance — a printed creature is still read off its type line, as before.
+    const layerCreatureHost = !!tgt && (CREATURE_HOST_TYPES.has(hostType) || (!HOST_TYPE_RE[hostType] && !isNativeManaAura(card)))
+      && permanentIsCreature(state, tgt.permanent.id);
     // CR 608.3b / 608.2b — the host must also still be TARGETABLE by this Aura spell: hexproof, shroud, protection from its
     // colour gained in response make the target illegal (Control Magic on a creature that gained hexproof does not resolve).
     // The same canBeTargetedBy call, with the same colours, every Aura offer enumerated its hosts through (legalChoices).
     // And a host the Aura may not enchant at all (2026-10-17 — auraEntry.mayBeEnchantedBy, the narrowing every Aura offer now
     // reads through auraSpellHost.enchantableHosts): protection from enchantments (CR 702.16b, 702.16c), "can't be enchanted".
-    if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost)
+    if (!tgt || layerLandBreaksNonland || !(requiredType.test(tgtType) || layerArtifactHost || layerCreatureHost)
       || !canBeTargetedBy(state, tgt.permanent, tgt.controller, controller, characteristicColors(card), false, false, true) // the Aura's own colours are definite: a colourless Aura is refused by protection from colorless (CR 105.2c)
       || !mayBeEnchantedBy(state, tgt.permanent, tgt.controller, card)) {
       // BESTOW (CR 702.103e, 608.3b): a bestowed Aura spell whose target is illegal as it begins resolving — gone, or no

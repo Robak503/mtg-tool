@@ -21,7 +21,7 @@
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js";
-import { permanentHasKeyword, permanentIsCreature, abilityLossOf, boardHasAbilityLoss } from "./layers.js"; // + the ability-loss marker (CR 613.1f)
+import { permanentHasKeyword, permanentIsCreature, abilityLossOf, boardHasAbilityLoss, typeLineNow } from "./layers.js"; // + the ability-loss marker (CR 613.1f)
 
 // Combat-relevant keywords surfaced as badges on creature tiles.
 const BADGE_KEYWORDS = [
@@ -55,10 +55,12 @@ function cardView(card) {
 
 /** A permanent on the battlefield — with derived characteristics + board state. */
 function permanentView(state, perm, lossy) {
-  const t = typeOf(perm.card);
+  // Its type line as it is now on a board that sets types (the ability-loss S2 survey — layers.typeLineNow, CR 205.1a): a Dryad Arbor an S2
+  // Aura made "a blue Frog creature" shows as "Creature — Frog" in the permanents row, not as a land; every other board the printed line.
+  const t = typeLineNow(state, perm, typeOf(perm.card));
   // Layer-aware (WALT-ANIMATE): an animated land / man-land IS the creature it has become, so the
   // board shows it as a creature with its set P/T + granted keywords — not the printed land. `isLand`
-  // stays printed-based (animate is additive: it's still a land, shown in the lands row). Behavior-
+  // reads `t` (animate is additive: it is still a land, shown in the lands row; an S2 effect is not). Behavior-
   // neutral for every other permanent (permanentIsCreature ⊇ the printed-type check).
   const isCreature = permanentIsCreature(state, perm.id);
   const view = {

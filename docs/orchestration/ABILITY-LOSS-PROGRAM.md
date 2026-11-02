@@ -60,6 +60,29 @@ is a known number (F1 — CR 208.2a, 604.3, 613.4a, 704.5f, 704.5g: a Crusader o
 Tarmogoyf under Merfolk Trickster a 0/1; Primal Clay's CR 208.2b choice stays unread); "*" carriers in the census and a four-seat
 Warkite Marauder row (F3); five more shapes in the source lint (F4); a duplicate Aura in a group sacrifice throws. The AI's Aura and
 trigger targets (F2) are left for an AI slice. Evidence: its RUN-LEDGER entry. S2 may start when S1's review passes.
+S1's recheck (LAND-WITH-NOTES) landed it as c0550fa2.
+**S2 (built, 2026-11-02 — day/abloss-s2 on c0550fa2; blind review FIX-BEFORE-LAND and its recheck FIX-BEFORE-LAND, both rounds of fixes amended in; awaiting the reviewer's next recheck):** `ABILITY_LOSS_STAGES.S2` is ON. One shape, the Aura
+form "loses all abilities and is a [colour] <creature type> creature with base power and toughness N/N", emitting S1's ops plus S0a's
+`setCardTypes ["Creature"]` (CR 205.1a; supertypes kept, CR 205.4b). Credited (+6): Kenrith's Transformation, Eaten by Piranhas, Frogify,
+Reprobation, Trickster's Elk (bestowed — CR 702.103b, 702.103f) and the twin Fowl Play (not Commander-legal). Held back with their stage:
+Amphibian Downpour (its Storm line is unread on an Aura — its S2 bonus applies at runtime by the §2 coupling), Polymorphist's Jest (S3 —
+a group of one player's creatures; it sets no card type), Witness Protection (name-setting — out of scope), Unable to Scream (an add,
+CR 205.1b, and its face-down line), Lizard, Connors's Curse (a trigger, "up to one other target", no duration). Because S2 is the first
+stage that takes a card type other than Creature away, the type readers outside the layers that read the printed type line (Terror's
+"nonartifact", "target artifact creature", metalcraft, the land costs and conditions, landwalk, the sacrifice look-back's "an artifact /
+a Food", the trigger scopes — Disciple of the Vault, "an Elf you control dies") read the layer-aware types on a board that sets types
+(`boardSetsTypes`, `typeLineNow`; a look-back stamped there reads the types it had as it left — `lkiSubtypesStamp`, save format v9;
+ENGINE-SCAFFOLD §4.6 "S2"); the Aura re-check at
+resolution accepts a creature a layer-4 effect added (a crewed Vehicle); the S1 recheck's R1 is carried (Drop Bear, Lydari Elephant).
+The twin tool has an S2 mode (`--effect=s2`) whose twin is printed as the creature the effect makes, over every non-Aura permanent card,
+with a readers scenario (domain, party, the clone scopes, a counted tax, the sacrifice pools, the board snapshot). The review's fixes
+(F1–F7) and its re-survey of every printed type read (207 sites, each routed or left printed with its reason — ENGINE-SCAFFOLD §4.6 "the
+re-survey"): the Broken Wings pool, the clone scopes, domain, the counted attack tax, party, a bestowed Aura under protection, the AI's
+bestow casts, Banner of Kinship, "Sacrifice a Treasure", The Ur-Dragon, Vihaan, Excalibur, the Aura re-check's host line, the
+zero-loyalty SBA and the board snapshot; then the recheck's (R1–R3 and its LOW gap): the named-token pools on a board that sets types (a
+regression the amend had made), an unlisted creature type under a creature-type replace (Brawn stays no Gamma), the twin's bystander
+check, Ironscale Hydra against a Frog-Copter. Evidence: its RUN-LEDGER entry. S3 may start when S2's recheck passes (its two prerequisites
+below still stand).
 
 ## 0. Why a program, not a slice
 ~150 engine sites read a permanent's abilities from its PRINTED card (`perm.card`, `classLiveCard(...)`, the face-up view),

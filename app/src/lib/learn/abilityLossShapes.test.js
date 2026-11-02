@@ -1,8 +1,9 @@
 /**
- * abilityLossShapes.test.js — the ability-loss shape registry (abilityLossShapes.js, ABILITY-LOSS-PROGRAM.md §2) with S1 on and
- * S2–S5 off, and its four consult points. (The S1 cards' play is abilityLossS1.test.js.)
- *   · S1 ON, THE REST OFF: every registered shape is S1's; every sentence of the family S2–S5 credit (real bundled text) answers null
- *     at every consult point — those cards stay parked; S1's members answer where they are read, and only in their printed forms.
+ * abilityLossShapes.test.js — the ability-loss shape registry (abilityLossShapes.js, ABILITY-LOSS-PROGRAM.md §2) with S1 and S2 on
+ * and S3–S5 off, and its four consult points. (The S1 and S2 cards' play is abilityLossS1.test.js and abilityLossS2.test.js.)
+ *   · S1 AND S2 ON, THE REST OFF: every registered shape is S1's or S2's; every sentence of the family S3–S5 credit (real bundled
+ *     text) answers null at every consult point — those cards stay parked; S1's and S2's members answer where they are read, and only
+ *     in their printed forms.
  *   · THE HOOK: a well-formed shape registered for a test (fresh text: every consult point caches by card object or text) is
  *     answered by each consult point when its stage is on — the attached-clause parser (and through it the layer engine: a static
  *     loss from an attached Aura at the Aura's attach timestamp, its `grantedWith: true` sibling kept), the static clause reader, the
@@ -43,21 +44,22 @@ function boardOf(perms) {
   return { ...s0, timestampCounter: perms.length + 1, players: { ...s0.players, user: { ...s0.players.user, battlefield: bf } } };
 }
 
-// The family's members S1 builds (Lignify, Turn to Frog); the rest are S2–S5's (ABILITY-LOSS-PROGRAM.md §3).
-const S1_MEMBERS = new Set(["Lignify", "Turn to Frog"]);
+// The family's members S1 and S2 read (Lignify, Turn to Frog — S1; Kenrith's Transformation, and Amphibian Downpour's sentence — S2);
+// the rest are S3–S5's (ABILITY-LOSS-PROGRAM.md §3).
+const READ_MEMBERS = new Set(["Lignify", "Turn to Frog", "Kenrith's Transformation", "Amphibian Downpour"]);
 
-describe("S1 on, S2–S5 off (the S1 slice turned the first stage on)", () => {
-  it("only S1 is on; every shape is well formed, has a unique id and is S1's", () => {
-    expect(ABILITY_LOSS_STAGES).toEqual({ S1: true, S2: false, S3: false, S4: false, S5: false });
+describe("S1 and S2 on, S3–S5 off (the S1 slice turned the first stage on, the S2 slice the second)", () => {
+  it("only S1 and S2 are on; every shape is well formed, has a unique id and is S1's or S2's", () => {
+    expect(ABILITY_LOSS_STAGES).toEqual({ S1: true, S2: true, S3: false, S4: false, S5: false });
     expect(abilityLossShapes().length).toBeGreaterThan(0);
     expect(abilityLossShapes().every(shapeIsWellFormed)).toBe(true);
     expect(new Set(abilityLossShapes().map((s) => s.id)).size).toBe(abilityLossShapes().length);
-    expect([...new Set(abilityLossShapes().map((s) => s.stage))]).toEqual(["S1"]);
+    expect([...new Set(abilityLossShapes().map((s) => s.stage))]).toEqual(["S1", "S2"]);
   });
 
-  it("every sentence of the family S2–S5 build answers null at every consult point, in any case; S1's answer where they are read", () => {
+  it("every sentence of the family S3–S5 build answers null at every consult point, in any case; S1's and S2's answer where they are read", () => {
     let n = 0;
-    for (const c of FAMILY.filter((x) => !S1_MEMBERS.has(x.name))) {
+    for (const c of FAMILY.filter((x) => !READ_MEMBERS.has(x.name))) {
       for (const s of sentencesOf(c.oracle)) {
         for (const ctx of ABILITY_LOSS_CONTEXTS) {
           expect([c.name, s, ctx, abilityLossShape(s, ctx)]).toEqual([c.name, s, ctx, null]);
@@ -66,7 +68,7 @@ describe("S1 on, S2–S5 off (the S1 slice turned the first stage on)", () => {
         }
       }
     }
-    expect(n).toBeGreaterThan(80);
+    expect(n).toBe(60); // 15 sentences of the seven S3–S5 cards × the four consult points
     const lig = "enchanted creature is a treefolk with base power and toughness 0/4 and loses all abilities";
     expect((abilityLossShape(lig, "attached", { subject: "enchanted", noun: "creature" }) ?? []).map((d) => d.op.layerOp)).toEqual(["replaceCreatureTypes", "ptSet", "loseAllAbilities"]);
     expect([abilityLossShape(lig, "side"), abilityLossShape(lig, "static"), abilityLossShape(lig, "spell")]).toEqual(["enemy", null, null]);
@@ -74,12 +76,16 @@ describe("S1 on, S2–S5 off (the S1 slice turned the first stage on)", () => {
     const frog = "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1";
     expect(abilityLossShape(frog, "spell")).toEqual({ op: "lose-all-abilities", targetType: "creature", until: "endOfTurn", subtypes: ["Frog"], colors: ["U"], basePt: { power: 1, toughness: 1 } });
     expect([abilityLossShape(frog, "attached", { subject: "enchanted", noun: "creature" }), abilityLossShape(frog, "static"), abilityLossShape(frog, "side")]).toEqual([null, null, null]);
+    const elk = "enchanted creature loses all abilities and is a green elk creature with base power and toughness 3/3";
+    expect((abilityLossShape(elk, "attached", { subject: "enchanted", noun: "creature" }) ?? []).map((d) => d.op.layerOp)).toEqual(["loseAllAbilities", "setCardTypes", "replaceCreatureTypes", "setColor", "ptSet"]);
+    expect([abilityLossShape(elk, "side"), abilityLossShape(elk, "static"), abilityLossShape(elk, "spell")]).toEqual(["enemy", null, null]);
+    expect(abilityLossShape(elk, "attached", { subject: "equipped", noun: "creature" })).toBe(null);
   });
 
-  it("the family emits a loss op only through its S1 members: Lignify's attached bonus, Turn to Frog's program atom", () => {
+  it("the family emits a loss op only through its S1 and S2 members: Lignify's, Kenrith's Transformation's and Amphibian Downpour's attached bonus, Turn to Frog's program atom", () => {
     for (const c of FAMILY) {
       const statics = [...parseStaticAbilities(c), ...parseAttachedBonus(c)];
-      expect([c.name, statics.some((d) => d.op?.layerOp === "loseAllAbilities")]).toEqual([c.name, c.name === "Lignify"]);
+      expect([c.name, statics.some((d) => d.op?.layerOp === "loseAllAbilities")]).toEqual([c.name, ["Lignify", "Kenrith's Transformation", "Amphibian Downpour"].includes(c.name)]);
       const prog = parseEffectProgram(c);
       expect([c.name, JSON.stringify(prog ?? null).includes("lose-all-abilities")]).toEqual([c.name, c.name === "Turn to Frog"]);
     }
@@ -98,14 +104,28 @@ describe("S1 on, S2–S5 off (the S1 slice turned the first stage on)", () => {
     const at = (t) => abilityLossShape(t, "attached", { subject: "enchanted", noun: "creature" });
     expect([
       at("enchanted creature has base power and toughness 1/1 and loses all abilities"), // the reverse of Kasmina's order
-      at("enchanted creature loses all abilities and is a blue frog creature with base power and toughness 1/1"), // a card type: S2
       at("enchanted creature loses all abilities and is a blue glorb with base power and toughness 1/1"), // no CR creature type
       at("enchanted creature loses all abilities"), // a bare loss: no printed S1 form
       abilityLossShape("Target creature loses all abilities and has base power and toughness 0/1", "spell"), // no duration: a loss for good
       abilityLossShape("Until end of turn, target creature loses all abilities and has base power and toughness 0/1 until end of turn", "spell"),
       abilityLossShape("Until end of turn, target creature you control loses all abilities and has base power and toughness 0/1", "spell"),
       abilityLossShape("Until end of turn, target creature loses all abilities and becomes a blue Frog creature with base power and toughness 1/1", "spell"),
-    ]).toEqual([null, null, null, null, null, null, null, null]);
+    ]).toEqual([null, null, null, null, null, null, null]);
+  });
+
+  it("the S2 shape is anchored to its printed form: the S2 sentence reordered, with no creature type, two colours, a name, \"artifact creature\" or \"in addition\" answers null", () => {
+    const at = (t) => abilityLossShape(t, "attached", { subject: "enchanted", noun: "creature" });
+    expect(at("enchanted creature loses all abilities and is a blue frog creature with base power and toughness 1/1")?.map((d) => d.op.layerOp)).toEqual(["loseAllAbilities", "setCardTypes", "replaceCreatureTypes", "setColor", "ptSet"]);
+    expect(at("enchanted creature loses all abilities and is a coward creature with base power and toughness 0/1")?.map((d) => d.op.layerOp)).toEqual(["loseAllAbilities", "setCardTypes", "replaceCreatureTypes", "ptSet"]);
+    expect([
+      at("enchanted creature is a blue frog creature with base power and toughness 1/1 and loses all abilities"), // reordered: no printed form
+      at("enchanted creature loses all abilities and is a blue glorb creature with base power and toughness 1/1"), // no CR creature type
+      at("enchanted creature loses all abilities and is a green and white citizen creature with base power and toughness 1/1 named legitimate businessperson"), // Witness Protection: a name
+      at("enchanted creature loses all abilities and is a toy artifact creature with base power and toughness 0/2 in addition to its other types"), // Unable to Scream: an add (CR 205.1b)
+      at("enchanted creature loses all abilities and is an insect artifact creature with base power and toughness 0/1"), // "[creature type] artifact creature" (CR 205.1b)
+      at("enchanted creature loses all abilities and is a blue frog creature with base power and toughness 1/1 until end of turn"),
+      abilityLossShape("enchanted creature loses all abilities and is a blue frog creature with base power and toughness 1/1", "spell"),
+    ]).toEqual([null, null, null, null, null, null, null]);
   });
 });
 

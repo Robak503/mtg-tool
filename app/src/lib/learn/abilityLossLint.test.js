@@ -68,7 +68,6 @@ const CHARACTERISTIC_READERS = [
   { fn: "cardTypesOf", defs: ["layers.js"], reads: "the card types" },
   { fn: "subtypesOf", defs: ["actionDispatcher.js", "layers.js"], reads: "the subtypes" },
   { fn: "printedCreatureSubtypes", defs: ["choicePolicy.js"], reads: "the creature subtypes" },
-  { fn: "subtypeFilterMatches", defs: ["triggers.js"], reads: "a subtype filter against the type line" },
   { fn: "permHasChosenType", defs: ["triggers.js"], reads: "a chosen subtype against the type line" },
   { fn: "cardHasChosenType", defs: ["effects/atoms/library.js", "enterReplacements.js"], reads: "a chosen subtype against the creature types" },
   { fn: "isLand", defs: ["choicePolicy.js", "effects/atoms/library.js", "effects/atoms/zones.js", "effects/runProgram.js", "gameFeatures.js", "legalChoices.js", "mulliganPolicy.js", "trapDetector.js"], reads: "the Land type" },
@@ -155,6 +154,7 @@ const SITE_ALLOWLIST = [
   { file: "legalChoices.js", fn: "actionsActivateLoyalty", call: "planeswalkerPlayable(perm.card", reason: "the modeled-walker gate (a whole-card tier check); its loyalty abilities are then read through the view (parseLoyaltyAbilities over withAbilityLoss), so a lost planeswalker offers none" },
   // an Aura's Enchant restriction (S5)
   { file: "creatureRestrictions.js", fn: "creatureSatisfiesRestrictions", call: "auraEntryHostSpec(perm.card", reason: S5 },
+  { file: "cloneCopy.js", fn: "cloneWidenedCopiableNow", call: "auraEntryHostSpec(perm.card", reason: `${S5} — the widened clone scopes' Aura test (cloneWidenedCopiable's own, read off the battlefield permanent on an S2 board)` },
   { file: "effects/atoms/stack.js", fn: "applyAttachSourceToTriggering", call: "auraMayEnchantCreature(src.permanent.card", reason: S5 },
   { file: "effects/atoms/stack.js", fn: "applyAttachPair", call: "auraMayEnchantCreature(findPermanent(state, attachT.id)?.permanent?.card", reason: S5 },
   // the AI's estimates and the agents' view

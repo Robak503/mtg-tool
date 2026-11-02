@@ -19,7 +19,7 @@
 import { logEvent, destroyLethalCreaturesAfterEffect, createPermanent, mintId, addCounter } from "../../gameState.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): the new-Army mint stamps counters directly, bypassing addCounter
 import { checkDiesTriggers } from "../../triggers.js";
-import { permIsEveryCreatureType, enteringTypeWords } from "../../layers.js"; // + enteringTypeWords: the new Army's types for the typed counter replacements // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
+import { permIsEveryCreatureType, enteringTypeWords, typeLineNow } from "../../layers.js"; // + enteringTypeWords: the new Army's types for the typed counter replacements // P·39 — every creature type is an Army (layers is already reached through triggers.js; no new cycle)
 import { fireTokenEnterTriggers } from "./tokens.js";
 
 /** Replace the controller's battlefield via a pure mapper (updatePermanent / withPlayer are private to
@@ -35,8 +35,8 @@ function withControllerBattlefield(state, controller, mapper) {
 const PLUS_ONE = "+1/+1";
 
 /** A battlefield permanent IS an Army (CR 701.47a) iff its type line carries the Army creature subtype. */
-function isArmy(perm) {
-  return /\bArmy\b/.test(String(perm?.card?.type || perm?.card?.type_line || ""));
+function isArmy(perm, state = null) {
+  return /\bArmy\b/.test(String(typeLineNow(state, perm, perm?.card?.type || perm?.card?.type_line || ""))); // as it is now on a board that sets types (S2)
 }
 
 /**
@@ -58,7 +58,7 @@ export function applyAmass(state, atom, ctx) {
   if (!player) return next;
   // P·39 — EVERY CREATURE TYPE IS AN ARMY (CR 701.47a "an Army creature you control"): a changeling, Mirror Entity's activation,
   // an animated Mutavault. Amass reuses it — a second Army token would be a creature the rules never make.
-  const existing = player.battlefield.find((p) => isArmy(p) || permIsEveryCreatureType(next, p.id));
+  const existing = player.battlefield.find((p) => isArmy(p, next) || permIsEveryCreatureType(next, p.id));
   if (existing) {
     if (amount > 0) next = addCounter(next, { permanentId: existing.id, type: PLUS_ONE, amount, placedBy: ctx?.controller });
     // "It's also a <Subtype>." — append the subtype to the readable type line so tribal readers

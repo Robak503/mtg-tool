@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permanentHasCardType, permanentManaValue, permanentHasTypeWord } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — a subtype as it is now) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permanentHasCardType, permanentManaValue, permanentHasTypeWord, boardSetsTypes } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — a subtype as it is now) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // the flicker's Aura gate — layers.js already imports staticAbilityParser, so no new cycle
 
@@ -199,6 +199,13 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
     } else if (r.kind === "typeNeg") {
       // FRONT-face type only (CR 712.8) — a DFC's combined "Front // Back" line would wrongly match a
       // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
+      // A BOARD THAT SETS TYPES (the ability-loss S2 — layers.boardSetsTypes): a card type an effect TOOK is gone too (CR 205.1a — a
+      // creature under Kenrith's Transformation is "a green Elk creature" and no artifact, so Terror may take it), so a battlefield
+      // permanent answers only by the type it has now; on every other board the printed read below answers, as before.
+      if (boardSetsTypes(state) && findPermanent(state, perm.id)) {
+        if (permanentHasTypeWord(state, perm.id, r.type)) return false;
+        continue;
+      }
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
       // …nor a card type a layer-4 effect GAVE it (CR 613.1d, play-weighted #511): a creature Liquimetal Torque made an artifact
@@ -219,6 +226,12 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // type line (a creature with no readable type → not that type → SAFE false-negative, never a wrong pick).
       // A card type a layer-4 effect added qualifies too (CR 613.1d — a creature Liquimetal Torque made an artifact IS an
       // artifact creature), read off the layer engine with the same front-face discipline.
+      // On a board that sets types (S2) a battlefield permanent qualifies only by the type it has NOW: a Frogified artifact creature
+      // is no "artifact creature" (CR 205.1a) — the printed read would offer it, the forbidden direction.
+      if (boardSetsTypes(state) && findPermanent(state, perm.id)) {
+        if (!permanentHasTypeWord(state, perm.id, r.type)) return false;
+        continue;
+      }
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (!tl.includes(r.type) && !permanentHasCardType(state, perm.id, r.type)) return false; // a non-<type> creature can't be a "<type> creature" target
     } else if (r.kind === "toughness") {

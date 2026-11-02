@@ -42,7 +42,7 @@
  * Leaf module: imports only the layer/board readers and two zero-import leaves (no gameState mutation, no cycle). Pure —
  * `applyDamageReplacements` returns `{ amount, prevented }` and never mutates `state`.
  */
-import { permIsEveryCreatureType, permanentIsCreature, permanentColors, permanentTypes, permanentPower, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities replaces no damage) // + permanentIsCreature (the type-line audit — a creature source is one NOW) // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle) // + the source's colours and types NOW and a replacement's own power (Torbran, Mechanized Warfare, Hawkeye)
+import { typeLineNow, permIsEveryCreatureType, permanentIsCreature, permanentColors, permanentTypes, permanentPower, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities replaces no damage) // + permanentIsCreature (the type-line audit — a creature source is one NOW) // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle) // + the source's colours and types NOW and a replacement's own power (Torbran, Mechanized Warfare, Hawkeye)
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a double-faced permanent's statics are its front face's (a zero-import leaf)
 import { classTopView, classLiveCard, hasClassLevelBar } from "./classLevels.js"; // CLASS (CR 716.2a) — a level section is an ability only at that level (a zero-import leaf)
 import { ABILITY_WORD_LABEL_RE } from "./effects/textNormalize.js"; // CR 207.2c ability-word labels — the single shared list (a zero-import leaf)
@@ -478,7 +478,7 @@ function baseFilter(entry, _state) {
           const tgt = (_state.players[pid].battlefield || []).find((p) => p.id === event.targetId);
           if (tgt) {
             if (pid !== entry.permanentController) return false;
-            const type = String(tgt.card?.type_line ?? tgt.card?.type ?? "").toLowerCase();
+            const type = String(typeLineNow(_state, tgt, tgt.card?.type_line ?? tgt.card?.type ?? "")).toLowerCase(); // as it is now on a board that sets types (S2)
             // P·39 — every creature type (a changeling, Mirror Entity's activation, an animated Mutavault) is a Dinosaur too.
             return new RegExp(`\\b${scope.targetSubtype}\\b`).test(type)
               || permIsEveryCreatureType(_state, tgt.id);
@@ -572,7 +572,7 @@ function baseFilter(entry, _state) {
         if (event.sourceId == null) return false;
         for (const pid of Object.keys(_state?.players || {})) {
           const src = (_state.players[pid].battlefield || []).find((p) => p.id === event.sourceId);
-          if (src) return new RegExp(`\\b${scope.sourceSubtype}\\b`).test(String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase())
+          if (src) return new RegExp(`\\b${scope.sourceSubtype}\\b`).test(String(typeLineNow(_state, src, src.card?.type_line ?? src.card?.type ?? "")).toLowerCase()) // as it is now (S2)
             || permIsEveryCreatureType(_state, src.id); // P·39 — a Giant too
         }
         return false;

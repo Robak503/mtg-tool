@@ -43,7 +43,7 @@
 
 import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
 import { applyDrawEffect } from "../../spellEffects.js"; // P·20 — the single draw path (draw watchers fire), as the draw atom uses
-import { permanentTypes } from "../../layers.js"; // P·20 — "shares a card type with it" reads each candidate's live card types
+import { permanentTypes, boardSetsTypes, permanentHasCardType } from "../../layers.js"; // P·20 — "shares a card type with it" reads each candidate's live card types
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — an edict discard is a discard
 import { setPendingEdictModeChoice } from "../../pendingChoice.js";
 import { apnapOrder, sacrificeChosen } from "./removal.js"; // 2026-10-17: the opponents' choice order (CR 101.4) and one round's sacrifices as one event
@@ -54,8 +54,9 @@ import { loseLife } from "../../gameState.js";
 export function nonlandSacPool(state, playerId) {
   const player = state.players?.[playerId];
   if (!player) return [];
+  const setsTypes = boardSetsTypes(state); // the ability-loss S2: a land as it is now (CR 205.1a)
   return (player.battlefield || [])
-    .filter((p) => !isLandCard(p.card))
+    .filter((p) => !(setsTypes ? permanentHasCardType(state, p.id, "Land") : isLandCard(p.card)))
     .map((p) => ({ id: p.id, name: p.card?.name }));
 }
 

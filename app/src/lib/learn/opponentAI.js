@@ -1641,9 +1641,19 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (actions[0].isAuraSpell) {
       if (pol.aura === "v1") continue;
       const auraPick = pickAuraCast(state, aiPlayerId, actions, card);
-      if (!auraPick) continue;
-      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
-      continue;
+      if (auraPick) {
+        scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
+        continue;
+      }
+      // A HELD AURA CAST IS NOT A HELD CARD (the ability-loss S2 review's F5): a bestow card's group carries its creature cast beside the
+      // bestow offers (CR 702.103a — the bestow cost is an alternative), so with no Aura pick the non-Aura casts are scored as any other
+      // card — Trickster's Elk, whose bestowed side reads no side, is cast as the 3/3 it is; Boon Satyr with no creature of the AI's own
+      // to enchant is cast as a creature. The enters-trigger hold above skipped this group (it asks only a non-Aura group), so it is
+      // asked here. A group of Aura casts only still holds.
+      const nonAura = actions.filter((a) => !a.isAuraSpell);
+      if (!nonAura.length) continue;
+      if (pol.etbHold !== "v1" && entersTriggerRemovesOwn(state, aiPlayerId, card)) continue;
+      actions = nonAura;
     }
     // W5 — X-SPELL SIZING: an X card is offered once per affordable X (× target
     // combo). The legacy path fell through to actions[0] — always X=1 — burning

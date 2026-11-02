@@ -17,7 +17,7 @@ import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { applyPumpEffect } from "./combat.js"; // the chosen-type -N/-N (Crippling Fear) rides the shared pump over a fixed set (combat.js imports no removal module)
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, abilityLossStamp, withAbilityLoss, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, abilityLossStamp, withAbilityLoss, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower, lkiSubtypesStamp, boardSetsTypes } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
@@ -350,7 +350,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   else if (lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card, ...abilityLossStamp(state, lk.permanent) }]);
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing player. The perm has left the
   // battlefield, so its look-back carries its card and the types it had (sacScopeMatches' creature scope reads them).
-  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes], ...abilityLossStamp(state, lk.permanent) });
+  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes], ...lkiSubtypesStamp(state, permId), ...abilityLossStamp(state, lk.permanent) });
   // + P·36: its last-known power (CR 603.6e) — "where X is that creature's power" (Disciple of Freyalise) reads it off this entry.
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes, power: sacPower });
 }
@@ -481,8 +481,11 @@ export function sacrificePoolMatch(what, card, creatureNow = isCreatureCard(card
  */
 export function sacrificePoolMatchNow(what, state, perm) {
   if (!perm) return false;
-  if (isNamedTokenPool(what)) return sacrificePoolMatch(what, perm.card, false);
   const has = (w) => permanentHasTypeWord(state, perm.id, w);
+  // A NAMED TOKEN by its name and token stamp — and, on a board that sets types (the ability-loss S2 survey — layers.boardSetsTypes), by
+  // the subtype its predefined definition carries as well (CR 111.10, 205.1a): a Treasure Vihaan animated and an S2 Aura then made "a blue
+  // Frog creature" is still named Treasure and is no Treasure, so "Sacrifice a Treasure" may not take it. Every other board: as before.
+  if (isNamedTokenPool(what)) return sacrificePoolMatch(what, perm.card, false) && (!boardSetsTypes(state) || has(String(NAMED_TOKENS[what.slice(6)].type).split(/\s+/).pop()));
   // "sacrifice an Egg": a creature that is an Egg now — every creature type included (P·39).
   if (typeof what === "string" && what.startsWith("subtype:")) return has("Creature") && has(what.slice(8));
   switch (what) {

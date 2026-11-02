@@ -29,7 +29,7 @@
  * alongside the combatBegin step trigger (gameEngine). ADDITIVE only — no core surgery; isolated to this module
  * + one wiring line in gameEngine + one additive coverage classifier.
  */
-import { addContinuousEffect, withAbilityLoss, boardHasAbilityLoss } from "./layers.js";
+import { addContinuousEffect, withAbilityLoss, boardHasAbilityLoss, typeLineNow } from "./layers.js";
 import { logEvent, findPermanent } from "./gameState.js";
 
 // Anchored to the WHOLE Vihaan templating so no other card false-matches. Captures P/T (N/N) and the descriptor
@@ -69,9 +69,11 @@ export function parseVihaanCombatAnimate(card) {
   return { power, toughness, cardTypes, subtypes };
 }
 
-/** Does an artifact Treasure live on `perm`? (type-line subtype "Treasure", token or printed). */
-function isTreasure(perm) {
-  return /\btreasure\b/i.test(String(perm?.card?.type || perm?.card?.type_line || ""));
+/** Does an artifact Treasure live on `perm`? (type-line subtype "Treasure", token or printed). On a board that sets types (the ability-loss
+ *  S2 survey) its type line as it is now (CR 205.1a — a Treasure an S2 Aura made "a blue Frog creature" is no Treasure, so it is not
+ *  animated again); every other board the printed line, as before. */
+function isTreasure(state, perm) {
+  return /\btreasure\b/i.test(String(typeLineNow(state, perm, perm?.card?.type || perm?.card?.type_line || "")));
 }
 
 /**
@@ -99,7 +101,7 @@ export function applyVihaanCombatAnimate(state) {
     // second Vihaan would re-animate the SAME set, an idempotent no-op on already-3/3 creatures), but snapshot
     // up front for determinism.
     const animateTypes = ["Creature", ...spec.cardTypes];
-    const treasures = (next.players[pid].battlefield || []).filter(isTreasure);
+    const treasures = (next.players[pid].battlefield || []).filter((p) => isTreasure(next, p));
     for (const treas of treasures) {
       if (!findPermanent(next, treas.id)) continue; // defensive — a Treasure that left between iterations
       const dur = { kind: "endOfTurn", turn: next.turn };

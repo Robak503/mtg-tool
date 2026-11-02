@@ -81,7 +81,7 @@ import { creaturePower, creatureToughness, findPermanent } from "./gameState.js"
 // staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
 // `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
 // green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
-import { permanentHasKeyword, permanentColors, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact) // + permanentHasTypeWord (the type-line audit — one exact read for a type word)
+import { typeLineNow, permanentHasKeyword, permanentColors, permanentIsCreature, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord } from "./layers.js"; // + permanentIsCreature (P·32 — Selvala: every OTHER creature, layer-aware) // + permIsEveryCreatureType (P·39) // + permanentHasCardType (#511 — a card type a layer-4 effect added: Liquimetal Torque's artifact) // + permanentHasTypeWord (the type-line audit — one exact read for a type word)
 import { characteristicTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every condition's type read
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a graveyard card that is every creature type (Changeling, its owner's Maskwood Nexus) for "there is an Elf card in your graveyard"; a leaf over keywords.js
@@ -1531,7 +1531,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   if (GREATEST_ARTIFACT_MV_RE.test(c)) {
     const everyone = [];
     for (const pid of Object.keys(state.players || {})) {
-      for (const p of controllerBoard(state, pid)) if (/\bArtifact\b/.test(typeStr(p.card)) || permanentHasCardType(state, p.id, "Artifact")) everyone.push({ p, pid });
+      for (const p of controllerBoard(state, pid)) if (/\bArtifact\b/.test(typeLineNow(state, p, typeStr(p.card))) || permanentHasCardType(state, p.id, "Artifact")) everyone.push({ p, pid }); // as it is now on a board that sets types (S2)
     }
     if (!everyone.length) return false;
     const max = Math.max(...everyone.map(({ p }) => manaValueOfCardLocal(p.card)));
@@ -1600,7 +1600,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
       perm = (state.players[pid]?.battlefield || []).find((p) => p.id === tid) || perm;
     }
     if (!perm) return false; // the entering creature already left — it was not "dealt damage this way" in any live sense
-    const typeLine = String(perm.card?.type || perm.card?.type_line || "").toLowerCase();
+    const typeLine = String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")).toLowerCase(); // as it is now on a board that sets types (S2)
     const hasSubtype = new RegExp(`\\b${m[1]}\\b`).test(typeLine)
       || permIsEveryCreatureType(state, perm.id); // P·39 — every creature type is a Dinosaur too
     const wasDamagedBySource = (perm.damagedBy || []).includes(sid);
@@ -1655,7 +1655,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (n == null) return null;
     const names = new Set();
     for (const perm of state?.players?.[controllerId]?.battlefield || []) {
-      if (/\bLand\b/.test(String(perm?.card?.type || perm?.card?.type_line || ""))) names.add(String(perm.card?.name || ""));
+      if (/\bLand\b/.test(String(typeLineNow(state, perm, perm?.card?.type || perm?.card?.type_line || "")))) names.add(String(perm.card?.name || "")); // as it is now on a board that sets types (S2)
     }
     names.delete("");
     return names.size >= n;

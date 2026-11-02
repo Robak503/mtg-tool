@@ -28,6 +28,7 @@
  */
 import { drawCards, findPermanent, destroyLethalCreatures } from "./gameState.js";
 import { checkCardDrawnTriggers, checkDiesTriggers } from "./triggers.js";
+import { typeLineViewOf } from "./abilityView.js"; // the ability-loss S2: a permanent's type line as it is now on a board that sets types (a leaf)
 import { permIsEveryCreatureType, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // P·39 — attacking Dragons: every creature type counts (layers' closure never reaches this file)
 import { enterCardFromZone } from "./effects/atoms/zones.js"; // the one non-cast entry (entry replacements, ETB / landfall / permanent-enters); no module zones.js reaches imports this file
 
@@ -43,10 +44,13 @@ function isPermanentCard(card) {
   return /\b(creature|artifact|enchantment|land|planeswalker|battle)\b/.test(t);
 }
 
-/** Live type line of an attacker's permanent (printed subtype substring — mirrors the engine's subtype-attack scope). */
+/** Live type line of an attacker's permanent (subtype substring — mirrors the engine's subtype-attack scope). On a board that sets types
+ *  (the ability-loss S2 survey) the line as it is now (CR 205.1a — a Dragon an S2 Aura made "a blue Frog creature" is no Dragon); every
+ *  other board the printed line, as before. */
 function attackerTypeLine(state, permanentId) {
-  const card = findPermanent(state, permanentId)?.permanent?.card;
-  return String(card?.type || card?.type_line || "").toLowerCase();
+  const perm = findPermanent(state, permanentId)?.permanent;
+  const card = perm?.card;
+  return String(perm ? typeLineViewOf(state, perm, card?.type || card?.type_line || "") : "").toLowerCase();
 }
 
 /**

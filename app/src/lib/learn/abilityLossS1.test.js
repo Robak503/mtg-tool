@@ -338,7 +338,6 @@ const KEPT_PARKED = [
   ["Quantum Reduction", "its \"cast as though it had flash if it's cast using teamwork\" line is unread (its Aura bonus is S1's — the runtime applies it)"],
   ["Obscura Confluence", "its connive and graveyard-return modes are unread (its first mode is S1's)"],
   ["Spider-Man No More", "S4 — \"It has defender and loses all other abilities\" (a grant from the same effect)"],
-  ["Kenrith's Transformation", "S2 — \"is a green Elk creature\" sets the card types"], ["Frogify", "S2 — \"is a blue Frog creature\""], ["Trickster's Elk", "S2 — bestow, \"is a green Elk creature\""],
   ["Darksteel Mutation", "S4 (indestructible from the same effect) and S2"], ["Stasis Field", "S4 — defender from the same effect"], ["Dragonshift", "S4 (flying) and the overload"],
   ["Humility", "S3 — a global static over every creature"], ["Sudden Spoiling", "S3 — a group of one player's creatures"], ["Polymorphist's Jest", "S3 — a group of one player's creatures"],
   ["Abigale, Eloquent First-Year", "a loss with no duration, and \"up to one other target creature\" — not an S1 form"],
@@ -358,6 +357,11 @@ describe("S1 — the credit (classification over the bundled text)", () => {
       expect(classifyCard(c)).toBe(tier);
     });
   }
+  // Kenrith's Transformation, Frogify and Trickster's Elk ("is a … CREATURE" sets the card types) sat in this row until S2 turned its stage
+  // on (2026-11-02): they are S2's credits now, witnessed in abilityLossS2.test.js.
+  it("the three S1 held for S2 are S2's now (abilityLossS2.test.js): native-aura", () => {
+    expect(["Kenrith's Transformation", "Frogify", "Trickster's Elk"].map((n) => [n, classifyCard(card(n))])).toEqual([["Kenrith's Transformation", "native-aura"], ["Frogify", "native-aura"], ["Trickster's Elk", "native-aura"]]);
+  });
   it("the cards S1 does not build stay parked (each with its reason)", () => {
     expect(KEPT_PARKED.map(([n]) => [n, /^native/.test(String(classifyCard(card(n))))])).toEqual(KEPT_PARKED.map(([n]) => [n, false]));
     expect(KEPT_PARKED.every(([, why]) => why.length > 10)).toBe(true);

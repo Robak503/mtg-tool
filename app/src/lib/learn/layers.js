@@ -44,7 +44,7 @@ import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — a mod
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
 import { abilityLossShapesMayEmit } from "./abilityLossShapes.js"; // can a static carry a loss? (false while every stage is off — the board fast path; a zero-import leaf)
-import { registerAbilityView } from "./abilityView.js"; // the ability view for the modules this one imports (a zero-import leaf; registered below)
+import { registerAbilityView, registerTypeLineView } from "./abilityView.js"; // the ability view for the modules this one imports (a zero-import leaf; registered below)
 import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
@@ -294,6 +294,49 @@ function boardSetsSubtypes(state) {
   _lastSubtypeSetState = state;
   _lastSubtypeSet = has;
   return has;
+}
+/**
+ * DOES THE BOARD SET CARD TYPES OR CREATURE TYPES? (the ability-loss S2 — ABILITY-LOSS-PROGRAM.md §3.) The board test of the readers
+ * OUTSIDE the layer engine that read a battlefield permanent's printed type line. Until S2 no effect took a card type away except
+ * "Creature" (bestow, reconfigure, a God below its devotion — read through permanentIsCreature), so a printed "is it an artifact / a
+ * land / a Forest?" was exact; an S2 Aura ("… is a green Elk creature …", CR 205.1a) makes an artifact creature no artifact, and an S1
+ * one (Lignify's "is a Treefolk") a Goblin no Goblin. On a board with a `setCardTypes` or `replaceCreatureTypes` effect those readers
+ * ask the layer-aware ones (permanentHasTypeWord, permanentHasCardType); on every other board they read the printed line exactly as
+ * before. Recursion-free (the raw layer-4 list) — never call it to decide a derive's own input.
+ */
+export function boardSetsTypes(state) {
+  return !!state && boardSetsSubtypes(state);
+}
+/**
+ * A LOOK-BACK'S SUBTYPES (CR 603.10a — "the permanent as it last existed"), on a board that sets types: `{ lkiSubtypes }` = the subtypes
+ * the battlefield permanent has now (after layer 4), spread into the sacrifice look-back beside its `lkiTypes`, so "Whenever you sacrifice
+ * a Treasure / a Goblin" (triggers.sacScopeMatches) reads what it was as it left — a Food Golem under Kenrith's Transformation was an Elk
+ * and no Food. On every other board nothing (the look-back's printed type line answers, as before); the field's presence is the reader's
+ * cue to read `lkiTypes` for the card type too.
+ */
+export function lkiSubtypesStamp(state, permanentId) {
+  return boardSetsTypes(state) && findPerm(state, permanentId) ? { lkiSubtypes: [...permanentTypes(state, permanentId).subtypes] } : {};
+}
+/** Card types (its supertypes among them, as the derive lists them) and subtypes joined as a type line: "Legendary Creature — Elk". */
+function joinTypeLine(types, subtypes) {
+  const t = (types || []).join(" ");
+  return subtypes && subtypes.length ? `${t} — ${subtypes.join(" ")}` : t;
+}
+/**
+ * A PERMANENT'S TYPE LINE AS A WORD READER SEES IT (the ability-loss S2) — for the readers outside the layer engine that test a
+ * permanent's type line for a word ("Artifact", "Land", "Elf", "Food"): a LOOK-BACK stamped on a board that set types (lkiSubtypesStamp
+ * — CR 603.10a, the types it had as it last existed: its `lkiTypes` and `lkiSubtypes`); a battlefield permanent on a board that sets
+ * types (boardSetsTypes — its card types and subtypes after layer 4: a creature under Kenrith's Transformation is "Creature — Elk" and no
+ * artifact, CR 205.1a); anything else — every permanent of every other board, an unstamped look-back, a card in a zone — `printedLine`,
+ * the caller's own printed read, exactly as before.
+ */
+export function typeLineNow(state, perm, printedLine) {
+  if (Array.isArray(perm?.lkiSubtypes)) return joinTypeLine(perm.lkiTypes, perm.lkiSubtypes);
+  if (perm?.id != null && boardSetsTypes(state) && findPerm(state, perm.id)) {
+    const t = permanentTypes(state, perm.id);
+    return joinTypeLine(t.types, t.subtypes);
+  }
+  return printedLine;
 }
 /** Does `p` have the subtype `needle` (one word, or a two-word creature type), INSIDE a derive? The printed line — word-bounded, as
  *  the counts always read it — unless the board sets or replaces subtypes (boardSetsSubtypes), when the recursion-free identity's
@@ -599,7 +642,17 @@ function countGraveyardSpec(state, perm, spec) {
  *  so a layer bonus and a cast reduction can never disagree about domain. */
 export function domainCount(state, playerId) {
   const types = new Set();
+  // On a board that sets types (the ability-loss S2 review's F2 — boardSetsSubtypes): the recursion-free identity's card types and land
+  // types (effectiveTypeIdentity applies setCardTypes — CR 205.1a: a Dryad Arbor under Frogify is a Frog creature, no land and no
+  // Forest, CR 305.6). The count runs inside a derive (the layer-7 domain counts), so it may never derive. Every other board: printed.
+  const viaIdentity = !!state && boardSetsSubtypes(state);
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    if (viaIdentity) {
+      const id = effectiveTypeIdentity(perm, state);
+      if (!id.types.includes("Land")) continue;
+      for (const b of ["Plains", "Island", "Swamp", "Mountain", "Forest"]) if (id.subtypes.includes(b.toLowerCase())) types.add(b);
+      continue;
+    }
     const front = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
     if (!/\bLand\b/.test(front)) continue;
     for (const b of ["Plains", "Island", "Swamp", "Mountain", "Forest"]) if (new RegExp(`\\b${b}\\b`).test(front)) types.add(b);
@@ -622,7 +675,17 @@ export function domainCount(state, playerId) {
 const PARTY_ROLES = ["Cleric", "Rogue", "Warrior", "Wizard"];
 export function partyCount(state, playerId) {
   const members = [];
+  // On a board that sets types (the ability-loss S2 review's F4): the identity's creature-ness and creature types (creatureTypesInDerive —
+  // CR 205.1a: a Wizard Kenrith's Transformation made an Elk, or Lignify a Treefolk, fills no Wizard slot, CR 700.8). Recursion-free.
+  const viaIdentity = !!state && boardSetsSubtypes(state);
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
+    if (viaIdentity) {
+      if (!effectiveTypeIdentity(perm, state).types.includes("Creature")) continue;
+      const ct = creatureTypesInDerive(state, perm);
+      const roles = ct.every ? PARTY_ROLES : PARTY_ROLES.filter((r) => ct.types.includes(r.toLowerCase()));
+      if (roles.length) members.push(roles);
+      continue;
+    }
     const front = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
     if (!/\bCreature\b/.test(front)) continue;
     // permHasChosenTypeLayer WITHOUT state: the printed subtype match or Changeling — no layer derivation. Every creature type
@@ -1762,7 +1825,7 @@ function effectiveTypeIdentity(candidate, state) {
         types = next;
         if (!types.includes("Creature") && !types.includes("Kindred") && !types.includes("Tribal")) changelingOverridden = true;
       } else {
-        subtypes = [...withoutCreatureTypes(subtypes), ...(e.op.subtypes || []).map((st) => String(st).toLowerCase())];
+        subtypes = [...withoutCreatureTypes(subtypes, types), ...(e.op.subtypes || []).map((st) => String(st).toLowerCase())];
         setTs = Math.max(setTs, e.timestamp ?? 0);
         changelingOverridden = true;
       }
@@ -2288,16 +2351,26 @@ function printedStatIsNumber(perm, stat) {
  * "*+1" are 1, "7-*" is 7 (the bundled rulings of Mystic Subdual and Merfolk Trickster: a star-star creature is 0/0, a "star / star+1"
  * one 0/1) —
  * and it is a known number, so the toughness state-based actions read it (CR 704.5f, 704.5g). Only a "*" the card defines with a CDA
- * worded as CR 208.2a words it ("… power / toughness is equal to …", "… power and toughness are each equal to …"): a "*" set by an
- * "As this creature enters" choice (CR 208.2b — Primal Clay, unmodeled) stays unread. Returns the number, or null.
+ * worded as CR 208.2a words it ("… power / toughness is equal to …", "… power and toughness are each equal to …"), or as the two
+ * printed variants of those words (the S1 recheck's R1): "has power and toughness each equal to …" (Drop Bear) and a second stat with
+ * no "is" ("… power is equal to the first number chosen and its toughness equal to the second …" — Lydari Elephant). Over the bundled
+ * corpus the widening reads exactly three more "*" stats, each defined by such an ability (those two and 1996 World Champion's "has
+ * power and toughness equal to …"). A "*" set by an "As this creature enters" choice (CR 208.2b — Primal Clay, unmodeled) stays unread.
+ * Returns the number, or null.
  */
 const STAR_TERMS_RE = /^[+-]?(?:\d+|\*)(?:[+-](?:\d+|\*))*$/;
+// Does a card's text define its power / toughness with a CDA (CR 208.2a), "is" / "are" and "each" optional — the twin tool
+// (scripts/ability-loss-twin-diff.mjs) reads the same two patterns.
+export const STAR_CDA_PATTERNS = Object.freeze({
+  power: /\bpower (?:and toughness )?(?:(?:is|are) )?(?:each )?equal to\b/i,
+  toughness: /\btoughness (?:(?:is|are) )?(?:each )?equal to\b/i,
+});
 const _starCdaMemo = new WeakMap(); // printed card -> { power, toughness }: does its text define that stat with a CDA (CR 208.2a)?
 function starCdaStats(card) {
   let hit = _starCdaMemo.get(card);
   if (hit === undefined) {
     const text = String(card?.oracle ?? card?.oracle_text ?? "");
-    hit = { power: /\bpower (?:and toughness )?(?:is|are)(?: each)? equal to\b/i.test(text), toughness: /\btoughness (?:is|are)(?: each)? equal to\b/i.test(text) };
+    hit = { power: STAR_CDA_PATTERNS.power.test(text), toughness: STAR_CDA_PATTERNS.toughness.test(text) };
     _starCdaMemo.set(card, hit);
   }
   return hit;
@@ -2600,7 +2673,7 @@ function applyTypeColorLayers(perm, l4In, l5, state) {
     // permanent has at this point goes — its printed ones, an earlier effect's, and every creature type its Changeling gave it (a
     // characteristic-defining ability, applied first — CR 613.3) — and the new ones are added; the other subtypes stay.
     if (e.op?.layerOp === "replaceCreatureTypes") {
-      subtypes = new Set([...withoutCreatureTypes([...subtypes]), ...(e.op.subtypes || [])]);
+      subtypes = new Set([...withoutCreatureTypes([...subtypes], types), ...(e.op.subtypes || [])]);
       changelingOverridden = true;
       continue;
     }
@@ -2677,12 +2750,25 @@ function subtypesAfterCardTypeChange(subtypes, before, after) {
   }
   return out;
 }
-/** `subtypes` without its creature types (CR 205.3m — the one two-word type, "Time Lord", included), any case. */
-function withoutCreatureTypes(subtypes) {
+/**
+ * `subtypes` without its creature types (CR 205.3m — the one two-word type, "Time Lord", included), any case — and without every word
+ * no subtype list places (subtypeFamilies.subtypeFamilyOf → [], the ability-loss S2 recheck's R2): the bundled CR's 205.3m is older than
+ * Gamma, Spy, Klingon, Officer and the other newer creature types, so on the creature a replace applies to such a word is a creature
+ * type the list does not name, and the replace takes every creature type (CR 205.1a). Kept, Brawn, Amadeus Cho under Lignify stayed a
+ * Gamma for Abomination's "Whenever a Gamma or Villain you control …". Dropping an unplaceable word is the under-read side (a newer
+ * artifact or land type nobody lists would go too), the same rule subtypesAfterCardTypeChange keeps: never kept on a guess. With
+ * `cardTypes` (the object's card types as the replace applies), a word of another family whose card type the object does not have goes
+ * too: an object's subtypes correspond to its types (CR 205.3d), so on a plain creature it is one of its creature types that a land or
+ * artifact type happens to spell (Swarm of Locus, "Creature — Insect Locus", is no Locus under Lignify).
+ */
+function withoutCreatureTypes(subtypes, cardTypes = null) {
+  const hasType = cardTypes ? (t) => (typeof cardTypes.has === "function" ? cardTypes.has(t) : cardTypes.includes(t)) : null;
   const out = [];
   for (let i = 0; i < subtypes.length; i++) {
     if (i + 1 < subtypes.length && CR_CREATURE_TYPES.has(`${subtypes[i]} ${subtypes[i + 1]}`.toLowerCase())) { i += 1; continue; }
     if (CR_CREATURE_TYPES.has(String(subtypes[i]).toLowerCase())) continue;
+    const family = subtypeFamilyOf(subtypes[i]);
+    if (!family.length || (hasType && !family.some(hasType))) continue; // unplaceable, or not of a card type the object has: a creature type here
     out.push(subtypes[i]);
   }
   return out;
@@ -3989,3 +4075,4 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
 // scanners read a battlefield permanent through withAbilityLoss (and test the board once per scan through boardHasAbilityLoss), registered
 // here as this module loads.
 registerAbilityView(withAbilityLoss, boardHasAbilityLoss);
+registerTypeLineView(typeLineNow); // the leaf modules' type-line read on a board that sets types (abilityView.typeLineViewOf — the S2 review's F2)

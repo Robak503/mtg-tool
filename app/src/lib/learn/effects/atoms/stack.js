@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } 
 import { graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
-import { permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
+import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -1345,8 +1345,8 @@ function applyOptionalManaPayment(state, atom, ctx) {
 // word-bounded (CR 205.3). The SAME match sacScopeMatches uses for the watcher side, so the "can I sacrifice
 // one?" test and the "did this sac fire a Treasure watcher?" test never drift. A Food token's type line is
 // "Token Artifact — Food" → matches; word-bounded so "Food" never matches a longer word.
-export function controllerSacSubtypeMatch(perm, subtype) {
-  const ts = String(perm?.card?.type || perm?.card?.type_line || "");
+export function controllerSacSubtypeMatch(perm, subtype, state = null) {
+  const ts = String(typeLineNow(state, perm, perm?.card?.type || perm?.card?.type_line || "")); // as it is now on a board that sets types (S2)
   const esc = String(subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`\\b${esc}\\b`).test(ts);
 }
@@ -1388,7 +1388,7 @@ function applyOptionalSacPayment(state, atom, ctx) {
       sourceName: ctx.cardName || null,
     });
   }
-  const available = !!(player?.battlefield || []).some((p) => controllerSacSubtypeMatch(p, atom.subtype));
+  const available = !!(player?.battlefield || []).some((p) => controllerSacSubtypeMatch(p, atom.subtype, state));
   return setPendingOptionalSacBySubtypeChoice(state, {
     controller: ctx.controller,
     subtype: atom.subtype,

@@ -30,7 +30,7 @@ import {
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { characteristicTypeLine, faceUpView, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card; a cast spell's colours are the face being cast's (CR 712.8c)
-import { grantedTriggeredQuotedFor, withAbilityLoss, attachedGrantCutByLoss, boardHasAbilityLoss, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
+import { typeLineNow, grantedTriggeredQuotedFor, withAbilityLoss, attachedGrantCutByLoss, boardHasAbilityLoss, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -53,6 +53,17 @@ function oracleOf(card) {
 function typeStr(card) {
   return characteristicTypeLine(card);
 }
+// THE TYPE LINE A SCOPE READS OFF A PERMANENT OR A LOOK-BACK (the ability-loss S2 — layers.typeLineNow): on a board that sets types, a
+// battlefield permanent's card types and subtypes after layer 4, and a look-back stamped there the ones it had as it left (CR 205.1a,
+// 603.10a — a creature Kenrith's Transformation made a green Elk is no artifact and no Elf); everywhere else its printed line (typeStr).
+function scopeTypeStr(state, perm) {
+  return typeLineNow(state, perm, typeStr(perm?.card));
+}
+// Does a type line carry the subtype filter (single string OR any of a list)? A substring test over the line scopeTypeStr read.
+function lineHasSubtype(ts, filter) {
+  if (!filter) return false;
+  return Array.isArray(filter) ? filter.some((x) => ts.includes(x)) : ts.includes(filter);
+}
 
 // SUBTYPE filter — a single creature subtype ("Dinosaur") OR a list ("Kraken, Leviathan, Octopus, or
 // Serpent"). Parses "<A>, <B>, … or/and <C>" → array of capitalized subtypes; a single word → that word
@@ -60,7 +71,7 @@ function typeStr(card) {
 // list containing a card-TYPE word (creature/permanent/artifact/…) since those would match every permanent
 // (an over-fire); a real subtype list never includes them. Used so a multi-subtype tribal trigger (Spawning
 // Kraken — "a Kraken, Leviathan, Octopus, or Serpent you control deals combat damage") matches ANY member.
-// ⚠️ EVERY WORD HERE IS ONE THAT WOULD MINT A **VACUOUS FILTER** — a gate `subtypeFilterMatches` can never
+// ⚠️ EVERY WORD HERE IS ONE THAT WOULD MINT A **VACUOUS FILTER** — a gate `lineHasSubtype` can never
 // satisfy, so the card classifies NATIVE and the trigger never fires. That is the forbidden FP class, and it
 // is invisible to the per-card tier diff (nothing MOVES — the card was already native and stays native).
 // `probe-vacuous-subtype-filters.mjs` is the instrument that finds them: it derives the real subtype
@@ -148,12 +159,6 @@ function singularizeBatchSubject(subject) {
   return `${article} ${noun}${controller}`;
 }
 
-// Does a card's type line carry the subtype filter (single string OR any of a list)?
-function subtypeFilterMatches(card, filter) {
-  if (!filter) return false;
-  const ts = typeStr(card);
-  return Array.isArray(filter) ? filter.some((s) => ts.includes(s)) : ts.includes(filter);
-}
 
 // P·39 — a PERMANENT satisfies a subtype filter by its type line OR by being EVERY creature type (Changeling, an animated
 // Mutavault, Mirror Entity's activation — layers.permIsEveryCreatureType), the latter only for a filter naming a CREATURE
@@ -162,7 +167,7 @@ function subtypeFilterMatches(card, filter) {
 // (CR_CREATURE_TYPES is read only inside this function — the init-safety rule its import note states.)
 function permMatchesSubtypeFilter(state, perm, filter) {
   if (!filter || !perm?.card) return false;
-  if (subtypeFilterMatches(perm.card, filter)) return true;
+  if (lineHasSubtype(scopeTypeStr(state, perm), filter)) return true; // the type line as it is now on a board that sets types (S2)
   const wanted = Array.isArray(filter) ? filter : [filter];
   if (!wanted.some((s) => CR_CREATURE_TYPES.has(String(s).toLowerCase()))) return false;
   return permIsEveryTypeNow(state, perm);
@@ -179,7 +184,7 @@ function permIsEveryTypeNow(state, perm) {
 
 // OUTLAW META-TYPE (CR 700.12 — "outlaw" is the umbrella for these five creature subtypes; NOT a type-line
 // word). Mirrors layers.js's OUTLAW_SUBTYPES (kept local to avoid coupling triggers→layers beyond the existing
-// import surface). Capitalized so it composes with subtypeFilterMatches' type-line substring check.
+// import surface). Capitalized so it composes with lineHasSubtype' type-line substring check.
 const OUTLAW_SUBTYPE_LIST = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
 
 /**
@@ -216,7 +221,7 @@ function parseBatchSubjectFilter(subjectRaw) {
   // notSubtypeOrChangeling discipline (BLITZ BT-2). "nontoken" is handled above, so it never reaches here.
   const nonSubM = s.match(/^non-?([a-z]+) creatures?$/);
   if (nonSubM && CR_CREATURE_TYPES.has(nonSubM[1])) return { batchNotSubtype: nonSubM[1] };
-  // OUTLAW meta-type (Olivia) — expand to the five constituent subtypes (OR semantics via subtypeFilterMatches).
+  // OUTLAW meta-type (Olivia) — expand to the five constituent subtypes (OR semantics via lineHasSubtype).
   if (s === "outlaws" || s === "outlaw") return { subtypeFilter: OUTLAW_SUBTYPE_LIST };
   // COMMANDER batch subject (CR 903.3) — a DESIGNATION, so it needs its own gate rather than a subtypeFilter:
   // "Commander" appears in no type line, and minting it as a subtype produced a filter nothing could satisfy.
@@ -261,8 +266,8 @@ function parseBatchSubjectFilter(subjectRaw) {
 function batchDealerMatches(descriptor, dealerPerm, state = null) {
   if (!dealerPerm?.card) return false;
   if (descriptor.subtypeFilter) return permMatchesSubtypeFilter(state, dealerPerm, descriptor.subtypeFilter);
-  if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
-  if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
+  if (descriptor.batchArtifact) return /Artifact/.test(scopeTypeStr(state, dealerPerm));
+  if (descriptor.batchEnchantment) return /Enchantment/.test(scopeTypeStr(state, dealerPerm));
   if (descriptor.batchNontoken) return !dealerPerm.card.token;
   if (descriptor.batchCommander) return !!dealerPerm.card.isCommander; // CR 903.3 designation, not a type line word
   // NEGATED-SUBTYPE batch (Keeper of Fables — "non-Human creatures") — layer-4-aware subtypes UNIONED with
@@ -336,7 +341,11 @@ function isPlaneswalkerPerm(perm) {
 // live permanent's permIsEveryTypeNow, the cast spell's castEvery — so this reads the printed subtypes alone.
 function permHasChosenType(card, chosenType) {
   if (!chosenType || !card) return false;
-  const ts = typeStr(card);
+  return lineHasChosenType(typeStr(card), chosenType);
+}
+// The chosen creature type among a type line's subtypes (the words after the dash) — permHasChosenType's test over a line already read.
+function lineHasChosenType(ts, chosenType) {
+  if (!chosenType) return false;
   const dash = ts.indexOf("—");
   const subtypes = dash === -1 ? "" : ts.slice(dash + 1);
   const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1751,7 +1760,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // Valley Mightcaller; Moria Marauder).
     //
     // ⭐ THE LIST WAS ALREADY SAYABLE ON THE **dies** SIBLING TWENTY LINES BELOW, through this same
-    // `parseSubtypeList` helper and into this same `subtypeFilter` descriptor field — `subtypeFilterMatches`
+    // `parseSubtypeList` helper and into this same `subtypeFilter` descriptor field — `lineHasSubtype`
     // has always accepted a string OR an array and matched ANY member. Only the ETB arm still read a single
     // `[a-z]{3,}`, so the identical sentence fired on death and was invisible on entry. The regex below is the
     // dies arm's, verbatim except for the trailing verb.
@@ -1848,11 +1857,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // restricted shapes, so this only captures the clean "a <Subtype> you control dies" form.
     // UNION list (Jason Bright — "a Zombie or Mutant you control dies", SHELF S7): the same
     // parseSubtypeList the combat-damage subject uses (string for one word — byte-identical to the old
-    // single form — or an array; subtypeFilterMatches checks ANY member). A non-subtype word anywhere in
+    // single form — or an array; lineHasSubtype checks ANY member). A non-subtype word anywhere in
     // the list → null → undetected → Arbiter (never an over-fire).
     // OUTLAW dies (CR 700.12) — "Whenever an outlaw you control dies" (Rakish Crew). "Outlaw" is an UMBRELLA
     // term, not a type-line word, so it expands to its five constituent subtypes exactly as the batch
-    // combat-damage subject parser already does; subtypeFilterMatches accepts a list and matches ANY member.
+    // combat-damage subject parser already does; lineHasSubtype accepts a list and matches ANY member.
     // Without this it minted the literal "Outlaw" — a gate no type line satisfies (found by the vacuous-filter
     // probe) — and NON_SUBTYPE_FILTER_WORDS now blocks that spelling outright.
     if (/^an outlaw you control dies$/.test(c)) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: OUTLAW_SUBTYPE_LIST };
@@ -7206,7 +7215,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent, state);
     case "creatureYouControl":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state) && triggeringPermanent.controller === sourcePermanent.controller
-        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card))); // Hero's Blade — "a legendary creature you control"
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(scopeTypeStr(state, triggeringPermanent))); // Hero's Blade — "a legendary creature you control"
     case "commanderYouControl":
       // COMMANDER-SCOPED subject (CR 903.3) — "a commander you control deals combat damage to an opponent"
       // (Kediss, Emberclaw Familiar). Narrower than creatureYouControl in exactly one way: the triggering
@@ -7246,14 +7255,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
         && (descriptor.includeSelf || triggeringPermanent.id !== sourcePermanent.id)
-        && (isCreaturePerm(triggeringPermanent, state) || /Artifact/.test(typeStr(triggeringPermanent.card)));
+        && (isCreaturePerm(triggeringPermanent, state) || /Artifact/.test(scopeTypeStr(state, triggeringPermanent)));
     case "artifactYouControlPiG":
       // Marionette Master — "an artifact you control is put into a graveyard". The "another"-form sets excludeSelf
       // (Disciple-of-the-Vault style); the bare form's source is a creature (never an artifact), so self never matches.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
         && (!descriptor.excludeSelf || triggeringPermanent.id !== sourcePermanent.id)
-        && /Artifact/.test(typeStr(triggeringPermanent.card));
+        && /Artifact/.test(scopeTypeStr(state, triggeringPermanent));
     case "creatureYouControlPiG":
       // "a creature you control is put into a graveyard from the battlefield" — the dies-equivalent LTB wording,
       // graveyard exit only (CR 700.4). isCreaturePerm + controller gate, mirroring creatureYouControl (dies).
@@ -7267,14 +7276,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // never fires); type-line substring (CR 205.2 — an Artifact Creature dying matches too). The source
       // self-includes: an artifact-typed watcher (Summoning Station) firing on its OWN death is CR-correct.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
-        && /Artifact/.test(typeStr(triggeringPermanent.card));
+        && /Artifact/.test(scopeTypeStr(state, triggeringPermanent));
     case "landYouControlPiG":
       // SHELF-85 Phase 2 · T4 (Titania) — "a land you control is put into a graveyard from the battlefield": the LAND
       // analog of the artifact / enchantment PiG scopes. Graveyard exit only (leftToGraveyard) + controller gate; the
       // type line read off the look-back card (a land animated at death is still a Land). The source self-includes.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
-        && /\bLand\b/.test(typeStr(triggeringPermanent.card));
+        && /\bLand\b/.test(scopeTypeStr(state, triggeringPermanent));
     case "enchantmentYouControlPiG":
       // "an enchantment you control is put into a graveyard from the battlefield" (Wicked Visitor, Ashiok's
       // Reaper, Knight of Doves, Savior of the Sleeping) — the ENCHANTMENT analog of artifactYouControlPiG.
@@ -7283,7 +7292,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // itself an enchantment fires on its own PiG, CR-correct), matching the creature/artifact bare forms.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && triggeringPermanent.controller === sourcePermanent.controller
-        && /Enchantment/.test(typeStr(triggeringPermanent.card));
+        && /Enchantment/.test(scopeTypeStr(state, triggeringPermanent));
     case "tokenYouControlLeaves":
       // Nadier's Nightblade — "a token you control leaves the battlefield". ANY exit (no graveyard gate), CR 111.7.
       // The token gate is the leaving permanent's card.token flag (the token-factory convention); a nontoken never fires.
@@ -7326,7 +7335,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // CHARISMATIC CONQUEROR — "an artifact or creature an opponent controls": another player's entering permanent that is an
       // artifact (type-line word, CR 205.2 — an Artifact Creature too) or a creature (layer-aware, as the creature scopes read).
       return !!triggeringPermanent && triggeringPermanent.controller !== sourcePermanent.controller
-        && (/\bArtifact\b/.test(typeStr(triggeringPermanent.card)) || isCreaturePerm(triggeringPermanent, state));
+        && (/\bArtifact\b/.test(scopeTypeStr(state, triggeringPermanent)) || isCreaturePerm(triggeringPermanent, state));
     case "landYouControl":
       // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
       // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
@@ -7340,17 +7349,17 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "nonbasicLandOpponentControls":
       // …and NONBASIC (Spectrum Sentinel): no basic supertype on the entering land's type line (CR 205.4c).
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller
-        && !/\bBasic\b/.test(typeStr(triggeringPermanent.card));
+        && !/\bBasic\b/.test(scopeTypeStr(state, triggeringPermanent));
     case "artifactYouControl":
       // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
-      return !!triggeringPermanent && /Artifact/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && /Artifact/.test(scopeTypeStr(state, triggeringPermanent)) && triggeringPermanent.controller === sourcePermanent.controller;
     case "artifactAny": {
       // ANY PLAYER'S ARTIFACT entering (Grinding Station): the entering permanent's card types after the layers while it is on the
       // battlefield (an animated or copied artifact as it is now), else its type line — creatureOrArtifactYouControl's read, no
       // controller gate.
       if (!triggeringPermanent) return false;
       if (state && triggeringPermanent.id != null && findPermanent(state, triggeringPermanent.id)) return [...(permanentTypes(state, triggeringPermanent.id)?.types || [])].includes("Artifact");
-      return /\bArtifact\b/.test(typeStr(triggeringPermanent.card));
+      return /\bArtifact\b/.test(scopeTypeStr(state, triggeringPermanent));
     }
     case "creatureOrArtifactYouControl":
       // CREATURE OR ARTIFACT enters (Weftstalker Ardent, Haliya, Guided by Light): one entering permanent of the watcher's
@@ -7361,10 +7370,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       if (descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id) return false;
       if (isCreaturePerm(triggeringPermanent, state)) return true;
       if (state && triggeringPermanent.id != null && findPermanent(state, triggeringPermanent.id)) return [...(permanentTypes(state, triggeringPermanent.id)?.types || [])].includes("Artifact");
-      return /\bArtifact\b/.test(typeStr(triggeringPermanent.card));
+      return /\bArtifact\b/.test(scopeTypeStr(state, triggeringPermanent));
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
-      return !!triggeringPermanent && /Enchantment/.test(typeStr(triggeringPermanent.card)) && triggeringPermanent.controller === sourcePermanent.controller;
+      return !!triggeringPermanent && /Enchantment/.test(scopeTypeStr(state, triggeringPermanent)) && triggeringPermanent.controller === sourcePermanent.controller;
     case "permanentYouControl":
       // PERM-ENTERS permanent-wide (Amulet of Vigor) — the same controller gate as its siblings with NO type
       // predicate, because every permanent qualifies. The optional "entered TAPPED" narrowing is enforced as
@@ -7435,7 +7444,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && triggeringPermanent.controller === sourcePermanent.controller
         && (permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
-                && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
+                && lineHasSubtype(scopeTypeStr(state, sourcePermanent), descriptor.subtypeFilter)));
     case "subtypeGlobal":
       // GLOBAL SUBTYPE combat-damage (Synapse Sliver / Brood Sliver — "Whenever a Sliver deals combat damage
       // to a player, its controller may …"). UNLIKE subtypeYouControl there is NO "you control": the subject
@@ -7448,7 +7457,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent
         && (permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
-                && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
+                && lineHasSubtype(scopeTypeStr(state, sourcePermanent), descriptor.subtypeFilter)));
     case "subtypeGlobalToCreature":
       // GLOBAL SUBTYPE combat-damage-TO-A-CREATURE (Toxin Sliver — "Whenever a Sliver deals combat damage to a
       // creature, destroy that creature"). UNLIKE every other combat-damage scope, the `triggeringPermanent`
@@ -7468,16 +7477,16 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && triggeringPermanent.id !== sourcePermanent.id
         && triggeringPermanent.controller === sourcePermanent.controller
         && (!descriptor.subtypeFilter || permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)) // P·39 — a changeling is "another Elf"
-        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
-        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(scopeTypeStr(state, triggeringPermanent)))
+        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(scopeTypeStr(state, triggeringPermanent)));
     case "otherSubtypeAnywhere":
       // "another <SUBTYPE> enters" — no controller restriction (Elvish Vanguard / Kavu Monarch / Arcbound Crusher).
       // Fires when any permanent from any controller carries the subtype, excluding the source itself.
       return !!triggeringPermanent
         && triggeringPermanent.id !== sourcePermanent.id
         && (!descriptor.subtypeFilter || permMatchesSubtypeFilter(state, triggeringPermanent, descriptor.subtypeFilter)) // P·39
-        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
-        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(scopeTypeStr(state, triggeringPermanent)))
+        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(scopeTypeStr(state, triggeringPermanent)));
     case "creatureYouControlPower":
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on
@@ -7513,7 +7522,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // is an Enchantment, never a creature of the chosen type, so it never self-fires.
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent, state)
         && triggeringPermanent.controller === sourcePermanent.controller
-        && (permHasChosenType(triggeringPermanent.card, sourcePermanent.chosenType)
+        && (lineHasChosenType(scopeTypeStr(state, triggeringPermanent), sourcePermanent.chosenType) // as it is now on a board that sets types (S2)
             || (!!sourcePermanent.chosenType && permIsEveryTypeNow(state, triggeringPermanent))); // P·39 — every creature type
     default:
       return false;
@@ -8058,7 +8067,7 @@ export function checkDiesTriggers(state, dead) {
     // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
     // Vehicle or an animated land that died fires "whenever a creature dies".
     // + wasAttacking (Kardur, Doomscourge — "an attacking creature dies"): carried only when the death look-back recorded it.
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}), ...lookBackLoss(d) };
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(Array.isArray(d.lkiSubtypes) ? { lkiSubtypes: d.lkiSubtypes } : {}), ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}), ...lookBackLoss(d) };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so
@@ -8218,7 +8227,7 @@ export function checkDiesBatchTriggers(state, dead) {
   const watchers = [...Object.keys(state.players).flatMap((pid) => triggerSourcesOf(state, pid)), ...deadLookBackSources(state, dead)];
   for (const watcher of watchers) {
     for (const d of deaths) {
-      const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, lkiTypes: d.lkiTypes };
+      const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, lkiTypes: d.lkiTypes, ...(Array.isArray(d.lkiSubtypes) ? { lkiSubtypes: d.lkiSubtypes } : {}) };
       const hits = triggersForEvent(state, { event: "diesBatch", sourcePermanent: watcher, triggeringPermanent: lookBack });
       if (hits.length) { fired = fired.concat(hits); break; }  // ONCE per watcher per batch — CR 603.1
     }
@@ -8314,7 +8323,7 @@ export function checkLeavesTriggers(state) {
     // + `lkiTypes`: the types it had as it left (CR 603.10a — recorded by gameState.recordLeaveEvent; the type-line audit), so a
     // God below its devotion leaving is not "another creature you control" leaving (Ninth Bridge Patrol, The Ozolith).
     // + `leftToExile` (play-weighted 2026-10-20 — Soulherder's "a creature is exiled from the battlefield"): the exit went to exile.
-    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) };
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...(Array.isArray(e.lkiSubtypes) ? { lkiSubtypes: e.lkiSubtypes } : {}), ...lookBackLoss(e) };
     // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
     // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
     // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never
@@ -8410,7 +8419,7 @@ export function checkLeavesTriggers(state) {
   // left in the same batch still saw the others go. A card flickered back already sits on the battlefield as a NEW object
   // (CR 400.7) that never saw this batch leave, so its look-back is the one source for it: a battlefield watcher whose card
   // left in the batch is skipped. "without dying" skips the graveyard exits (CR 700.4).
-  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) })); // + the types it had (the type-line audit)
+  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...(Array.isArray(e.lkiSubtypes) ? { lkiSubtypes: e.lkiSubtypes } : {}), ...lookBackLoss(e) })); // + the types it had (the type-line audit)
   const leftCardIds = new Set(batch.map((b) => b.card.id).filter(Boolean));
   for (const pid of Object.keys(cleared.players)) {
     const onBattlefield = triggerSourcesOf(cleared, pid).filter((w) => !leftCardIds.has(w.card?.id)); // an emblem has no card id: always kept
@@ -8439,7 +8448,7 @@ export function checkLeavesTriggers(state) {
 function departedLeaveSources(state, events) {
   return events
     .filter((e) => e?.card && !findPermanent(state, e.id))
-    .map((e) => ({ id: e.id, event: e, lookBack: { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) } }));
+    .map((e) => ({ id: e.id, event: e, lookBack: { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...(Array.isArray(e.lkiSubtypes) ? { lkiSubtypes: e.lkiSubtypes } : {}), ...lookBackLoss(e) } }));
 }
 
 /**
@@ -8533,7 +8542,7 @@ export function checkAttackTriggers(state) {
         if (d?.requireSelfAttacking && !attackerIds.has(watcher.id)) return false;
         // S5 — a subtype-gated batch ("one or more Vehicles you control attack"): at least one declared attacker must
         // carry the subtype on its type line (a crewed Vehicle keeps its printed subtype).
-        if (d?.attackerSubtype && !attackers.some((a) => new RegExp(`\\b${d.attackerSubtype}\\b`).test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || "")))) return false;
+        if (d?.attackerSubtype && !attackers.some((a) => { const ap = findPermanent(state, a.permanentId)?.permanent; return new RegExp(`\\b${d.attackerSubtype}\\b`).test(String(typeLineNow(state, ap, ap?.card?.type || ""))); })) return false; // as it is now on a board that sets types (S2)
         return true;
       }));
     }
@@ -8656,7 +8665,8 @@ export function checkAttackTriggers(state) {
     const others = attackers.filter((a) => a.permanentId !== own);
     if (!d.companySubtype) return others.length > 0;
     const re = new RegExp(`\\b${d.companySubtype}\\b`, "i");
-    return others.some((a) => re.test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || ""))
+    const atkPerm = (id) => findPermanent(state, id)?.permanent; // the type line as it is now on a board that sets types (S2)
+    return others.some((a) => re.test(String(typeLineNow(state, atkPerm(a.permanentId), atkPerm(a.permanentId)?.card?.type || "")))
       || permIsEveryCreatureType(state, a.permanentId)); // P·39 — every creature type is a Warrior too
   });
   if (attackers.length === 1) {
@@ -9260,7 +9270,7 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents,
         // TWO WAYS TO PICK THE DEALER, and each scope uses exactly one.
         //   subtypeGlobalToCreature — the dealer must CARRY the printed subtype (Toxin Sliver).
         //   self (Voracious Cobra)  — the dealer must BE this watcher. Identity, not subtype, which is why
-        //     the self descriptor carries no subtypeFilter; running it through subtypeFilterMatches with an
+        //     the self descriptor carries no subtypeFilter; running it through lineHasSubtype with an
         //     absent filter would match EVERY dealer and fire the Cobra's destroy off an unrelated
         //     creature's combat damage — the widest possible over-fire.
         if (d.scope === "selfDealerToCreature") {
@@ -9702,6 +9712,12 @@ function sacScopeMatches(d, watcher, sacrificed) {
   // carry the subtype word-bounded (CR 205.3 — subtypes follow the "—"; a substring check would mis-match,
   // e.g. "Treasure" within a longer word). A Treasure token's type line is "Token Artifact — Treasure", so
   // it matches; any non-matching sac does not fire (no over-fire). Word-bounded + escaped for safety.
+  // A look-back taken on a board that sets types (the ability-loss S2 — layers.lkiSubtypesStamp, CR 603.10a) carries the subtypes and
+  // card types it had as it left: a creature an S2 Aura made "a green Elk creature" was no Food and no artifact (CR 205.1a), one Lignify
+  // made a Treefolk no Goblin. Without the stamp, the printed type line answers, as before.
+  const lkiSubs = Array.isArray(sacrificed.lkiSubtypes) ? sacrificed.lkiSubtypes.map((x) => String(x).toLowerCase()) : null;
+  if (d.sacSubtype && lkiSubs) return lkiSubs.includes(String(d.sacSubtype).toLowerCase());
+  if (lkiSubs && d.sacScope === "artifact") return Array.isArray(sacrificed.lkiTypes) && sacrificed.lkiTypes.includes("Artifact");
   if (d.sacSubtype) {
     const ts = String(sacrificed.card?.type || sacrificed.card?.type_line || "");
     const esc = String(d.sacSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9732,7 +9748,7 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
   // SACRIFICED-THIS-TURN memo (Elanor Gardner, 2026-09-05): this is the one chokepoint every sacrifice path calls, so
   // the per-player look-back is stamped HERE, before any watcher fires (the memo must exist even when nothing triggers).
-  state = recordSacrificeThisTurn(state, sacrificingPlayerId, sacrificed.card);
+  state = recordSacrificeThisTurn(state, sacrificingPlayerId, sacrificed.card, sacrificed); // the look-back's type line as it left (S2)
   // TOKEN-CHANGE on-sacrifice (Mirkwood Bats) — a sacrificed TOKEN fires every tokenChange watcher with
   // onSacrifice. Checked at the SAME sac chokepoints as the type-scope sac triggers above (this function is
   // called from all four — the effect/edict sac, the cost sac, and the Treasure-crack-for-mana sac), so a
@@ -10561,7 +10577,7 @@ export function checkTapForManaTriggers(state, { permanentId, tapperId }) {
   const lk = permanentId ? findPermanent(state, permanentId) : null;
   if (!lk?.permanent || !tapperId) return state;
   const tapped = lk.permanent;
-  const typeLine = String(tapped.card?.type || tapped.card?.type_line || "").toLowerCase();
+  const typeLine = String(typeLineNow(state, tapped, tapped.card?.type || tapped.card?.type_line || "")).toLowerCase(); // as it is now on a board that sets types (S2)
   const passesFilter = (filt) => !filt || typeLine.split(/\s+/).includes(String(filt).toLowerCase()) || new RegExp(`\\b${String(filt).toLowerCase()}\\b`).test(typeLine);
   const triggeringContext = { tappedPermanentId: permanentId, tapperId };
   let fired = [];
@@ -10582,7 +10598,7 @@ export function checkTapForManaTriggers(state, { permanentId, tapperId }) {
 
 export function checkAbilityActivatedTriggers(state, { permanent, activatorId, stackObjectId, activatedTypes = null }) {
   if (!permanent || !activatorId) return state;
-  const typeLine = String(permanent.card?.type || "").toLowerCase();
+  const typeLine = String(typeLineNow(state, permanent, permanent.card?.type || "")).toLowerCase(); // as it is now on a board that sets types (S2)
   const passesFilter = (filt) => {
     if (!filt) return true;
     return filt.split(" or ").some((tok) => {
@@ -10926,7 +10942,7 @@ export function checkInterveningIf(state, pendingTrigger) {
   if (m) {
     const n = parseInt(m[1], 10);
     const re = new RegExp(m[2], "i");
-    const count = (player?.battlefield || []).filter(p => re.test(typeStr(p.card))).length;
+    const count = (player?.battlefield || []).filter(p => re.test(scopeTypeStr(state, p))).length; // as it is now on a board that sets types (S2)
     return count >= n;
   }
   return true; // unknown → fail-open

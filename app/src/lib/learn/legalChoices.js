@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, planPayment, manaSources, withoutOwnHandSource, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -375,6 +375,15 @@ function isLand(card)        { return String(typeLineOf(card)).split(" // ")[0].
 function isInstant(card)     { return typeLineOf(card).includes("Instant"); }
 function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
 function isArtifact(card)    { return typeLineOf(card).includes("Artifact"); }
+/**
+ * A BATTLEFIELD PERMANENT'S TYPE WORD AS IT IS NOW, on a board that sets types (the ability-loss S2 — layers.boardSetsTypes: an S2
+ * Aura's "… is a green Elk creature" took the creature's other card types and their subtypes, CR 205.1a; an S1 Aura's "is a Treefolk"
+ * its creature types): the layer-aware answer (layers.permanentHasTypeWord — a card type, a supertype or a subtype word). Only ever
+ * asked where boardSetsTypes(state) holds; every other board reads the printed type line at the call site, exactly as before.
+ */
+const typeWordNow = (state, perm, word) => permanentHasTypeWord(state, perm.id, word);
+/** "a <subtype> land you control" (or any land, `subtype` null) as it is now — the S2 board's read of the printed land checks below. */
+const landNow = (state, perm, subtype = null) => typeWordNow(state, perm, "Land") && (!subtype || typeWordNow(state, perm, subtype));
 
 /** γ1b — does a permanent match a "Sacrifice a/an/another <type>" cost's type? "permanent" = any.
  * γ1b-SUBTYPE — an optional `subtype` (lowercased, Koma "Sacrifice another Serpent"; "Sacrifice a Swamp")
@@ -849,10 +858,17 @@ function selfCostReductionForSpell(state, playerId, card) {
       }
       return best;
     }
-    case "totalManaValueHistoricYouControl":
+    case "totalManaValueHistoricYouControl": {
+      // On a board that sets types (the ability-loss S2 survey — boardSetsTypes) a historic permanent as it is NOW (CR 205.1a — a Solemn
+      // Simulacrum an S2 Aura made "a blue Frog creature" is no artifact; a Saga made one no Saga; Legendary is a supertype the S2 effect
+      // keeps, CR 205.4b, so the printed line answers it); on every other board the printed line, as before.
+      const setsTypes = boardSetsTypes(state);
+      const historicNow = (p) => permanentHasCardType(state, p.id, "Artifact") || permanentHasTypeWord(state, p.id, "Saga")
+        || /\bLegendary\b/.test(String(typeLineOf(p.card)).split(" // ")[0]);
       return (player.battlefield || [])
-        .filter((p) => isHistoricPermanent(p.card))
+        .filter((p) => (setsTypes ? historicNow(p) : isHistoricPermanent(p.card)))
         .reduce((sum, p) => sum + manaValueOf(p.card), 0);
+    }
     // PER-EACH (Karador, Ghost Chieftain — "costs {1} less to cast for each creature card in your
     // graveyard"): a per-unit times a live COUNT, rather than the single number every other metric here
     // yields. The count runs through countForSpec — the SAME dispatcher greatestPowerYouControl above
@@ -950,14 +966,17 @@ function altCostConditionHolds(state, playerId, condition) {
   if (condition === "yourTurn") return state.activePlayer === playerId; // Mine Collapse "If it's your turn, …" (2026-09-30)
   if (condition === "submergeGate") {
     // Submerge: "an opponent controls a Forest and you control an Island" — type-line subtypes, live board.
-    const hasSubtype = (p, re) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); };
-    if (!(state.players[playerId]?.battlefield || []).some((p) => hasSubtype(p, /\bIsland\b/i))) return false;
+    // (on a board that sets types, the land and its subtype as they are now — boardSetsTypes, the ability-loss S2)
+    const setsTypes = boardSetsTypes(state);
+    const hasSubtype = (p, re, word) => { if (setsTypes) return landNow(state, p, word); const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); };
+    if (!(state.players[playerId]?.battlefield || []).some((p) => hasSubtype(p, /\bIsland\b/i, "Island"))) return false;
     return Object.entries(state.players).some(([pid, pl]) =>
-      pid !== playerId && (pl?.battlefield || []).some((p) => hasSubtype(p, /\bForest\b/i)));
+      pid !== playerId && (pl?.battlefield || []).some((p) => hasSubtype(p, /\bForest\b/i, "Forest")));
   }
   if (typeof condition === "string" && condition.startsWith("controlLand:")) {
     const re = new RegExp(`\\b${condition.slice("controlLand:".length)}\\b`, "i");
-    return (state.players[playerId]?.battlefield || []).some((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); });
+    const setsTypes = boardSetsTypes(state); // the ability-loss S2: the land as it is now
+    return (state.players[playerId]?.battlefield || []).some((p) => { if (setsTypes) return landNow(state, p, condition.slice("controlLand:".length)); const t = typeLineOf(p.card); return t.includes("Land") && re.test(t); });
   }
   return false;
 }
@@ -1008,6 +1027,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
         .map((v) => ({ sacId: v.id, sacName: v.card?.name ?? null }));
     }
     case "returnLandsToHand": {
+      const setsTypes = boardSetsTypes(state);
       // ONE canonical land set — never combinatorial (Gush over 10 Islands is C(10,2)=45 near-identical
       // payments per priority window for zero decision value). Same-subtype lands are near-fungible and a
       // TAPPED land is strictly cheaper to return, so: tapped first, then untapped, id-ascending tiebreak
@@ -1015,13 +1035,14 @@ function enumerateAltPayments(state, playerId, card, alt) {
       // mirroring the γ1g return-cost offer gate).
       const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
       const lands = (player.battlefield || [])
-        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(ownOracleOf(state, p)); })
+        .filter((p) => { const t = typeLineOf(p.card); return (setsTypes ? landNow(state, p, alt.subtype) : t.includes("Land") && re.test(t)) && !sacrificeDropsTrigger(ownOracleOf(state, p)); }) // the land as it is now on an S2 board (boardSetsTypes)
         .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
       if (lands.length < alt.count) return [];
       const chosen = lands.slice(0, alt.count);
       return [{ returnLandIds: chosen.map((l) => l.id), returnLandNames: chosen.map((l) => l.card?.name ?? null) }];
     }
     case "sacrificeLands": {
+      const setsTypes = boardSetsTypes(state);
       // "you may sacrifice a Mountain / two Mountains rather than pay this spell's mana cost" (Thunderclap, Crash, Mine Collapse,
       // Fireblast, Mogg Alarm, Pulverize — 2026-09-30). ONE canonical land set, on Gush's reasoning above: same-subtype lands
       // are near-fungible and a TAPPED land is strictly cheaper to give up, so tapped first, then untapped, id-ascending
@@ -1029,7 +1050,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
       // (the same sacrificeDropsTrigger gate the creature sacrifice uses), so a payment is never partially applied.
       const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
       const lands = (player.battlefield || [])
-        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(ownOracleOf(state, p)); })
+        .filter((p) => { const t = typeLineOf(p.card); return (setsTypes ? landNow(state, p, alt.subtype) : t.includes("Land") && re.test(t)) && !sacrificeDropsTrigger(ownOracleOf(state, p)); }) // the land as it is now on an S2 board (boardSetsTypes)
         .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
       if (lands.length < alt.count) return [];
       const chosen = lands.slice(0, alt.count);
@@ -2847,12 +2868,16 @@ function actionsActivateAbility(state, playerId) {
         // a disjoint pool from the Training-Grounds creature gate except for artifact creatures, where BOTH
         // legitimately apply. Reading it under the creature gate would discount the wrong abilities: a wrong
         // price, not a missing effect, and one the coverage tier can't see.
+        const setsTypesNow = boardSetsTypes(state);
         const applicable = activatedReducers.filter((r) => (
           r.equipOnly ? !!ab.isEquipAbility
             : r.powerUpOnly ? (!!ab.powerUp && isCreaturePerm && (!r.excludeSelf || r._sourceId !== perm.id)) // Gamma Goliath — power-up abilities of OTHER creatures
-              : r.subject === "artifact" ? isArtifact(perm.card)
-                : r.subject === "land" ? isLand(perm.card) // Blossoming Tortoise (2026-09-05)
-                  : r.subject === "artifactToken" ? (isArtifact(perm.card) && !!perm.card?.token) // Mutagen Man (2026-09-05)
+              // (on a board that sets types — boardSetsTypes, the ability-loss S2 — the type the permanent has NOW: a Frogified
+              // artifact creature's abilities are no artifact's, CR 205.1a)
+              : r.subject === "artifact" ? (setsTypesNow ? typeWordNow(state, perm, "Artifact") : isArtifact(perm.card))
+                : r.subject === "land" ? (setsTypesNow ? typeWordNow(state, perm, "Land") : isLand(perm.card)) // Blossoming Tortoise (2026-09-05)
+                  : r.subject === "artifactToken" ? ((setsTypesNow ? typeWordNow(state, perm, "Artifact") : isArtifact(perm.card)) && !!perm.card?.token) // Mutagen Man (2026-09-05)
+                    : r.subject === "subtype" && setsTypesNow ? typeWordNow(state, perm, String(r.subtype))
                     : r.subject === "subtype" ? new RegExp(`\\b${String(r.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(String(typeLineOf(perm.card)).split(" // ")[0]) // Sam's Foods (2026-09-05) — word-bounded on the front face
                       : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
@@ -3043,7 +3068,7 @@ function actionsActivateAbility(state, playerId) {
         !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
         !sacCountManaExcluded.has(s.permanentId));
       // SG-18: the activation spend context every affordability check below passes.
-      const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) }; // + the activator's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f)
+      const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) }; // + the activator's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f)
       // The cheapest cost the lane can offer: the printed one, or X = 1 on the {X} lane (X = 0 is never offered). Every check
       // above the X walk judges this one; affordability is monotonic in X, so a victim that can't pay it can't pay any X.
       const gateCost = xLane ? xResolvedCost(cost, 1) : cost;
@@ -3194,10 +3219,11 @@ function actionsActivateAbility(state, playerId) {
       let returnLandVictims = [null];
       if (ab.returnLand) {
         const selfExcluded = ab.returnLand.another;
+        const setsTypes = boardSetsTypes(state); // the ability-loss S2: the land as it is now
         returnLandVictims = player.battlefield.filter((v) =>
-          isLand(v.card) &&
+          (setsTypes ? landNow(state, v, ab.returnLand.subtype || null) : isLand(v.card) &&
           // stage ③ · 31 — "Return a Forest you control" (Quirion Ranger): the subtype, word-bounded on the type line.
-          (!ab.returnLand.subtype || new RegExp(`\\b${ab.returnLand.subtype}\\b`, "i").test(typeLineOf(v.card))) &&
+          (!ab.returnLand.subtype || new RegExp(`\\b${ab.returnLand.subtype}\\b`, "i").test(typeLineOf(v.card)))) &&
           !(selfExcluded && v.id === perm.id) &&
           !sacrificeDropsTrigger(ownOracleOf(state, v)),
         );
@@ -3341,7 +3367,7 @@ function actionsActivateAbility(state, playerId) {
               const sourcesForX = manaSources(state, playerId).filter((s) =>
                 !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
                 !sacXExcluded.has(s.permanentId));
-              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) })) continue; // this X starves the {mana} part
+              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) })) continue; // this X starves the {mana} part
               actions.push({
                 kind: "activate-ability",
                 playerId,
@@ -3850,7 +3876,7 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       const sub = rec.tapUntapped.subtype;
       const subRe = sub ? new RegExp(`\\b${String(sub).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
       // P·39 — "Tap an untapped Rebel": every creature type (a changeling, Mirror Entity's activation) is one.
-      const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? (subRe.test(String(p.card?.type || "")) || permIsEveryCreatureType(state, p.id)) : permanentIsCreature(state, p.id)));
+      const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? (subRe.test(String(typeLineNow(state, p, p.card?.type || ""))) || permIsEveryCreatureType(state, p.id)) : permanentIsCreature(state, p.id))); // the subtype as it is now on a board that sets types (S2)
       // The creature tapped for the cost can't also tap for mana (Cryptolith Rite) or be an Altar's victim, and Molt Tender can't
       // exile this card (2026-10-17 — manaModel.graveyardActivationPaymentSources, the sources the dispatcher's payment reads).
       for (const p of pool) {
@@ -5131,7 +5157,7 @@ export function offeredPaymentPlan(state, playerId, a) {
   if (a.kind === "activate-ability") {
     const perm = player.battlefield.find((p) => p.id === a.permanentId);
     if (!perm) return null;
-    return planPayment(player.manaPool, activationPaymentSources(state, a), a.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || ""), activatingColors: permanentColors(state, perm.id), ...life });
+    return planPayment(player.manaPool, activationPaymentSources(state, a), a.cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")), activatingColors: permanentColors(state, perm.id), ...life });
   }
   return planPayment(player.manaPool, graveyardActivationPaymentSources(state, a), a.cost);
 }
