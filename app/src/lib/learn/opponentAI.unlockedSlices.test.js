@@ -51,11 +51,11 @@ function perm(card, controller, { id = null, tapped = false, sick = false } = {}
     controller, tapped, summoningSick: sick,
   });
 }
-function aiMainState({ hand = [], mana = {}, board = [], oppBoard = [], aiLife = 40, userLife = 40 } = {}) {
+function aiMainState({ hand = [], mana = {}, board = [], oppBoard = [], aiLife = 40, userLife = 40, library = null } = {}) {
   const b = createGameState({ userDeck: [], aiDeck: [] });
   return { ...b, activePlayer: "ai", priorityHolder: "ai", phase: "precombat-main", step: "main",
     players: { ...b.players,
-      ai: { ...b.players.ai, life: aiLife, hand, battlefield: board, manaPool: { ...b.players.ai.manaPool, ...mana } },
+      ai: { ...b.players.ai, life: aiLife, hand, battlefield: board, manaPool: { ...b.players.ai.manaPool, ...mana }, ...(library ? { library } : {}) },
       user: { ...b.players.user, life: userLife, battlefield: oppBoard },
     } };
 }
@@ -256,7 +256,9 @@ describe("AI-F3 (W6) slice 1 — equip onto the best own creature, strict improv
 
 describe("AI-F3 (W6) slice 2 — cost-safe generic activated abilities (conservative whitelist)", () => {
   it("Azure Mage ({3}{U}: Draw a card) — activated when mana is spare and nothing casts", () => {
-    const s = aiMainState({ mana: { U: 1, C: 3 }, board: [perm(AZURE_MAGE, "ai")] });
+    // A library to draw from: with an empty one the draw would lose the game (CR 704.5b), and the AI holds it (loopStepLine.test.js).
+    const library = Array.from({ length: 5 }, (_, i) => ({ ...GRIZZLY_BEARS, id: `ai-lib-${i}` }));
+    const s = aiMainState({ mana: { U: 1, C: 3 }, board: [perm(AZURE_MAGE, "ai")], library });
     const pick = aiPick(s);
     expect(pick).toMatchObject({ kind: "activate-ability", name: "Azure Mage" });
     expect(pick.isEquipAbility).toBeFalsy();

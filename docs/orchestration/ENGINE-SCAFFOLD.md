@@ -2025,6 +2025,40 @@ already carrying the most. The offer side only reorders: `legalChoices` passes
 player's tapped lands come first by value and the best set per X is the first
 one offered (it survives the 64-option cap).
 
+**The loop steps (`loopStepLine.js`, added 2026-11-01).** The same rule (Colton,
+2026-10-03: build to enough, never infinite) for the loops that are not a token
+loop: a loop step that adds nothing it can use is not a play. `loopStepOf` names an
+offered action as a step — an UNTAP ("untap this permanent" on a mana source; its
+`net` is the mana it makes, augments counted (Kinnan), minus its cost — or minus
+the cost alone when it untaps an untapped permanent: paid from elsewhere, or with
+its own untap already on the stack), an EMPTY-LIBRARY activation (every atom reads
+its controller's own library — draw, scry, surveil, the reveal-top routes, a dig —
+and that library is empty; a draw there loses, CR 704.5b), or a RECAST (a card its
+caster already cast this turn, by the log's cast-spell lines, while one of the
+caster's own cast triggers would be FORCED onto its own permanent and remove it —
+`gameEngine.castTriggerRemovesOwn`, the cast-time sibling of
+`entersTriggerRemovesOwn`, previewed with the flush's own routing and chooser).
+`isHeldLoopStep` holds the empty-library steps and the recasts, an untap that nets
+nothing, and an untap that nets mana nobody needs: `loopManaHasUse` reads the
+engine's own offer twice with the step's source kept tapped (the loop floats its
+mana and keeps its source) — as it stands and with `LOOP_MANA_PLENTY` (20) more of
+each colour the step makes — and the mana has a use only while a cast or activation
+appears that was not offered at all (an X card already offered at any X counts as
+offered, so an X spell never makes the loop endless). `opponentAI.pickAction`
+drops the held steps from both lists right after the token loop's hold, before
+every picker, but reads only the recasts and empty-library steps: none of its
+pickers takes an "untap this" activation (no op list holds "untap"), so the untap
+read — two offers per decision — could change no choice. A picker that ever takes
+one must switch `untapSteps` on there. `withLoopSteps(tokenLoopModule)` wraps the
+tokenLoopLine seam (`tokenLoopState` / `isTokenLoopAction` / `tokenLoopAttackPlan`)
+with every step held — the seam the persona pilots read (omnath-tools decide.mjs R1)
+— passing the token loop's reads through unchanged. Payment is the planner's: it
+spends floating mana first and taps the loop's own source for a sink, so an untap
+with enough floating to pay itself reads −cost (held) and a float-then-sink line
+(Thrasios) cannot be driven to the end from the AI side. Witnesses
+`loopStepLine.test.js` (the games), `loopStepReads.test.js` (the reads); policy
+`loopStep: "v1"` keeps the old pick.
+
 **Which side the AI casts an Aura on (`opponentAI.pickAuraCast`, 2026-10-16).** An
 Aura spell targets what it will enchant (CR 303.4a) and the offer lists every legal
 host, so the pick chooses the side. By what the Aura enchants: the lanes offered

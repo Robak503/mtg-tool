@@ -53,6 +53,7 @@ import {
   moveCardToZone,
   findPermanent,
   createPermanent, // the enters-trigger preview (entersTriggerRemovesOwn) puts the entering permanent on a copy of the board
+  recordSpellCast, // the cast-trigger preview (castTriggerRemovesOwn) counts the cast as the dispatcher does, before the watchers read it
   openResolutionWindow, // CR 704.4 — no state-based action while the top object resolves; the check runs in finalizeStackResolution
   closeResolutionWindow,
 } from "./gameState.js";
@@ -83,6 +84,7 @@ import {
   checkDiscardTriggers, // CR 514.1 — the cleanup hand-size discard is a discard (CR 701.9a)
   detectTriggers, // FLICKER TARGETS (shelf D21) — does a permanent carry an enters ability worth re-firing?
   checkEnterTriggers, // the enters-trigger preview fires the entering permanent's enters triggers exactly as enterPermanent does
+  checkCastTriggers, // the cast-trigger preview fires the "whenever you cast" watchers exactly as the cast dispatch does
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
 import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword, withAbilityLoss } from "./layers.js"; // + withAbilityLoss: the card-name mana registry reads a permanent that lost its abilities as its stripped view (CR 613.1f) // + the forced pick's survival read
@@ -2289,27 +2291,65 @@ export function entersTriggerRemovesOwn(state, controller, card) {
   const board = { ...state, pendingTriggers: [], players: { ...state.players, [controller]: { ...seat, battlefield: [...(seat.battlefield || []), entering] } } };
   const own = (checkEnterTriggers(board, entering).pendingTriggers || []).filter((t) => t.source?.permanentId === id);
   for (const trigger of own) {
-    const built = buildTriggerStack(board, trigger, chooseTriggerTargets);
-    if (!built?.forced) continue;
-    const params = built.payload?.params || {};
-    const program = params.program;
-    const modes = program?.modal?.modes || [];
-    const atoms = program?.structure !== "modal" ? program?.atoms || []
-      : Array.isArray(params.chosenMode) ? params.chosenMode.flatMap((k) => modes[k]?.atoms || []) : modes[params.chosenMode]?.atoms || [];
-    for (const t of built.targets || []) {
-      const atom = atoms[t.atomIndex];
-      if (atomTargetIntent(atom) !== "enemy") continue;
-      if (t.type === "spell") {
-        const spell = (board.stack || []).find((o) => o.id === t.id);
-        if (spell?.controller === controller && REMOVING_OPS.has(atom.op)) return { source: card.name, op: atom.op, target: { id: t.id, name: spell.source?.name ?? null } };
-        continue;
-      }
-      if (t.type === "player" || t.type === "graveyardCard" || t.type === "stackAbility") continue;
-      const lk = findPermanent(board, t.id);
-      if (lk?.controller === controller && forcedHarmRemoves(board, atom, lk.permanent, id)) {
-        return { source: card.name, op: atom.op, target: { id: t.id, name: lk.permanent.card?.name ?? null } };
-      }
+    const removed = forcedOwnRemoval(board, controller, trigger, id, card.name);
+    if (removed) return removed;
+  }
+  return null;
+}
+
+/**
+ * One previewed trigger, routed and targeted as the flush does it (buildTriggerStack with chooseTriggerTargets): when its target is
+ * FORCED (CR 603.3d) onto `controller`'s own permanent or spell and the harm removes it (forcedHarmRemoves; a countered or bounced
+ * spell), { source: sourceName, op, target: { id, name } } — else null. `sourceId` is the trigger's source permanent (a damage
+ * source's deathtouch decides whether the hit is survived). Shared by the two cast-time previews below and above.
+ */
+function forcedOwnRemoval(board, controller, trigger, sourceId, sourceName) {
+  const built = buildTriggerStack(board, trigger, chooseTriggerTargets);
+  if (!built?.forced) return null;
+  const params = built.payload?.params || {};
+  const program = params.program;
+  const modes = program?.modal?.modes || [];
+  const atoms = program?.structure !== "modal" ? program?.atoms || []
+    : Array.isArray(params.chosenMode) ? params.chosenMode.flatMap((k) => modes[k]?.atoms || []) : modes[params.chosenMode]?.atoms || [];
+  for (const t of built.targets || []) {
+    const atom = atoms[t.atomIndex];
+    if (atomTargetIntent(atom) !== "enemy") continue;
+    if (t.type === "spell") {
+      const spell = (board.stack || []).find((o) => o.id === t.id);
+      if (spell?.controller === controller && REMOVING_OPS.has(atom.op)) return { source: sourceName, op: atom.op, target: { id: t.id, name: spell.source?.name ?? null } };
+      continue;
     }
+    if (t.type === "player" || t.type === "graveyardCard" || t.type === "stackAbility") continue;
+    const lk = findPermanent(board, t.id);
+    if (lk?.controller === controller && forcedHarmRemoves(board, atom, lk.permanent, sourceId)) {
+      return { source: sourceName, op: atom.op, target: { id: t.id, name: lk.permanent.card?.name ?? null } };
+    }
+  }
+  return null;
+}
+
+/**
+ * CAST-TRIGGER PREVIEW (2026-11-01 — the loop-step line, loopStepLine.js). Would `controller` casting `card` now fire a "whenever you
+ * cast a spell" trigger of a permanent it controls whose target is FORCED onto one of its own permanents and removes it? Tidespout
+ * Tyrant ("Whenever you cast a spell, return target permanent to its owner's hand") with no permanent left on any opponent's side
+ * returns one of its controller's own on every cast.
+ *
+ * Read the way the cast does it: a copy of the board with the cast counted (recordSpellCast — the watchers that read the per-turn
+ * count see it as the dispatcher's own order leaves it), the watchers fired by checkCastTriggers, and each of `controller`'s own
+ * triggers routed and targeted by buildTriggerStack with chooseTriggerTargets — the flush's own code (forcedOwnRemoval). The cast
+ * spell itself is not put on the copy's stack, so a cast trigger that could only target that spell reads as having no target.
+ * Nothing is minted or logged; `state` is never written. `castFromZone` is the cast's zone (the from-a-zone watchers read it).
+ *
+ * Returns { source, op, target: { id, name } } for the first own permanent or spell such a trigger would remove, else null.
+ */
+export function castTriggerRemovesOwn(state, controller, card, { castFromZone = "hand" } = {}) {
+  if (!card || !state?.players?.[controller]) return null;
+  const board = recordSpellCast({ ...state, pendingTriggers: [] }, { playerId: controller, spellCard: card });
+  const fired = checkCastTriggers(board, { spellCard: card, casterId: controller, castFromZone });
+  for (const trigger of fired.pendingTriggers || []) {
+    if (trigger.controller !== controller) continue;
+    const removed = forcedOwnRemoval(fired, controller, trigger, trigger.source?.permanentId ?? null, trigger.source?.name || card.name);
+    if (removed) return removed;
   }
   return null;
 }

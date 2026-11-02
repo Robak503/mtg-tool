@@ -47,6 +47,7 @@ import { changeTargetAlternatives, atomForStackTarget } from "./effects/targetin
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
+import { withoutHeldLoopSteps } from "./loopStepLine.js"; // THE LOOP STEPS — an empty-library sink or a recast that adds nothing it can use is held (enough)
 import { isNativeManaAura, stackSpellIsUncounterable } from "./staticAbilityParser.js"; // pickAuraCast — the mana-boost lane, offered on the caster's own lands only; + the one can't-be-countered predicate (a spell no ward can counter)
 import { targetTaxForStackObject } from "./ward.js"; // WARD (CR 702.21a) and Diffusion Sliver — the one reader every ward raise shares (ward.js reaches gameState, layers, faceUp, groupWard and manaModel; none imports opponentAI)
 import { autoPickSoftCounterPay } from "./effects/runProgram.js"; // the AI's answer to a ward question — read before aiming, so it never aims where it can't pay (gameEngine already imports runProgram: no new cycle)
@@ -96,7 +97,7 @@ import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell �
  * Exported so the A/B probe derives its legacy-key list from THIS array (AI-F11:
  * a hand-copied list silently drops every new subsystem from `--legacy=all`).
  */
-export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink", "defendDamage", "doomedHold", "afterBlocks", "endStep", "inResponse"];
+export const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter", "unresolvable", "wipe", "fog", "aura", "pump", "ability", "altCost", "etbHold", "discardEnterHold", "spree", "fetch", "target", "walker", "spellTarget", "racer", "racerTrade", "costVariant", "combatDamage", "walkerTrade", "ward", "pumpCost", "blink", "defendDamage", "doomedHold", "afterBlocks", "endStep", "inResponse", "loopStep"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -3060,6 +3061,18 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   if (loop?.holdLoop) {
     actions = actions.filter((a) => !isTokenLoopAction(loop, a));
     extra = extra.filter((a) => !isTokenLoopAction(loop, a));
+  }
+  // THE LOOP STEPS (loopStepLine.js — Colton 2026-10-03: build only to enough; never infinite). A loop step that adds nothing it can
+  // use leaves both lists here, before every picker, like the token loop's hold: an activation that reads only its own empty library
+  // (a draw there loses, CR 704.5b); a recast while one of its own cast triggers would be forced onto its own permanent (Tidespout
+  // Tyrant with every opponent's permanent gone — seed 3277877396 recast its own bounced permanents 5,417 times on turn 34). The
+  // untap steps (Kinnan beside Basalt Monolith) are not read here: no picker below takes an "untap this" activation (their op lists
+  // hold no untap; the targeted and window pickers need a target or another op), so that read — two offers of the engine per
+  // decision — could change no choice; the seam the persona pilots read holds them (loopStepLine.withLoopSteps). Everything stays
+  // offered; only the choice changes. policy 'v1' (`loopStep`) recovers the old pick for the A/B probe.
+  if (pol.loopStep !== "v1") {
+    actions = withoutHeldLoopSteps(state, aiPlayerId, actions, { untapSteps: false });
+    extra = withoutHeldLoopSteps(state, aiPlayerId, extra, { untapSteps: false });
   }
   // PHYREXIAN MANA PAID WITH LIFE (2026-10-17): the offer stamps `phyrexianLife` when no mana of a symbol's colour is left to pay
   // it (legalChoices.withPhyrexianPayment — mana first). The AI pays that life only while it stays at LIFE_PRUDENCE_FLOOR or more,
