@@ -806,7 +806,10 @@ intervening-ifs (a fail-open board read would re-fire unboundedly): `renowned`, 
 #### 4.4c Per-turn ledgers
 
 - **`damageTakenThisTurn`** — tallied at the loseLife chokepoint ONLY when its `combatDamage` flag is
-  defined, so a drain or a pay-life cost can never satisfy bloodthirst.
+  defined, so a drain or a pay-life cost can never satisfy bloodthirst. "An opponent was dealt N or more damage this turn"
+  (Spinerock Knoll, 2026-11-02 — interveningIf's `OPP_DEALT_N_DAMAGE_RE`) reads one opponent's total; a seat that left the game this
+  turn keeps its total on `state.departedDamageThisTurn` (`{ playerId, amount, turn }`, written by `removePlayerFromGame`, read only
+  for the current turn). Infect damage to a player is poison, never this ledger (an under-read).
 - **`activatedOncePerTurn`** — the activation-limit ledger, `{ turn, n }` keyed `permId:rawLine`. An
   ability carries `activationLimit` (a COUNT, 1 for the "Activate only once each turn" frame); the offer
   gate refuses at `used >= limit` and the dispatcher increments, restarting when the stored turn is
@@ -1202,6 +1205,38 @@ controls on one permanent, only the most recently attached and puts the rest int
 exist there, after its leaves triggers — the Wicked Role's drain fires). Role tokens carry no `timestamp`; the order is the host's
 `attachments` list, which `gameState.attachPermanent` (where every attachment is formed) keeps in attach order — CR 613.7e's new
 timestamp on attaching. "A Role" is one reading, `auraEntry.isRoleCard`. Witness: `roleUniqueness.test.js`.
+
+**Four resolution lanes added by the 2026-11-02 play-weighted slice** (the witnesses name the cards):
+- **The temporary reanimation** (Whip of Erebos, Gruesome Encore, Moira and Teshar — `zones.graveyardReturnClauseParser`'s
+  temporary-return arm, the splitter folding the four sentences): the `reanimate` atom carries `gainsHaste` (a layer-6 grant on the
+  new permanent id), `exileAtNextEndStep` (the `[minted-leave exile <id>]` delayed sentinel — bound to the object, CR 603.7c) and
+  `leaveExiled` → `gameState.stampLeaveExiledInstead`. The stamp is the replacement (CR 614.1a): `moveCardToZone` sends any move of a
+  stamped permanent off the battlefield to a zone other than exile to exile instead, and `deathExiledInstead` reads it at every death
+  site, so it never dies (no "dies" trigger). A stamp, not an ability — it survives an ability loss (the card's ruling); a permanent
+  that leaves is a new object, so nothing follows the card. A new "if it would leave the battlefield, exile it instead" source should
+  stamp the permanent the same way rather than add a site.
+- **A paid cast as an ability resolves** (Conduit of Worlds — `freeCast.applyGraveyardResolutionCast`): rides the free-cast window
+  (`pendingFreeCast` with `fromZone: "graveyard", paid: true`) so the driver, the decline kind and the AI branch are the existing
+  ones; `legalChoices.actionsFreeCastDecision` builds the paid casts with `castActionsFromZone(..., { ignoreTiming: true })`
+  (CR 608.2g), marked `resolutionCast`; the dispatcher clears the window on that cast and applies `lockAfterCast` as the caster's
+  turn-stamped all-spells lock (`castLocksThisTurn`, the record Silence writes). The cast-from-hand-only lock (Drannith Magistrate) is
+  one helper, `castFromHandOnlyLocked`, read by both cast windows.
+- **"Copy that spell"** (Reflections of Littjara, Double Down — `stack.applyCopyCastSpell`): a cast watcher's payoff with no target.
+  checkCastTriggers carries the cast as last known information (`castSpellSnapshot`, only for a descriptor whose effect is exactly
+  "copy that spell"); the atom copies the live stack object if it is still there, else the snapshot (CR 608.2h), keeps its targets
+  (CR 707.10c applies only when an effect says so), and a permanent spell's copy is a token (CR 707.10f). The cast filter "outlaw"
+  is the five-subtype typed list (it read as "subtype:Outlaw" and matched no spell). **A copy carries no mana rider** (CR 707.2,
+  707.10): `stack.spellCopyPayload` — the one clone every copy path uses — strips `params.hasteUntilEndOfTurn` (Arena of Glory) and
+  `params.manaSpentCounters` (Opal Palace, Guildmages' Forum) with the dispositions; a new rider a mana ability puts on the spell it
+  paid for goes in that list.
+- **A counter with a rider on the countered spell's controller** (Tibalt's Trickery — `spanMatchers.matchCounterTrickery` →
+  `applyCounter`'s `trickeryRider` → `library.applyTrickeryRider`): the rider runs whenever the target was legal, countered or not;
+  its found card is parked on the cascade window for THAT player. `targetsUncounterable` on the atom keeps an uncounterable spell
+  on its target list (the enumeration's CR 701.6a exclusion spares only pointless counters). **A library card is its front face**
+  (CR 712.8a) and an adventurer or preparation card has its normal name only (CR 715.4, 722.4): the two digs — cascade and the
+  Trickery rider — read "nonland" off the front face (`library.isLandFrontFace`, as hideaway.js reads its hidden card), so a spell //
+  land MDFC or a transform card with a land back is a nonland card there; before 2026-11-02 the whole "Front // Back" line made
+  Shatterskull Smashing "a land" to Bloodbraid Elf. A new dig reads the same helper.
 
 ### 4.6 Layers (`layers.js`, CR 613)
 
@@ -1991,6 +2026,18 @@ last two bullets below.
   permanent also taps another — both facts of the parsed corpus; a new card that breaks either
   needs the commit order revisited. The planner and `canAfford` are unchanged.
 
+**Explicit-tap-only mana abilities** (2026-11-02 — `manaModel.manualOnlyManaRecords`): a mana ability no payment may use is NOT
+listed by `manaSources` (fifty readers would see a phantom source) and is appended to `manualManaTaps` only, so it is the
+explicit tap and nothing else; its actions carry `manualOnly` (the board keeps them in the action bar, labelled with their costs —
+`actionLabel`). Two readers today: **the discard-hand line** (Lion's Eye Diamond — `discardHandManaLineOf`; "Activate only as an
+instant", so never mid-cast; `commitManaTap` pays `discardsHand` with the other consumed costs) and **the exert-haste line**
+(Arena of Glory — `exertHasteManaLineOf`; it nets nothing over the plain tap, so its value is the player's choice). The exert
+line is tapped for mana, so its record applies `manaMultiplier` and the tap bonuses itself. **A spend rider on floating mana
+rides a tagged entry** (`player.restrictedMana` with `restriction: null` and `rider: { kind }`): the payment pre-pass spends it like
+any entry, the remainder stays tagged, it drains with the step, and the cast site reads the rider off `plan.entrySpends`
+(`paidHasteRider` → `hasteUntilEndOfTurn` on the PERMANENT_ETB payload, CR 400.7a). Exert itself is `doesNotUntapNext` naming the
+exerting player: `untapAll` skips only that player's step and that step ends the flag wherever the permanent is (CR 701.43b).
+
 ### 4.8 Combat, legal choices, the pilot seam
 
 `legalChoices.js` enumerates legal actions (casts, activations, attacks, blocks,
@@ -2667,6 +2714,20 @@ start from the commander cards' `colorIdentity`, which the deck enrichment
 no identity is UNKNOWN — null, the quality does nothing (CR 903.4f) — never
 colorless: an absent field read as `[]` gave Commander's Plate protection from all
 five colors in every real game while hand-built fixtures stayed green.
+
+**Granted retrace and the AI's graveyard casts** (2026-11-02): `legalChoices.actionsCastRetraceFromGraveyard` (Six —
+`staticAbilityParser.retraceGrantsFor`, on its controller's own turn) casts nonland permanent cards from the graveyard through the
+shared builder plus a frozen land discard (`retraceCast.discardId`, basic first; the dispatcher discards it as a cost). ⚠️ The default
+AI resolves a cast's card through `opponentAI.cardFromHand`, which reads hand, command zone, exile and library — not the graveyard —
+so every other graveyard cast offered to an AI seat (flashback, granted escape, Emry, Rivaz, The Indomitable) is dropped as
+"card vanished". Only the retrace and Conduit of Worlds lanes (`retraceCast`, `resolutionCast`) are resolved there; opening the rest
+is an AI change of its own, to be measured. A retrace cast is weighed only when no other cast is picked (`pickCastAction` — its land discard is unpriced). The slice's AI lines: `exertHasteLineAction` (before the casts; only when the tagged mana can pay part of the creature's cost), `discardHandManaLineAction`
+(the mana-untap line's neighbour), the hideaway play in `SAFE_ABILITY_OPS`, and `pickTargetedActivation`'s temporary-reanimation and
+Conduit arms. **An activation that parks a choice is taken only for the choice the AI would make**: the hideaway play is activated
+only when `hideawayPlayWouldCast` — the parked discover window previewed on the board as it is (its own cast actions, so every cast
+lock; the ward drop; the very `pickCastAction` call pickAction's discover branch makes) — would cast the hidden card; a held card (a
+Counterspell with nothing to counter, a Fog outside combat, a Wrath over its own board) left the AI paying {G} and a land's tap for
+nothing every turn. A new "pay now, decide at the window" activation previews its window the same way.
 
 ### 4.9 Self-play (`selfPlayRunner.js`, `learnSession.js`, `gameApi.js`)
 

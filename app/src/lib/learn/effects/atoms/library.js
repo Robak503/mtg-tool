@@ -864,6 +864,14 @@ export function applyDiscoverAtom(state, atom, ctx) {
  * can cost < 0 — CR-correct, a cascade spell that costs nothing finds nothing). Pure data mutation (no closures)
  * so a game serialized mid-cascade restores intact.
  */
+/**
+ * A LIBRARY CARD'S LAND TYPE, read off its FRONT face: a double-faced card in any zone but the battlefield and the stack has only its
+ * front face's characteristics (CR 712.8a), so a spell front with a land back (Shatterskull Smashing, Fell the Profane, Search for
+ * Azcanta) is a NONLAND card in the library, and a land front (Westvale Abbey) is a land. A single-faced card's line has no " // ".
+ * Read by the two digs below (cascade, Tibalt's Trickery); hideaway.js reads its hidden card the same way.
+ */
+const isLandFrontFace = (card) => /\bLand\b/.test(String(card?.type || card?.type_line || "").split(" // ")[0]);
+
 export function applyCascadeAtom(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players[controller];
@@ -873,8 +881,8 @@ export function applyCascadeAtom(state, atom, ctx) {
   let foundIdx = -1;
   for (let i = 0; i < lib.length; i++) {
     const c = lib[i];
-    const isLand = /\bLand\b/.test(String(c.type || c.type_line || ""));
-    if (!isLand && tutorManaValue(c) < cap) { foundIdx = i; break; } // STRICTLY less (CR 702.85a)
+    // the front face (CR 712.8a — 2026-11-02; the whole "Front // Back" line skipped a spell // land card as "a land")
+    if (!isLandFrontFace(c) && tutorManaValue(c) < cap) { foundIdx = i; break; } // STRICTLY less (CR 702.85a)
   }
   const end = foundIdx === -1 ? lib.length : foundIdx + 1;
   const found = foundIdx === -1 ? null : lib[foundIdx];
@@ -905,6 +913,64 @@ export function applyCascadeAtom(state, atom, ctx) {
   };
   if (found) next = { ...next, pendingCascade: { controller, cardId: found.id, mv: tutorManaValue(found), cap } };
   return logEvent(next, { kind: "spell-effect", effect: "cascade", controller, cap, found: !!found });
+}
+
+/**
+ * TIBALT'S TRICKERY's rider (the play-weighted program, 2026-11-02) — after "Counter target spell.", applied to that spell's
+ * controller whether or not the counter took (its bundled ruling: a spell that can't be countered isn't, "but all of the other effects
+ * will still happen"): "Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their
+ * library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana
+ * cost. Then they put the exiled cards on the bottom of their library in a random order."
+ *   · the number — 1, 2 or 3 off the threaded seed (state.rngSeed, advanced; never Math.random);
+ *   · the mill — millOnePlayer (CR 701.17a; its milled-card watchers fire);
+ *   · the dig — "a different name" is CR 201.2c (at least one name, none in common): a library card's names are its front face's
+ *     (CR 712.8a — a double-faced card), its normal name (CR 715.4, 722.4 — an adventurer or preparation card) or a split card's two
+ *     (CR 709.4a), and "nonland" reads the front face (CR 712.8a), against the spell's own name as it was on the stack
+ *     (`spellNames`); no such card → every card is exiled (its ruling) and all of them go to the bottom;
+ *   · the cast — the found card is parked on the cascade window for THAT player (its "may"; X is 0 — its ruling, CR 601.2b, the
+ *     free-cast builder's rule); the other exiled cards go to the bottom in a random order now, and a declined card joins them
+ *     (the cascade precedent, CR 702.85a's same wording).
+ * Pure; `playerId` gone (left the game) → nothing happens to them.
+ */
+export function applyTrickeryRider(state, { playerId, spellNames, sourceName = null }) {
+  if (!state.players?.[playerId]) return state;
+  const seed0 = (state.rngSeed ?? 0) >>> 0;
+  const n = 1 + Math.floor(deterministicRng(seed0)() * 3);
+  let next = millOnePlayer({ ...state, rngSeed: ((Math.imul(seed0, 1664525) + 1013904223) >>> 0) }, playerId, n);
+  const player = next.players[playerId];
+  const lib = player.library || [];
+  const spellSet = new Set((spellNames || []).filter(Boolean));
+  // A library card's names: a double-faced card's front face's (CR 712.8a), an adventurer card's normal name (CR 715.4 — "in every zone
+  // except the stack … only its normal characteristics"), a preparation card's normal name (CR 722.4); a split card has both halves'
+  // (CR 709.4a). The land test reads the front face too (isLandFrontFace).
+  const namesOf = (c) => {
+    const layout = String(c?.layout || "");
+    const full = String(c?.name || "");
+    if (/^(modal_dfc|transform|meld|reversible_card|flip|adventure|prepare)$/.test(layout)) return [full.split(" // ")[0]];
+    return full.includes(" // ") ? full.split(" // ") : [full];
+  };
+  const differentName = (c) => { const ns = namesOf(c).filter(Boolean); return ns.length > 0 && !ns.some((x) => spellSet.has(x)); };
+  let foundIdx = -1;
+  for (let i = 0; i < lib.length; i++) {
+    if (!isLandFrontFace(lib[i]) && differentName(lib[i])) { foundIdx = i; break; }
+  }
+  const end = foundIdx === -1 ? lib.length : foundIdx + 1;
+  const found = foundIdx === -1 ? null : lib[foundIdx];
+  const rest = lib.slice(0, end).filter((c) => c !== found);
+  const seed = (next.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledRest = [...rest];
+  for (let i = shuffledRest.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledRest[i], shuffledRest[j]] = [shuffledRest[j], shuffledRest[i]];
+  }
+  next = {
+    ...next,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: { ...next.players, [playerId]: { ...player, library: [...lib.slice(end), ...shuffledRest], exile: found ? [...(player.exile || []), found] : (player.exile || []) } },
+  };
+  if (found) next = { ...next, pendingCascade: { controller: playerId, cardId: found.id, mv: tutorManaValue(found), cap: null, sourceName } };
+  return logEvent(next, { kind: "spell-effect", effect: "trickery", controller: playerId, milled: n, exiled: rest.length + (found ? 1 : 0), found: found?.name || null });
 }
 
 /** Mill ONE player `count` cards (CR 701.17), then fire the MILL-ON-EVENT trigger bind for that player's

@@ -350,6 +350,18 @@ export function matchCounterControllerRider(oracle) {
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: (m[3] || "").trim() };
 }
+// TIBALT'S TRICKERY (the play-weighted program, 2026-11-02) — "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills
+// that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that
+// spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random
+// order." — four sentences the splitter would shatter, one rider on the countered spell's controller: the hard counter lead plus
+// `trickeryRider` (applyCounter → library.applyTrickeryRider). Exactly this text; any other tail stays unread.
+export function matchCounterTrickery(oracle) {
+  const m = stripReminder(oracle).trim().replace(/[’]/g, "'").match(/^(counter target spell)\. choose 1, 2, or 3 at random\. its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell\. they may cast that card without paying its mana cost\. then they put the exiled cards on the bottom of their library in a random order\.?$/i);
+  if (!m) return null;
+  const lead = counterClauseParser(m[1].trim());
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null;
+  return { atom: { ...lead, trickeryRider: true }, rest: "" };
+}
 // CNT-EXILE-INSTEAD (WAVE 2b + BLITZ CS-1) — "Counter target <filter> spell[ unless its controller pays
 // {N}/{X}]. If that spell is countered this way, exile it instead of putting it into its owner's graveyard."
 // (Deny Existence "creature" — hard; Syncopate "{X}" / No More Lies "{3}" — SOFT: the pay-decision suspends

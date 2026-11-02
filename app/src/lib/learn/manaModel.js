@@ -31,7 +31,7 @@
  */
 
 import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf, playerLifeLocked } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
-import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
+import { checkTapForManaTriggers, checkLifegainTriggers, checkDiscardTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
 import { typeLineNow, permanentHasKeyword, withAbilityLoss, boardHasAbilityLoss, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, abilityLossOf } from "./layers.js"; // + abilityLossOf: a land that lost its abilities has no intrinsic basic-land-type mana ability (grantedBasicTypeColors, CR 305.6, 613.1f) // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
@@ -2044,6 +2044,10 @@ export function landLineMana(card, line) {
   const norm = (t) => stripReminder(String(t || "")).replace(/\s+/g, " ").trim();
   const want = norm(line);
   if (!want) return null;
+  // THE EXERT-HASTE LINE (Arena of Glory, 2026-11-02): made by the explicit tap alone (manualOnlyManaRecords — never a planner
+  // source), on a land; the runtime's own reader vouches for it.
+  const exert = /\bLand\b/.test(String(card?.type || card?.type_line || "")) ? exertHasteManaLineOf(String(line)) : null;
+  if (exert) return { colors: [exert.color], amount: 2, requiresTap: true, exertHaste: true, manualOnly: true };
   const main = manaProduction(card);
   // An extra record's line as printed, and a max-speed line also as effects/abilities.js rewrites it for parseActivatedAbilities
   // ("Max speed — {T}: Add {C}{C}." → "{T}: Add {C}{C}. Activate only if your speed is 4.") — the land gate checks both spellings.
@@ -3906,6 +3910,84 @@ export function tapRecordFor(s, color, bonus = []) {
 }
 
 /**
+ * "DISCARD YOUR HAND, SACRIFICE THIS ARTIFACT: ADD THREE MANA OF ANY ONE COLOR. ACTIVATE ONLY AS AN INSTANT." (the play-weighted
+ * program, 2026-11-02 — Lion's Eye Diamond). A mana ability (CR 605.1a) that may be activated only when its controller could cast an
+ * instant (its bundled ruling — "Yes, this is a bit weird"): with priority, never while a spell is being cast or its costs paid
+ * (CR 601.2g). So it is NO planner source — manaSources never lists it (manaProduction refuses the self-sacrifice with a discard
+ * beside it, 2026-10-16), and no payment can spend it mid-cast — and it is offered only as the explicit tap, which the engine offers
+ * with priority: the three mana float (CR 106.4) and pay what comes next (the commander from the command zone, a graveyard cast, an
+ * ability). Its costs are the whole hand discarded and the artifact sacrificed (commitManaTap). No {T}: it is not "tapped for mana"
+ * (CR 106.12), so no multiplier or tap-for-mana watcher applies. Diamond Lion's "{T}, … Sacrifice this creature" form is left unread:
+ * tapped for mana, it would owe those, which this record does not apply. Returns `{}` or null — one line, the whole of the card's text
+ * after its reminders.
+ */
+const DISCARD_HAND_MANA_LINE_RE = /^Discard your hand, Sacrifice this artifact: Add three mana of any one color\. Activate only as an instant\.$/;
+export function discardHandManaLineOf(card) {
+  const lines = String(card?.oracle ?? card?.oracle_text ?? "").split("\n").map((l) => l.replace(/\s*\([^)]*\)\s*/g, " ").trim()).filter(Boolean);
+  return lines.length === 1 && DISCARD_HAND_MANA_LINE_RE.test(lines[0]) ? {} : null;
+}
+/**
+ * "{C}, {T}, EXERT THIS LAND: ADD {C}{C}. IF ANY OF THAT MANA IS SPENT ON A CREATURE SPELL, IT GAINS HASTE UNTIL END OF TURN." (the
+ * play-weighted program, 2026-11-02 — Arena of Glory, "{R}, {T}, Exert this land: Add {R}{R}. …"). A mana ability whose cost is a
+ * pip, the tap and exerting the land (CR 701.43a — it won't untap during its controller's next untap step), whose mana carries a
+ * spend rider. It nets nothing over the land's own "{T}: Add {R}." (the funding pip costs what the plain tap makes), so a payment
+ * never needs it: its whole worth is the haste, the player's choice. It is NO planner source and is offered only as the explicit tap
+ * (the pip paid from the floating pool, the land's {T}), and its mana floats as a TAGGED entry (player.restrictedMana, no spend
+ * restriction — it may pay for anything, its bundled ruling) carrying the rider, so the cast site gives haste until end of turn to a
+ * creature spell any of it is spent on (CR 400.7a — and to the permanent it becomes) — each such spell (its ruling: two creature
+ * spells, each gains haste); a noncreature spell nothing (its rulings). Returns `{ color, costColor }` for the line, or null.
+ */
+const EXERT_HASTE_MANA_LINE_RE = /^\{([WUBRG])\}, \{T\}, Exert this land: Add \{([WUBRG])\}\{\2\}\. If any of that mana is spent on a creature spell, it gains haste until end of turn\.$/;
+export function exertHasteManaLineOf(line) {
+  const m = EXERT_HASTE_MANA_LINE_RE.exec(String(line || "").replace(/\s*\([^)]*\)\s*/g, " ").trim());
+  return m ? { costColor: m[1], color: m[2] } : null;
+}
+/** The card's exert-haste mana line (exertHasteManaLineOf), on a LAND only — "Exert this land" — or null. */
+function exertHasteLineOfCard(card) {
+  if (!/\bLand\b/.test(String(card?.type || card?.type_line || ""))) return null;
+  for (const line of String(card?.oracle ?? card?.oracle_text ?? "").split("\n")) {
+    const hit = exertHasteManaLineOf(line);
+    if (hit) return hit;
+  }
+  return null;
+}
+/** The explicit-tap-only records `playerId` may activate now — gated like every mana source (the activation locks, an ability loss):
+ *   · the DISCARD-HAND line (discardHandManaLineOf): one per colour, each the three mana, the hand discarded and the artifact
+ *     sacrificed. No {T}: a tapped Diamond still activates it, and summoning sickness does not apply (CR 302.6);
+ *   · the EXERT-HASTE line (exertHasteManaLineOf): the land untapped (its {T}) and, an animated land, not summoning-sick (CR 302.6);
+ *     its pip the activation cost; tapped for mana (CR 106.12), so it makes what any tap of the land makes — the controller's
+ *     multipliers (Mana Reflection, CR 605.1b/616) on its own mana, the land's Auras' and the tap augments' bonus mana (each its
+ *     own mana, CR 605.1b — no rider). `bundle: "exert"` keys it apart from the plain tap of the same colour. */
+function manualOnlyManaRecords(state, playerId) {
+  const player = state?.players?.[playerId];
+  if (!player) return [];
+  const lossy = boardHasAbilityLoss(state);
+  const artLocked = artifactActivationsLocked(state);
+  const out = [];
+  for (const perm of player.battlefield || []) {
+    const card = lossy ? withAbilityLoss(state, perm) : perm.card;
+    const discardLine = discardHandManaLineOf(card);
+    const exertLine = discardLine ? null : exertHasteLineOfCard(card);
+    if (!discardLine && !exertLine) continue;
+    if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue;
+    if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue;
+    if (discardLine) {
+      for (const color of ["W", "U", "B", "R", "G"]) out.push({ permanentId: perm.id, color, amount: 3, sacrifices: true, discardsHand: true, noTap: true, manualOnly: true });
+      continue;
+    }
+    if (perm.tapped) continue;
+    const isCreature = /Creature/.test(faceUpTypeLine(perm.card));
+    if ((isCreature ? !!perm.summoningSick : summoningSickNow(state, perm)) && !permanentHasKeyword(state, perm.id, "Haste") && !abilitiesAsThoughHasteFor(state, perm.controller)) continue;
+    const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)]
+      .filter((b) => !b.whenProduces || b.whenProduces === exertLine.color)
+      .map((b) => ({ color: b.sameAsProduced ? exertLine.color : b.colors[0], amount: b.amount }));
+    out.push({ permanentId: perm.id, color: exertLine.color, amount: 2 * manaMultiplier(state, playerId), bundle: "exert", activationCost: parseActivationManaCost(`{${exertLine.costColor}}`),
+      exertHaste: true, ...(bonus.length ? { bonus } : {}), manualOnly: true });
+  }
+  return out;
+}
+
+/**
  * THE EXPLICIT TAP'S OPTIONS — every tap a person may take by hand right now (legalChoices.actionsTapForMana offers them; the
  * dispatcher's applyTapForMana re-derives the one taken from here and commits it, never trusting the action's fields). One
  * per (source, colour), a fixed bundle once, each a tapRecordFor record plus the line's `activationCost`.
@@ -3957,6 +4039,8 @@ export function manualManaTaps(state, playerId) {
       out.push({ ...tapRecordFor(s, color, bonus), ...(s.activationCost ? { activationCost: s.activationCost } : {}) });
     }
   }
+  // THE EXPLICIT-TAP-ONLY LINES (Lion's Eye Diamond — discardHandManaLineOf): never planner sources, so never in manaSources above.
+  out.push(...manualOnlyManaRecords(state, playerId));
   return out;
 }
 
@@ -4994,11 +5078,25 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
   }
   if (gyCard) state = moveCardToZone(state, { playerId, fromZone: "graveyard", toZone: "exile", cardId: gyCard.id });
   if (tap.payLifeCost) state = loseLife(state, { playerId, amount: tap.payLifeCost });
+  // "DISCARD YOUR HAND" (Lion's Eye Diamond, Diamond Lion — 2026-11-02, manualOnlyManaRecords): every card in the hand is discarded as
+  // the cost is paid (CR 602.2b, 701.9a — an empty hand pays it too: discarding no cards is discarding the hand), each through the one
+  // hand-to-graveyard move, then the discard watchers see the batch (checkDiscardTriggers, CR 603.2).
+  if (tap.discardsHand) {
+    const hand = state.players[playerId]?.hand || [];
+    for (const c of hand) state = moveCardToZone(state, { playerId, fromZone: "hand", toZone: "graveyard", cardId: c.id });
+    if (hand.length) state = checkDiscardTriggers(state, playerId, hand.map((c) => c.id));
+    state = logEvent(state, { kind: "mana", event: "discard-hand-cost", permanentId: tap.permanentId, playerId, count: hand.length });
+  }
   // MIXED FIXED BUNDLE (karoo / signet): the tap produces its exact per-color tally, so the commit adds each
   // color rather than `amount` of the single recorded `color`. Reading the plan's OWN breakdown is what keeps
   // "affordable per planPayment" == "actually paid" for these sources — the invariant this whole seam exists
   // to hold. Absent on every other tap, which keeps the single-color path byte-identical.
-  let next = tap.fixed
+  // THE EXERT-HASTE LINE'S MANA (Arena of Glory — manualOnlyManaRecords): a tagged entry carrying its spend rider, never the open pool
+  // (pool mana carries no rider): the payment pre-pass spends it like any entry (no restriction — it pays for anything), the cast
+  // site reads the rider off the plan's entry spends, and a part left unspent keeps it (planPaymentCore) until the step ends.
+  let next = tap.exertHaste
+    ? { ...state, players: { ...state.players, [playerId]: { ...state.players[playerId], restrictedMana: [...(state.players[playerId].restrictedMana || []), { pool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, [tap.color]: tap.amount ?? 2 }, restriction: null, rider: { kind: "creatureSpellHasteEot" } }] } } }
+    : tap.fixed
     ? Object.entries(tap.fixed).reduce((st, [color, amount]) => addMana(st, { playerId, color, amount }), state)
     : addMana(state, { playerId, color: tap.color, amount: tap.amount ?? 1 });
   for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
@@ -5079,6 +5177,10 @@ export function commitManaTap(state, playerId, tap, { reserved = null, victimId 
     // STAGE ④-5 — the doesn't-untap rider: the land tapped through this line skips its controller's next untap
     // step (CR 502.2 — the same flag the untap step already honours for every other "doesn't untap" source).
     if (tap.doesNotUntapNext) next = setDoesNotUntapNext(next, tap.permanentId, true);
+    // EXERT (CR 701.43a — Arena of Glory): "you choose to have it not untap during YOUR next untap step" — the exerting player's, so
+    // the flag names them (gameState.untapAll: a permanent another player controls by then untaps in that player's step — its
+    // bundled ruling — and the effect ends with the exerter's next untap step either way, CR 701.43b).
+    if (tap.exertHaste) next = setDoesNotUntapNext(next, tap.permanentId, playerId);
     // ④-D — TAPPED FOR MANA (CR 605.3): the permanent was tapped for mana; its own "you tap this … for mana" watcher
     // and every "you tap a land / an opponent taps a land for mana" watcher enqueue here (a Treasure cracked for
     // mana is a sacrifice, not a tap — the branch above never reaches this line).

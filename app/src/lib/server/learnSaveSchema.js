@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -140,6 +140,22 @@ export const MIGRATIONS = {
   // says (no v8 save holds a stage-S2 effect). So a v8 save needs no backfill; this migration only stamps the version forward, as v7 → v8
   // does. (CONTRACT-MIG.)
   8: (doc) => ({ ...doc, schemaVersion: 9 }),
+
+  // v9 → v10 — the play-weighted slice pw20 (2026-11-02) persists five new shapes, each written only by its own card and each ABSENT
+  // meaning what every v9 game says:
+  //   · a permanent's `leaveExiledInstead` (Whip of Erebos, Gruesome Encore, Moira and Teshar — gameState.stampLeaveExiledInstead, CR
+  //     614.1a): absent, it leaves for wherever it is put;
+  //   · a permanent's `doesNotUntapNext` may name a seat (an exerted Arena of Glory — the untap step of THAT player skips it, CR 701.43a);
+  //     `true` keeps its old meaning (its controller's next untap step);
+  //   · a `restrictedMana` entry's `rider` (Arena of Glory's {R}{R} — `{ kind: "creatureSpellHasteEot" }`), and a spell payload's
+  //     `params.hasteUntilEndOfTurn` (the turn a creature spell it paid for gains haste): absent, no rider;
+  //   · `state.departedDamageThisTurn` (Spinerock Knoll — the damage a seat that left the game took this turn): absent, none;
+  //   · a `pendingFreeCast` from the graveyard with `paid` / `lockAfterCast` (Conduit of Worlds' window), a `pendingCascade` with
+  //     `cap: null` and `sourceName` (Tibalt's Trickery's), a cast trigger's `castSpellSnapshot` (Reflections of Littjara): absent,
+  //     the windows and triggers every v9 build makes.
+  // So a v9 save needs no backfill; this migration only stamps the version forward, as v8 → v9 does — and a v9 build refuses a v10
+  // save (migrate throws on a newer version) instead of reading `doesNotUntapNext: "user"` as `true` and dropping the rest. (CONTRACT-MIG.)
+  9: (doc) => ({ ...doc, schemaVersion: 10 }),
 };
 
 export class SaveMigrationError extends Error {

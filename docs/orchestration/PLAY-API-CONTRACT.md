@@ -10,7 +10,18 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.11.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.12.0"`
+
+> **v1.12.0 (additive MINOR, 2026-11-02 — new fields on existing action kinds; the play-weighted slice pw20):** each rides a kind a
+> driver already handles, so a driver that ignores them plays exactly as before (§3: "Additive fields on actions are MINOR"; §5).
+> - `"cast-spell"`: `retraceCast: { discardId }` and `retraceName` — a nonland permanent card cast from the graveyard with retrace
+>   (Six), the named land card discarded as the additional cost; `resolutionCast: true` — Conduit of Worlds' paid cast of the
+>   graveyard card as its ability resolves, offered at the free-cast window.
+> - `"tap-for-mana"`: `manualOnly: true` — an explicit-only mana ability, never part of an automatic payment (Lion's Eye Diamond,
+>   Arena of Glory's exert line); `discardsHand: true` — its cost discards the hand; `exertHaste: true` with `bundle: "exert"` — the
+>   exert line, its mana tagged with the haste rider.
+> - `"free-cast-decline"`: `paid: true` — the window offers a paid cast (Conduit of Worlds), so the decline reads "Don't cast it".
+> - No kind, decision or answer shape changed. (`escapeCast`, 2026-10, rode the same rule without a bump; this one follows the letter.)
 
 > **v1.11.0 (MINOR, 2026-11-01 — every throw in the driver is the same crash; a CLASSIFICATION change for two decisions):**
 > - v1.9.0's two engine faults — a step that throws (`guard` `"engine-error"`) and a seat with no legal action whose pass throws

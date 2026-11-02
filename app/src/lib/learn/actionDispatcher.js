@@ -457,6 +457,7 @@ function applyCastSpell(state, action) {
   let manaSpentByColor = null;
   let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
   let spentRiders = []; // SHELF-85 V11 (Path of Ancestry): taps whose mana carries a "when that mana is spent" rider
+  let paidHasteRider = false; // Arena of Glory (2026-11-02): the plan spent a tagged entry carrying "if any of that mana is spent on a creature spell, it gains haste until end of turn"
   if ((action.freeCast || action.altCost) && !costOwesMana(action.cost)) {
     working = state;
     if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; manaSpentByColor = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }; }
@@ -496,6 +497,7 @@ function applyCastSpell(state, action) {
     paidUncounterable = (plan.taps || []).some((t) => t.uncounterableIfSpent)
       || (plan.entrySpends || []).some(({ entry }) => !!rEntries[entry]?.restriction?.uncounterableIfSpent);
     spentRiders = (plan.taps || []).filter((t) => t.spentRider).map((t) => ({ permanentId: t.permanentId, rider: t.spentRider }));
+    paidHasteRider = (plan.entrySpends || []).some(({ entry }) => rEntries[entry]?.rider?.kind === "creatureSpellHasteEot");
   }
   // ⭐ CONVERGE — stamp the count on STATE, the same inter-atom channel `sacrificedForCost` uses, so a SPELL's
   // scaling atoms can read it at resolution (countForSpec's colorsSpentThisSpell kind). The permanent-ETB path
@@ -591,6 +593,17 @@ function applyCastSpell(state, action) {
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: gid });
     }
+  }
+  // RETRACE, GRANTED (Six — CR 702.81a): "discarding a land card as an additional cost", the land frozen on the action by legalChoices.
+  // It must still be a land card in the caster's hand: a retrace paid short is never cast. A discard paid as a cost is a discard
+  // (CR 701.9a) — its watchers fire.
+  if (action.retraceCast) {
+    const land = (working.players[action.playerId]?.hand || []).find((c) => c.id === action.retraceCast.discardId);
+    if (!land || !/\bLand\b/.test(String(land.type || land.type_line || "").split(" // ")[0])) {
+      throw new DispatcherError(`Retrace-cost land ${action.retraceCast.discardId} not in hand`, "CARD_NOT_IN_HAND");
+    }
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: land.id });
+    working = checkDiscardTriggers(working, action.playerId, [land.id]);
   }
   // The last-known values of the ONE permanent sacrificed to cast this spell (the single-victim branch below), kept so the
   // spell's own payload can carry them: null when this cast sacrificed nothing, or N permanents.
@@ -1034,6 +1047,11 @@ function applyCastSpell(state, action) {
     // to the entry as an enters-with replacement (CR 614.1c), where a counter doubler applies.
     const spentCounters = manaSpentEnterCounters(state, action, card, castCard, spentRiders);
     if (spentCounters > 0) params.manaSpentCounters = spentCounters;
+    // ARENA OF GLORY'S RIDER (2026-11-02 — manaModel's exert-haste entry): "If any of that mana is spent on a creature spell, it gains haste
+    // until end of turn." — a creature spell (the face being cast, CR 712.8c) any of it paid for gains haste, and so does the permanent it
+    // becomes (CR 400.7a); the resolver grants it on entry, for this turn only (`hasteUntilEndOfTurn` is the turn — a spell that resolves
+    // on a later turn enters without it, the effect having ended).
+    if (paidHasteRider && /\bCreature\b/.test(characteristicTypeLine(castCard))) params.hasteUntilEndOfTurn = state.turn;
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };
@@ -2292,6 +2310,17 @@ function applyCastSpellMaybeDiscover(state, action) {
   if (state.pendingFreeCast && action.freeCast) {
     const { pendingFreeCast: _drop, ...rest } = next;
     return rest;
+  }
+  // CONDUIT OF WORLDS (2026-11-02): the paid graveyard cast the window offered (`resolutionCast`) closes it; "If you do, you can't cast
+  // additional spells this turn" — the caster's turn-stamped all-spells lock (castLocksThisTurn — every cast lane reads it; the same
+  // record Silence writes, CR 101.2), on top of any lock already there this turn.
+  if (state.pendingFreeCast && action.resolutionCast) {
+    const pf = state.pendingFreeCast;
+    const { pendingFreeCast: _drop, ...rest } = next;
+    if (!pf.lockAfterCast) return rest;
+    const prev = rest.castLocksThisTurn?.[action.playerId];
+    const lock = { ...(prev && prev.turn === rest.turn ? prev : {}), turn: rest.turn, all: true };
+    return logEvent({ ...rest, castLocksThisTurn: { ...(rest.castLocksThisTurn || {}), [action.playerId]: lock } }, { kind: "cast-lock", playerId: action.playerId, all: true, sourceName: pf.sourceName || null });
   }
   // CASCADE (CR 702.85a) — a free-cast cast resolving a pendingCascade decision clears the flag (the "may" was
   // taken; the found card left exile onto the stack). The legalActionsForPlayer short-circuit guarantees that

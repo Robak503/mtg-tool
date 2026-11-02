@@ -42,7 +42,7 @@ import { collectCostReducers, resolveCastSiteReducers, playLandFromGraveyardPerm
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — withhold the attack the tax can't fund, per attack target (+ the Phyrexian life lane, Norn's Annex)
 import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
-import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy } from "./spellEffects.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy, cardMatchesGraveyardFilter } from "./spellEffects.js"; // + cardMatchesGraveyardFilter: the granted-retrace lane's "nonland permanent card" (2026-11-02)
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -113,7 +113,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities, escapeGrantsFor, retraceGrantsFor, boastTwiceFor } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, isLandAdventure, adventureFaceCard, permanentFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face (a Town's land face is played); pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -707,9 +707,28 @@ function actionsDiscoverDecision(state, playerId) {
 // e.g. an intervening discard) so a stale id never offers a phantom cast. Both the cast and the decline clear
 // pendingFreeCast in the dispatcher. An unmodeled candidate still offers a (no-op) free-cast — the engine's
 // consistent behavior for any unmodeled spell, identical to discover.
+/** Does a seat that counts `playerId` as an opponent hold "Your opponents can't cast spells from anywhere other than their hands" on
+ *  its battlefield (Drannith Magistrate — CR 604.2, 113.6)? The cast-from-hand-only lock both cast windows read. */
+function castFromHandOnlyLocked(state, playerId, lossy = boardHasAbilityLoss(state)) {
+  return Object.keys(state.players).some((pid) => pid !== playerId && opponentsOf(state, pid).includes(playerId)
+    && (state.players[pid].battlefield || []).some((perm) => castFromHandOnlyLockOf(lossy ? withAbilityLoss(state, perm) : perm.card) != null));
+}
+
 function actionsFreeCastDecision(state, playerId) {
   const pf = state.pendingFreeCast;
   if (!pf || pf.controller !== playerId) return [];
+  // CONDUIT OF WORLDS (2026-11-02 — effects/atoms/freeCast.applyGraveyardResolutionCast): a PAID cast of the parked graveyard card as
+  // the ability resolves — the shared builder from the graveyard at its own costs, timing set aside (CR 608.2g: cast during the
+  // resolution, following 601.2a–i), each cast marked `resolutionCast` (the dispatcher clears the window and applies the lock); the
+  // decline is the window's own, marked `paid` (its label). A cast-from-hand-only lock on the player (Drannith Magistrate) leaves
+  // only the decline.
+  if (pf.fromZone === "graveyard" && pf.paid) {
+    const ids = new Set(pf.candidateIds || []);
+    const candidates = castFromHandOnlyLocked(state, playerId) ? [] : (state.players[playerId]?.graveyard || []).filter((c) => ids.has(c.id));
+    const casts = candidates.flatMap((card) => castActionsFromZone(state, playerId, [card], "graveyard", null, false, { ignoreTiming: true }))
+      .map((a) => ({ ...a, resolutionCast: true }));
+    return [...casts, { kind: "free-cast-decline", playerId, paid: true }];
+  }
   const hand = state.players[playerId]?.hand || [];
   const ids = new Set(pf.candidateIds || []);
   const candidates = hand.filter((c) => ids.has(c.id));
@@ -1273,7 +1292,9 @@ const MULTIKICK_OFFER_CAP = 20;
 // `manaValue` (options): the spell's mana value when the card handed in carries an ALTERNATIVE cost as its mana cost — the flashback
 // lane projects a face whose `mana` is the flashback cost — so the cost readers judge the card's own mana value (CR 118.9c), never
 // the alternative cost's. Omitted, the mana value is the handed-in card's mana cost.
-function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false, { manaValue: manaValueOverride = null } = {}) {
+// `ignoreTiming` (2026-11-02 — Conduit of Worlds): a cast an effect makes as it resolves (CR 608.2g) — the casting steps without the
+// timing permission a normal cast needs; a free cast already skips that gate.
+function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false, { manaValue: manaValueOverride = null, ignoreTiming = false } = {}) {
   const player = state.players[playerId];
   const actions = [];
   // ALT-COST OFFER: cardId → { alt, payments, affordable } for every alt-carrier in this enumeration.
@@ -1378,7 +1399,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // lane reaches it through here (hand, command zone, graveyard, exile), so a commander cast offers both faces with its tax.
     if (parseSpellModalDfc(card) && isNativeTier(classifyCard(card))) { // (a face's own oracle has no "//", so a face never re-expands)
       for (const face of spellMdfcFaceCards(card)) {
-        for (const a of castActionsFromZone(state, playerId, [face], fromZone, taxFn, freeCast)) actions.push({ ...a, faceCard: face });
+        for (const a of castActionsFromZone(state, playerId, [face], fromZone, taxFn, freeCast, { ignoreTiming })) actions.push({ ...a, faceCard: face });
       }
       continue;
     }
@@ -1394,7 +1415,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);
-    if (!freeCast && !timingOk) continue;
+    if (!freeCast && !ignoreTiming && !timingOk) continue;
     // SAVAGE BEATING (KT-6): a program-level cast window ("Cast this spell only during combat on your turn") — unmet → never offered
     if (!castTimingAllows(state, playerId, card)) continue;
     // ④-E (Nikya of the Old Ways / Nullhide Ferox — CR 604.2): "You can't cast noncreature spells." — the caster's
@@ -4106,6 +4127,38 @@ function actionsCastEscapeFromGraveyard(state, playerId) {
 }
 
 /**
+ * RETRACE, GRANTED (the play-weighted program, 2026-11-02 — Six: "During your turn, nonland permanent cards in your graveyard have
+ * retrace."; CR 702.81a: "You may cast this card from your graveyard by discarding a land card as an additional cost to cast it").
+ * While the player controls a grant that applies now (retraceGrantsFor — on their own turn), each nonland permanent card in their
+ * graveyard (its front face, CR 712.8a) may be cast from there through the SHARED builder (fromZone "graveyard": its mana cost, its
+ * own additional and alternative costs, its normal timing — CR 601.2b, 601.2f–h), plus discarding one land card from their hand.
+ *  • The land is frozen at the offer — a basic land first, then by name and id — never a card the spell's own discard cost names;
+ *    the action names it (`retraceName`). Other choices of land are under-offered (the escape precedent — the safe direction).
+ *  • No land card in hand → nothing to discard → no retrace cast (the cost can't be paid, CR 601.2h).
+ * The dispatcher discards it as the cost is paid (CR 701.9a — a discard, whatever the reason). A countered spell cast this way goes
+ * back to its owner's graveyard (its bundled ruling — it may be retraced again).
+ */
+const retraceLandCmp = (a, b) => (/\bBasic\b/.test(typeLineOf(b)) - /\bBasic\b/.test(typeLineOf(a)))
+  || _cmpStr(String(a.name || ""), String(b.name || "")) || _cmpStr(String(a.id || ""), String(b.id || ""));
+function actionsCastRetraceFromGraveyard(state, playerId) {
+  const grants = retraceGrantsFor(state, playerId);
+  if (!grants.some((g) => g.filter === "nonlandPermanent")) return [];
+  const player = state.players[playerId];
+  const lands = (player.hand || []).filter((c) => c && isLand(c)).sort(retraceLandCmp);
+  if (!lands.length) return [];
+  const eligible = (player.graveyard || []).filter((c) => c && cardMatchesGraveyardFilter(c, { typeFilter: "permanent", nonland: true }, state, playerId));
+  if (!eligible.length) return [];
+  const actions = [];
+  for (const a of castActionsFromZone(state, playerId, eligible, "graveyard", null, false)) {
+    const taken = new Set([a.discardCardId, ...(a.discardIds || [])].filter(Boolean));
+    const land = lands.find((c) => !taken.has(c.id));
+    if (!land) continue;
+    actions.push({ ...a, retraceCast: { discardId: land.id }, retraceName: `retrace: discard ${land.name}` });
+  }
+  return actions;
+}
+
+/**
  * GRAVEYARD CAST PERMISSION (shelf D30 — Emry, Lurker of the Loch: "Choose target artifact card in your graveyard. You may cast
  * that card this turn."): each card in THIS player's graveyard holding a permission for THIS turn (state.gyCastPermissions — keyed by card id,
  * ended by any graveyard event for the card, CR 400.7) is castable from the graveyard through the SHARED builder, so its full
@@ -5035,6 +5088,7 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
     actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
     actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
     actions.push(...actionsCastEscapeFromGraveyard(state, playerId)); // ESCAPE, GRANTED (CR 702.138a, P·29 — Underworld Breach): mana cost + exile three other graveyard cards
+    actions.push(...actionsCastRetraceFromGraveyard(state, playerId)); // RETRACE, GRANTED (CR 702.81a — Six): its costs + discard a land card, on its controller's turn
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
@@ -5070,7 +5124,7 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
   // fromZone is not "hand" is withheld: flashback and other graveyard casts, exile casts (adventure step 2, plot, suspend,
   // impulse, discover), the COMMAND-zone commander cast, the library-top cast. Land plays are not casts and stay; the lock's
   // own controller is untouched. Always on — no turn window (unlike the Grand Abolisher family above).
-  if (Object.keys(state.players).some((pid) => pid !== playerId && opponentsOf(state, pid).includes(playerId) && (state.players[pid].battlefield || []).some((perm) => castFromHandOnlyLockOf(lossyCast ? withAbilityLoss(state, perm) : perm.card) != null))) {
+  if (castFromHandOnlyLocked(state, playerId, lossyCast)) {
     for (let i = actions.length - 1; i >= 0; i--) {
       if (actions[i].kind === "cast-spell" && actions[i].fromZone !== "hand") actions.splice(i, 1);
     }

@@ -75,7 +75,7 @@ import { isNativeKira } from "./kiraTargetCounter.js";
 import { chosenCardTypeReducer, chosenCardTypeResidue } from "./chosenCardType.js"; // CLOUD KEY — the card-type chooser + its reducer, the reader the cast lane's descriptor comes from (a leaf over the zero-import choicePolicy)
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, groupPreventPutCountersOf, attachedExceptByOf } from "./combatEvasion.js";
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
-import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction, landLineMana } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
+import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction, landLineMana, discardHandManaLineOf } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
 // descriptor), _registry is cardEffects.REGISTRY (the green-mana retention descriptor). Both are leaf
@@ -5597,3 +5597,12 @@ export function isNativeBestow(card) {
 // Native tier: a bestow creature plays via the AURA attach machinery (its defining mode), so it shares the
 // "native-aura" tier — the metric counts EXACTLY the bestow cards the runtime attaches + plays natively.
 registerCoverageClassifier((card) => (isNativeBestow(card) ? "native-aura" : null));
+
+// LION'S EYE DIAMOND (the play-weighted program, 2026-11-02): "Discard your hand, Sacrifice this artifact: Add three mana of any one
+// color. Activate only as an instant." — the whole card one line, read by the runtime's own reader (manaModel.discardHandManaLineOf):
+// never a planner source (it can't be activated mid-cast), the explicit tap with priority (manaModel.manualOnlyManaRecords), its
+// costs paid by commitManaTap. A noncreature artifact only — an artifact creature's body would want more than this reader vouches.
+registerCoverageClassifier((card) => {
+  const type = String(card?.type || card?.type_line || "");
+  return /\bArtifact\b/.test(type) && !/\bCreature\b/.test(type) && discardHandManaLineOf(card) ? "native-mana" : null;
+});

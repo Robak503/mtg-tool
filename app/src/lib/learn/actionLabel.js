@@ -153,7 +153,11 @@ function kindLabel(o, seat) {
     }
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
     case "pass-priority": return "Pass";
-    case "tap-for-mana": return `Tap ${o.name || "a land"} for mana`;
+    // The explicit-only mana abilities (2026-11-02 — manaModel.manualOnlyManaRecords) say their costs: they are plays, not the auto-tap.
+    case "tap-for-mana":
+      if (o.discardsHand) return `Sacrifice ${o.name || "it"} and discard ${your} hand: add {${o.color}}{${o.color}}{${o.color}}`;
+      if (o.exertHaste) return `Exert ${o.name || "it"}: pay {${o.color}}, add {${o.color}}{${o.color}} (a creature spell it pays for gains haste)`;
+      return `Tap ${o.name || "a land"} for mana`;
     // An Equipment's equip text carries its own cost ("Equip {1}"), so it isn't repeated.
     case "activate-ability": return abilityLabel(`Activate ${o.name}`, o, o.isEquipAbility ? "" : activationCostText(o, seat));
     case "activate-loyalty": {
@@ -177,7 +181,7 @@ function kindLabel(o, seat) {
     case "turn-face-up": return `Turn ${o.name} face up (${manaCostText(o.cost)})`;
     case "companion-to-hand": return `Put companion ${o.name} into ${your} hand (${manaCostText(o.cost)})`;
     case "discover-to-hand": return o.leaveExiled ? `Leave ${o.name || "it"} in exile` : `Put ${o.name || "it"} into ${your} hand`;
-    case "free-cast-decline": return "Decline the free cast";
+    case "free-cast-decline": return o.paid ? "Don't cast it" : "Decline the free cast"; // paid: Conduit of Worlds' cast as its ability resolves (2026-11-02)
     case "cascade-decline": return "Decline the cascade cast";
     case "cast-from-among-done": return "Done casting from among the exiled cards";
     // A game-log record, not a dispatcher action: the colour a person chose for "protection from the color of your choice".

@@ -3320,6 +3320,13 @@ function parseClause(clause, out, selfName, selfType) {
       return;
     }
   }
+  // GRANTED RETRACE (the play-weighted program, 2026-11-02 — Six: "During your turn, nonland permanent cards in your graveyard have
+  // retrace."; CR 702.81a — "You may cast this card from your graveyard by discarding a land card as an additional cost to cast it").
+  // A marker; retraceGrantsFor reads it during its controller's own turn and legalChoices offers each such card's graveyard cast.
+  if (/^during your turn, nonland permanent cards in your graveyard have retrace$/.test(c)) {
+    out.push({ grantRetrace: { filter: "nonlandPermanent", duringYourTurn: true } });
+    return;
+  }
   if (/^if a creature an opponent controls would die, exile it instead$/.test(c)) {
     out.push({ exileOpponentCreaturesOnDeath: true });
     return;
@@ -7525,6 +7532,22 @@ export function escapeGrantsFor(state, playerId) {
     const cost = statics.find((d) => d.grantEscapeCost)?.grantEscapeCost;
     if (!cost) continue;
     for (const d of statics) if (d.grantEscape) grants.push({ filter: d.grantEscape.filter, exileCount: cost.exileCount });
+  }
+  return grants;
+}
+
+/** The retrace grants `playerId` controls that apply NOW (Six: "During your turn, nonland permanent cards in your graveyard have
+ *  retrace." — CR 702.81a): one `{ filter }` per granting permanent, only on `playerId`'s own turn for a "during your turn" grant.
+ *  legalChoices offers the retrace casts from it. */
+export function retraceGrantsFor(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan
+  const grants = [];
+  for (const perm of state.players[playerId]?.battlefield || []) {
+    for (const d of parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card))) {
+      if (!d.grantRetrace) continue;
+      if (d.grantRetrace.duringYourTurn && state.activePlayer !== playerId) continue;
+      grants.push({ filter: d.grantRetrace.filter, sourceId: perm.id });
+    }
   }
   return grants;
 }

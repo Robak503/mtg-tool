@@ -149,7 +149,7 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
   it("every hand→graveyard move site fires the discard event", () => {
     const files = [
       "effects/atoms/hand.js", "effects/atoms/connive.js", "effects/atoms/iteratedEdict.js",
-      "effects/runProgram.js", "../../lib/learn/actionDispatcher.js",
+      "effects/runProgram.js", "../../lib/learn/actionDispatcher.js", "manaModel.js",
     ];
     const MOVE = 'fromZone: "hand", toZone: "graveyard"';
     let sites = 0;
@@ -176,7 +176,11 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
     // 14 → 15 on 2026-10-17: actionDispatcher.applyActivateAbility's counted discard cost ("Discard two cards" — Solphim, Mayhem
     // Dominus). Tripwire fired; `unwired` stayed empty — each card's move is followed by checkDiscardTriggers. Count moves,
     // invariant holds.
-    expect(sites).toBe(15);      // if this changes, a discard site was added or removed — read the diff
+    // 15 → 17 on 2026-11-02 (the play-weighted slice): actionDispatcher's granted-retrace land discard (Six — "discarding a land card as
+    // an additional cost", CR 702.81a) and manaModel.commitManaTap's "Discard your hand" (Lion's Eye Diamond) — manaModel.js joins the
+    // scanned files with it, the first mana-ability discard. Tripwire fired; `unwired` stayed empty — each move is followed by
+    // checkDiscardTriggers within the window. Count moves, invariant holds.
+    expect(sites).toBe(17);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

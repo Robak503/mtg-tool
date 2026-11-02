@@ -661,6 +661,14 @@ const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 // loseLife tallies this ledger only when its `combatDamage` flag is defined — which exactly the two
 // damage callers pass and no non-damage loss does. Absent tally = 0 = false (fail-closed).
 const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
+// "an opponent was dealt N or more damage this turn" (the play-weighted program — Spinerock Knoll's hideaway play: "{R}, {T}: You may
+// play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."): the SAME damage-only
+// ledger, one opponent's turn total against N (CR 120.3; its bundled ruling — "It doesn't matter how the opponent was dealt damage or
+// by whom, as long as the total damage is 7 or more"). A player who left the game this turn still counts if they were an opponent
+// (the ruling: "a player who was your opponent at the time they left the game"): their seat is gone, so removePlayerFromGame keeps
+// their turn total on `departedDamageThisTurn` (playerLeavesGame.js). Infect damage to a player is poison, not a loseLife call, so it
+// is not on the ledger — an under-read (the bloodthirst read shares it), never a credit the board doesn't hold.
+const OPP_DEALT_N_DAMAGE_RE = new RegExp(`^an opponent was dealt ${NUM_RE} or more damage this turn$`);
 
 // ===== THE TRAP CONDITIONS (shelf D17, 2026-09-30 — the Zendikar Trap cycle's "If <condition>, you may pay <cost> rather than
 // pay this spell's mana cost") ===== each an existential over the condition controller's OPPONENTS read off a per-seat,
@@ -1103,6 +1111,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // OPPONENT-DEALT-DAMAGE (KW-BLOODTHIRST) — the DAMAGE-only sibling of the life-loss read above.
   if (OPP_DEALT_DAMAGE_RE.test(c)) {
     return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.damageTakenThisTurn || 0) >= 1);
+  }
+  {
+    const m = c.match(OPP_DEALT_N_DAMAGE_RE);
+    if (m) {
+      const n = parseCount(m[1]);
+      if (n == null) return null;
+      if (opponentIds(state, controllerId).some((pid) => (state.players[pid]?.damageTakenThisTurn || 0) >= n)) return true;
+      // A departed seat was every remaining player's opponent (no teams in the engine's multiplayer).
+      return (state.departedDamageThisTurn || []).some((d) => d.turn === state.turn && d.playerId !== controllerId && d.amount >= n);
+    }
   }
   // EXCESS-DAMAGE (Rith — CR 120.4a): the ledger read. Turn-matched (a stale ledger is false), scoped to
   // the condition controller's OPPONENTS (the ledger stores the damaged creature's controller).

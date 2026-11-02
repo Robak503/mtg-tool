@@ -3533,6 +3533,10 @@ function singleCastSpellFilter(f) {
   // into the colour list would make every colourless spell match every colour.
   if (SPELL_COLOR_LETTER[f]) return `color:${SPELL_COLOR_LETTER[f]}`;
   if (f === "colorless") return "colorless";
+  // OUTLAW (CR 700.12 — "an outlaw spell": Double Down, 2026-11-02): the umbrella for five creature subtypes, never a type-line word,
+  // so the subtype form below read it as "subtype:Outlaw" and matched no spell (a trigger that never fired). Any of the five on the
+  // spell's type line, or a spell that is every creature type (a changeling — the typed filter's every-type read).
+  if (f === "outlaw") return { kind: "typed", words: [...OUTLAW_SUBTYPE_LIST] };
   // CAST-SUBTYPE — a single bare word that's a real subtype (not in the denylist) → match the cast spell's
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
@@ -10720,7 +10724,11 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         } else if (!spellMatchesFilter(d.spellFilter, spellCard, castEvery, castMv)) {
           continue;
         }
-        fired.push(makePendingTrigger(d, watcher, null, context));
+        // "COPY THAT SPELL" (Reflections of Littjara, 2026-11-02): the spell as it was cast rides the trigger as its last known
+        // information (CR 608.2h) — the copy atom reads the live stack object first and this only if the spell has left the stack.
+        const copyThat = /^copy that spell\.?$/i.test(String(d.effectClause || "").trim());
+        const castObj = copyThat && stackObjectId ? (state.stack || []).find((o) => o.id === stackObjectId) : null;
+        fired.push(makePendingTrigger(d, watcher, null, castObj ? { ...context, castSpellSnapshot: { id: castObj.id, source: castObj.source, targets: castObj.targets || [], payload: castObj.payload } } : context));
       }
     }
     // ===== GY-FUNCTIONING cast triggers (the Eidolon cycle, CR 603.3d) ===== scan this player's GRAVEYARD

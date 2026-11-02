@@ -144,6 +144,19 @@ describe("cascade resolver — exile from top until a nonland that COSTS LESS th
     expect(st.players.user.exile).toHaveLength(0);
   });
 
+  // A double-faced card in the library has only its front face's characteristics (CR 712.8a): a spell front with a land back is a
+  // NONLAND card there — Bloodbraid Elf (MV 4) cascading over Shatterskull Smashing (MV 2) finds it, not the Shock below; a land front
+  // (Westvale Abbey) is a land. Bundled oracle (cardIndex.publicCard → mergeCardData). Before 2026-11-02 the whole "Front // Back"
+  // type line was read, and the Smashing was skipped as "a land".
+  it("a modal double-faced card with a land BACK is a nonland card in the library (CR 712.8a): Shatterskull Smashing is found, not Shock", () => {
+    const SMASHING = {"name":"Shatterskull Smashing // Shatterskull, the Hammer Pass","type":"Sorcery // Land","mana":"{X}{R}{R}","oracle":"Shatterskull Smashing - Sorcery {X}{R}{R}\nShatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.\n//\nShatterskull, the Hammer Pass - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.","layout":"modal_dfc","cmc":2,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":[],"colorIdentity":["R"]}; // EDHREC #1407
+    const SHOCK = {"name":"Shock","type":"Instant","mana":"{R}","oracle":"Shock deals 2 damage to any target.","layout":"normal","cmc":1,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["R"],"colorIdentity":["R"]}; // EDHREC #2215
+    const WESTVALE = {"name":"Westvale Abbey // Ormendahl, Profane Prince","type":"Land // Legendary Creature — Demon","mana":"","oracle":"Westvale Abbey - Land \n{T}: Add {C}.\n{5}, {T}, Pay 1 life: Create a 1/1 white and black Human Cleric creature token.\n{5}, {T}, Sacrifice five creatures: Transform this land, then untap it.\n//\nOrmendahl, Profane Prince - Legendary Creature — Demon \nFlying, lifelink, indestructible, haste","layout":"transform","cmc":0,"power":null,"toughness":null,"loyalty":null,"keywords":["Flying","Lifelink","Indestructible","Transform","Haste"],"colors":[],"colorIdentity":["B"]}; // EDHREC #1496
+    const st = cascade(stateWithLibrary([{ ...WESTVALE, id: "wa" }, { ...SMASHING, id: "ss" }, { ...SHOCK, id: "sh" }, land("l1", "Plains")]), 4);
+    expect({ found: st.pendingCascade?.cardId, exile: st.players.user.exile.map((c) => c.name), library: st.players.user.library.map((c) => c.name) })
+      .toEqual({ found: "ss", exile: ["Shatterskull Smashing // Shatterskull, the Hammer Pass"], library: ["Shock", "Plains", "Westvale Abbey // Ormendahl, Profane Prince"] });
+  });
+
   it("a missing cap (defensive — never the real path) is treated as 0 → a safe whiff, never an uncapped hit", () => {
     const st = resolveAtom(stateWithLibrary([creature("c1", "Beast", 1)]), { op: "cascade", targetType: null }, { controller: "user", targets: [] });
     expect(st.pendingCascade).toBeFalsy();

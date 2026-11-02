@@ -386,7 +386,16 @@ export function observe(state, seat) {
 //     an error rather than that moving to the next step failed.
 //   - Unchanged: under MTG_AUDIT=1 the outer guard rethrows; the loop's own catches (the step's, the no-legal-action pass's, an
 //     auto-decided dispatch's) convert in every mode — an AUDIT_VIOLATION inside an AI's dispatch is that catch's dispatch-error.
-export const PLAY_API_VERSION = "1.11.0";
+// 1.12.0 (additive MINOR — new fields on existing action kinds, 2026-11-02, the play-weighted slice pw20):
+//   - "cast-spell": `retraceCast: { discardId }` + `retraceName` (a nonland permanent card cast from the graveyard with retrace, Six
+//     — the land card discarded as its additional cost); `resolutionCast: true` (Conduit of Worlds' paid cast of the graveyard card
+//     as its ability resolves, from the free-cast window).
+//   - "tap-for-mana": `manualOnly: true` (an explicit-only mana ability — never part of an automatic payment: Lion's Eye Diamond, Arena
+//     of Glory's exert line); `discardsHand: true` (its cost discards the hand); `exertHaste: true` with `bundle: "exert"` (the exert
+//     line, its mana tagged with the haste rider).
+//   - "free-cast-decline": `paid: true` (the window offers a paid cast — Conduit of Worlds; the decline's label).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
+export const PLAY_API_VERSION = "1.12.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

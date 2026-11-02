@@ -26,7 +26,7 @@
  */
 
 import { detectArchetype } from "../goldfish.js";
-import { filterActions, parseManaCost, offeredPaymentPlan, abilityTargetsCombatRole, abilityTargetsStackAbility, COMBAT_WINDOW_STEPS } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
+import { filterActions, legalActionsForPlayer, parseManaCost, offeredPaymentPlan, abilityTargetsCombatRole, abilityTargetsStackAbility, COMBAT_WINDOW_STEPS } from "./legalChoices.js"; // + offeredPaymentPlan: the plan the dispatcher pays an action with — the AI's ward read pays it first (wardCountersAction)
 import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields, nextInTurnOrder, cardSelfPreventsUntap } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read); + nextInTurnOrder: whose turn comes next, cardSelfPreventsUntap: a source that stays tapped (the end-step sink)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
@@ -34,7 +34,7 @@ import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCre
 import { protectionColorPick, stackObjectProtectionColors } from "./protectionChoice.js"; // the colour a "protection from the color of your choice" grant takes at resolution (the threats on the stack first) — previewed by pickSaveInResponse; + the colours protection judges a harming source by
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
-import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
+import { manaProduction, manaSources, canAfford, commitPaymentPlan, costReservedPermanentIds, costOwesMana, manualManaTaps } from "./manaModel.js"; // + the ward read's cost preview: the dispatcher's commit, its set-aside permanents, its owes-mana test
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, maxBlocksFor, selfCantAttackNow, mayAssignAsUnblocked } from "./combatEvasion.js";
 import { selfMustAttack, requiredAttackerIds, obeyingAttackOptions } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the check legalChoices keeps every seat to
 import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack policy — what one more attack at a planeswalker costs (CR 508.1h), per target
@@ -511,6 +511,9 @@ function pickCounterCast(state, aiPlayerId, actions) {
     if (!t || t.type !== "spell") continue;
     const obj = spellById.get(t.id);
     if (!obj || !enemies.has(obj.controller)) continue; // unknown stack object or OUR OWN spell → never
+    // A spell that can't be countered is offered as a target only to a counter whose rider still happens (Tibalt's Trickery, whose
+    // rider hands that spell's controller a free spell): never aimed at it — it would stay and its controller would gain.
+    if (stackSpellIsUncounterable(state, obj)) continue;
     const cost = castCostTotal(obj.cost);
     // ALT-COST: a PAID alternative cost (pitch a card / pay life / sac / bounce lands — never the free
     // kind) is a built-in 2-for-1 — it only answers a genuinely scary threat (≥5 mana), so the AI never
@@ -1495,8 +1498,97 @@ function pickTargetedSpell(state, aiPlayerId, actions, pol = {}) {
  * a targeted spell entirely when there's no good target (so the AI never
  * burns/destroys its own creatures). Returns null if nothing worth casting.
  */
+/**
+ * THE DISCARD-HAND MANA LINE (Lion's Eye Diamond, 2026-11-02 — manaModel.discardHandManaLineOf: "Discard your hand, Sacrifice this
+ * artifact: Add three mana of any one color. Activate only as an instant."). The Diamond is only ever the explicit tap (never a
+ * payment's source), and its cost is the whole hand, so the AI takes it only when that costs nothing and buys something: in its own
+ * main phase with the stack empty, with NO card in hand, when the three mana of one colour make a commander in its command zone
+ * castable that it cannot cast now (the mana cost plus the commander tax, CR 903.8; canAfford over the floating pool plus the three
+ * and its other sources). The cast follows by its ordinary cast pick, the mana floating (CR 106.4). The colour is the first, in WUBRG
+ * order, that makes the cast payable. null otherwise — the Diamond waits.
+ */
+function discardHandManaLineAction(state, aiPlayerId, actions) {
+  if (state.activePlayer !== aiPlayerId || state.step !== "main" || (state.stack || []).length > 0) return null;
+  const player = state.players?.[aiPlayerId];
+  if (!player || (player.hand || []).length > 0) return null;
+  const leds = actions.filter((a) => a.kind === "tap-for-mana" && a.discardsHand);
+  if (!leds.length) return null;
+  const castable = new Set(actions.filter((a) => a.kind === "cast-spell").map((a) => a.cardId));
+  const sources = manaSources(state, aiPlayerId);
+  const counts = player.commanderCastCount || {};
+  for (const card of player.command || []) {
+    if (castable.has(card.id) || !String(card.mana || card.mana_cost || "").trim()) continue;
+    const cost = parseManaCost(String(card.mana || card.mana_cost));
+    const taxed = { ...cost, generic: (cost.generic || 0) + 2 * (counts[card.commanderInstanceId || card.id] || 0) };
+    for (const a of leds) {
+      const pool = { ...(player.manaPool || {}), [a.color]: ((player.manaPool || {})[a.color] || 0) + (a.amount ?? 3) };
+      if (canAfford(pool, sources.filter((s) => s.permanentId !== a.permanentId), taxed, lifePaymentContext(state, aiPlayerId))) return a;
+    }
+  }
+  return null;
+}
+
+/**
+ * THE EXERT-HASTE LINE (Arena of Glory, 2026-11-02 — manaModel.exertHasteManaLineOf: "{R}, {T}, Exert this land: Add {R}{R}. If any of
+ * that mana is spent on a creature spell, it gains haste until end of turn."). The line is only ever the explicit tap (its pip paid
+ * from floating mana) and nets nothing over the land's plain tap, so it is worth exactly the haste: taken in the AI's precombat main
+ * with the stack empty, when the cast its cast picker would make now is a creature spell that would gain from haste (printed power 1
+ * or more, no haste or defender of its own) and that stays payable after the line (canAfford over the pool, the tagged {R}{R} and
+ * the sources left once the funding source and the land are tapped). One action per decision: float the pip from another source
+ * that makes it (a plain tap — never the exert land, never a sacrifice), then exert the land; the cast follows by the ordinary cast
+ * pick, which spends the tagged mana first (the payment pre-pass). null otherwise.
+ */
+function exertHasteLineAction(state, aiPlayerId, actions, casts, archetype, pol) {
+  if (state.activePlayer !== aiPlayerId || state.phase !== "precombat-main" || state.step !== "main" || (state.stack || []).length > 0) return null;
+  const lines = manualManaTaps(state, aiPlayerId).filter((r) => r.exertHaste);
+  if (!lines.length) return null;
+  const aiDeck = { cards: deriveDeckRepresentation(state, aiPlayerId) };
+  const pick = pickCastAction(state, aiPlayerId, casts, archetype || detectArchetype(aiDeck, {}).archetype, pol);
+  _lastCastRanking = null; // a probe of the cast this line would serve — not this tick's decision
+  if (!pick) return null;
+  const card = pick.faceCard || cardFromHand(state, aiPlayerId, pick.cardId, pick.fromPlayerId);
+  const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (!card || !/\bCreature\b/.test(front) || !(Number(card.power) >= 1)) return null;
+  if ((card.keywords || []).some((k) => /^(haste|defender)$/i.test(k))) return null;
+  const player = state.players[aiPlayerId];
+  const pool = player.manaPool || {};
+  const ctx = { castCard: card, isCommander: pick.fromZone === "command", ...lifePaymentContext(state, aiPlayerId) };
+  for (const line of lines) {
+    // The tagged mana must be able to pay part of the creature's cost (a pip of its colour, a hybrid side, or generic) — else the
+    // creature gains nothing and the land is exerted for no haste (a {G} Avacyn's Pilgrim beside Arena's {R}{R}: A/B game 55, hold 1).
+    const c = pick.cost || {};
+    if (!((c[line.color] || 0) > 0 || (c.generic || 0) > 0 || (c.hybrid || []).some((h) => (Array.isArray(h) ? h : []).includes(line.color)))) continue;
+    const entry = { pool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, [line.color]: line.amount ?? 2 }, restriction: null, rider: { kind: "creatureSpellHasteEot" } };
+    const offered = actions.find((a) => a.kind === "tap-for-mana" && a.exertHaste && a.permanentId === line.permanentId);
+    const pip = Object.entries(line.activationCost || {}).find(([c, n]) => /^[WUBRG]$/.test(c) && n > 0)?.[0];
+    if (!pip) continue;
+    // 2 — the pip floats: exert the land, if the creature is still payable with the tagged mana and the sources left.
+    if (offered) {
+      const afterPool = { ...pool, [pip]: (pool[pip] || 0) - 1 };
+      const left = manaSources(state, aiPlayerId).filter((s) => s.permanentId !== line.permanentId);
+      if (canAfford(afterPool, left, pick.cost, { ...ctx, restrictedEntries: [...(player.restrictedMana || []), entry] })) return offered;
+      continue;
+    }
+    // 1 — float the pip from another source's plain tap of that colour, keeping the creature payable after both steps.
+    const funders = actions.filter((a) => a.kind === "tap-for-mana" && a.color === pip && a.permanentId !== line.permanentId && !a.manualOnly
+      && !a.sacrifices && !a.activationCost && !a.payLifeCost && !a.painLife && (a.amount ?? 1) === 1);
+    for (const f of funders) {
+      const left = manaSources(state, aiPlayerId).filter((s) => s.permanentId !== line.permanentId && s.permanentId !== f.permanentId);
+      if (canAfford(pool, left, pick.cost, { ...ctx, restrictedEntries: [...(player.restrictedMana || []), entry] })) return f;
+    }
+  }
+  return null;
+}
+
 function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
   if (castActions.length === 0) return null;
+  // RETRACE LAST (Six, 2026-11-02): a granted-retrace cast costs a land card from hand on top of its mana, which the scoring below
+  // doesn't price, so it is weighed only when no other cast is picked (A/B game 59, hold 1: Teval retraced Llanowar Elves, discarding
+  // Mistrise Village, over a hand spell).
+  if (castActions.some((a) => a.retraceCast) && castActions.some((a) => !a.retraceCast)) {
+    return pickCastAction(state, aiPlayerId, castActions.filter((a) => !a.retraceCast), archetype, pol)
+      || pickCastAction(state, aiPlayerId, castActions.filter((a) => a.retraceCast), archetype, pol);
+  }
 
   const byCard = new Map();
   for (const action of castActions) {
@@ -1521,7 +1613,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
     // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
     // the combined card, so the pick reflects what will really resolve.
-    const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId, actions[0].fromPlayerId);
+    // A GRANTED-RETRACE cast (Six, 2026-11-02) and Conduit of Worlds' cast as its ability resolves (`resolutionCast`) name a card in
+    // the AI's own graveyard, which cardFromHand does not read (no other graveyard cast reaches the AI through it — found-not-fixed);
+    // these two lanes alone are resolved there. A retrace's land discard is a land card the AI has left after its land drop
+    // (pickAction plays the land first).
+    const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId, actions[0].fromPlayerId)
+      || ((actions[0].retraceCast || actions[0].resolutionCast) && actions[0].fromZone === "graveyard" ? (state.players[aiPlayerId]?.graveyard || []).find((c) => c.id === cardId) || null : null);
     if (!card) continue; // card vanished
     // PLAY-HINTS (default-off — docs/orchestration/PLAY-HINTS-LEDGER.md): pol.playHints threads the
     // ledger map (or `true` for pure derivation). lookupPlayHint is TOTAL — ledger entry first, derived
@@ -2119,9 +2216,35 @@ function pickEquipAction(state, aiPlayerId, equipActions) {
  *     modal/X choice (each of those is a real cost the AI can't yet value);
  *   - it either taps the source or costs ≥1 mana — the per-turn TERMINATION bound (a free
  *     non-tapping ability would be re-offered forever).
- * Rank: draw > token > scry/surveil > lifegain, then cheapest, then name/id — deterministic.
+ * Rank: hideaway play > draw > token > scry/surveil > lifegain, then cheapest, then name/id — deterministic.
+ * HIDEAWAY PLAY (CR 702.75 — Spinerock Knoll, Mosswort Bridge, Windbrisk Heights, Clive's Hideaway: "{c}, {T}: You may play the
+ * exiled card without paying its mana cost if <condition>."): offered only while a hidden NONLAND card waits and the condition holds
+ * (hideaway.hideawayPlayOfferable), so the activation always parks a free cast of a real card; whether to cast it is the AI's own
+ * decision at the parked choice (a decline leaves it exiled for a later turn). Before 2026-11-02 no AI seat ever activated one.
+ * The activation is taken only when that decision would cast the card (hideawayPlayWouldCast): a held card (a Counterspell with nothing
+ * to counter, a Fog outside combat, a Wrath of God over its own board) or a cast lock that leaves the window nothing to cast would have
+ * the AI pay the cost and tap the land for nothing, every turn the condition holds.
  */
-const SAFE_ABILITY_OPS = new Map([["draw", 0], ["create-token", 1], ["scry", 2], ["surveil", 2], ["gain-life", 3]]);
+const SAFE_ABILITY_OPS = new Map([["hideaway-play", -1], ["draw", 0], ["create-token", 1], ["scry", 2], ["surveil", 2], ["gain-life", 3]]);
+/**
+ * Would the AI cast the card a hideaway land's play would hand it? The window it parks (hideaway.applyHideawayPlay — the discover
+ * decision over the hidden card, a decline leaving it in exile) previewed on the board as it is now: the window's own cast actions
+ * (legalActionsForPlayer — every cast lock, timing set aside as the resolution allows), the ward drop, and the very pick pickAction's
+ * discover branch makes. The preview skips the activation's own cost ({G}, {T}): a free cast's choice doesn't read the mana spent on
+ * the ability. A probe, not this tick's decision (`_lastCastRanking` left as it was).
+ */
+function hideawayPlayWouldCast(state, aiPlayerId, action, archetype, pol = {}) {
+  if (!state || !aiPlayerId) return false;
+  const cardId = findPermanent(state, action.permanentId)?.permanent?.hideawayCardId;
+  if (!cardId || !(state.players?.[aiPlayerId]?.exile || []).some((c) => c.id === cardId)) return false;
+  const parked = { ...state, pendingDiscover: { controller: aiPlayerId, cardId, mv: null, declineTo: "exile" } };
+  let casts = filterActions(legalActionsForPlayer(parked, aiPlayerId), "cast-spell");
+  if (pol.ward !== "v1") casts = withoutWardCounteredActions(parked, aiPlayerId, casts);
+  const ranking = _lastCastRanking;
+  const pick = casts.length ? pickCastAction(parked, aiPlayerId, casts, archetype, pol) : null;
+  _lastCastRanking = ranking;
+  return pick?.cardId === cardId;
+}
 // LEVEL UP (BLITZ LV-1): a level-up activation is the single untargeted atom
 // {op:"add-named-counter-self", counterType:"level"}. Within the modeled set it is PURE UPSIDE by
 // construction — legalChoices offers level-up ONLY on a WHOLLY-modeled leveler (modeledLeveler), whose
@@ -2237,7 +2360,7 @@ function massCounterFavorsAI(state, aiPlayerId, action) {
 const isMassPlusCounterAtomList = (atoms) => atoms.length === 1 && atoms[0].op === "add-counter" && atoms[0].counterType === "+1/+1" && atoms[0].targetType === "eachCreature"
   && !atoms[0].countFor && !atoms[0].countContext && !atoms[0].amountX && Number.isFinite(atoms[0].amount);
 
-function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = null } = {}) {
+function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = null, archetype = null, pol = {} } = {}) {
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   const safe = [];
   for (const a of abilityActions) {
@@ -2260,6 +2383,7 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
       const life = state?.players?.[aiPlayerId]?.life;
       if (loss == null || !Number.isFinite(life) || life - loss < LIFE_PRUDENCE_FLOOR) continue;
     }
+    if (atoms.some((atom) => atom.op === "hideaway-play") && !hideawayPlayWouldCast(state, aiPlayerId, a, archetype, pol)) continue; // only for a card it would cast
     const rank = Math.min(...atoms.filter((atom) => SAFE_ABILITY_OPS.has(atom.op)).map((atom) => SAFE_ABILITY_OPS.get(atom.op)));
     safe.push({ a, rank });
   }
@@ -2499,6 +2623,36 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
       if (atoms.length > 1) { push(3, mv, t); continue; }
       const usable = /\bCreature\b/.test(String(card.type || card.type_line || "")) || (card.keywords || []).some((k) => TARGETED_GRAVEYARD_KEYWORDS.has(k));
       if (usable) push(2, mv, t);
+      continue;
+    }
+    // CONDUIT OF WORLDS (2026-11-02 — "Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn,
+    // you may cast that card. If you do, you can't cast additional spells this turn."): reached only after the cast picker passed on
+    // every cast offered now (pickAction tries the casts first), so the lock costs this turn nothing the AI wanted. Taken only while
+    // the AI has cast no spell this turn (otherwise it does nothing), for a nonland permanent card of its own graveyard it can pay for
+    // with the mana left after the activation (Conduit's {T} makes no mana), never one whose enters trigger would remove a permanent
+    // of its own; the highest mana value first. Whether to cast is its own call at the window (pickAction's free-cast branch).
+    if (atom.op === "graveyard-resolution-cast") {
+      if (rc || a.sacSelf || t.type !== "graveyardCard" || (state.players?.[aiPlayerId]?.spellsCastThisTurn || 0) > 0) continue;
+      const card = (state.players?.[aiPlayerId]?.graveyard || []).find((c) => c.id === t.id);
+      if (!card || entersTriggerRemovesOwn(state, aiPlayerId, card)) continue;
+      const sources = manaSources(state, aiPlayerId).filter((src) => src.permanentId !== a.permanentId);
+      if (!canAfford(state.players?.[aiPlayerId]?.manaPool, sources, parseManaCost(String(card.mana || card.mana_cost || "")), lifePaymentContext(state, aiPlayerId))) continue;
+      push(2, Number(card.cmc) || 0, t);
+      continue;
+    }
+    // THE TEMPORARY REANIMATION (Whip of Erebos, 2026-11-02 — "Return target creature card from your graveyard to the battlefield. It
+    // gains haste. Exile it at the beginning of the next end step. …"): the creature is back for this turn's attack and gone at the end
+    // step, so it is taken in the AI's precombat main only, for a creature card of its own graveyard with printed power 1 or more and
+    // no defender (it would not attack), never one whose enters trigger would remove a permanent of the AI's own
+    // (gameEngine.entersTriggerRemovesOwn — the cast-time hold); the most power first.
+    if (atom.op === "reanimate") {
+      if (rc || a.sacSelf || !precombat || t.type !== "graveyardCard" || !atom.gainsHaste || !atom.exileAtNextEndStep || atom.opponentGraveyard || atom.anyGraveyard) continue;
+      const card = (state.players?.[aiPlayerId]?.graveyard || []).find((c) => c.id === t.id);
+      const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+      const p = Number(card?.power);
+      if (!card || !/\bCreature\b/.test(front) || !(p >= 1) || (card.keywords || []).includes("Defender")) continue;
+      if (entersTriggerRemovesOwn(state, aiPlayerId, card)) continue;
+      push(2, p, t);
       continue;
     }
     if (atom.op === "cant-be-blocked") {
@@ -2763,14 +2917,14 @@ function pickPumpAfterBlocks(state, aiPlayerId, actions, pol = {}) {
  * Squirrel Girl's doubling) is a sink here only short of "enough" — held, pickAction has already taken it out of `extra`
  * (2026-10-21), so the sink builds toward the kill and stops there. Policy key `endStep` ("v1" = the old pass).
  */
-function pickEndStepSink(state, aiPlayerId, extra, pol = {}) {
+function pickEndStepSink(state, aiPlayerId, extra, pol = {}, archetype = null) {
   if (pol.endStep === "v1" || state.phase !== "ending" || state.step !== "end" || (state.stack || []).length > 0) return null;
   if (state.activePlayer === aiPlayerId || (state.extraTurns || []).length > 0 || nextInTurnOrder(state, state.activePlayer) !== aiPlayerId) return null;
   const ownGain = (atom) => !atom.who || atom.who === "controller" || atom.who === "you";
   const sinks = extra.filter((a) => a.kind === "activate-ability" && !a.isEquipAbility && !a.discardCardId && !(a.discardIds?.length) && !((a.payEnergy || 0) > 0)
     && !a.unattachEquipmentId && !(a.exileGyIds?.length) && (a.program?.atoms || []).every(ownGain) && paymentUntapsBack(state, aiPlayerId, a));
   if (sinks.length === 0) return null;
-  return pickSafeAbilityActivation(sinks.filter((a) => keepsHeldUp(state, aiPlayerId, afterOwnCosts(state, aiPlayerId, a).state)), { state, aiPlayerId });
+  return pickSafeAbilityActivation(sinks.filter((a) => keepsHeldUp(state, aiPlayerId, afterOwnCosts(state, aiPlayerId, a).state)), { state, aiPlayerId, archetype, pol });
 }
 
 /**
@@ -3212,6 +3366,11 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   }
 
   const casts = filterActions(actions, "cast-spell");
+  if (casts.length > 0 && pol.ability !== "v1") {
+    // THE EXERT-HASTE LINE (Arena of Glory, 2026-11-02) — before the cast, so the creature it serves is paid with the tagged mana.
+    const exertStep = exertHasteLineAction(state, aiPlayerId, actions, casts, archetype, pol);
+    if (exertStep) return exertStep;
+  }
   if (casts.length > 0) {
     // Resolve archetype lazily if not supplied. Caller usually passes
     // it for performance — recomputing detectArchetype per priority
@@ -3242,6 +3401,8 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     // seat with no such activation offered.
     const untapStep = manaUntapLineAction(state, aiPlayerId, actions);
     if (untapStep) return untapStep;
+    const ledStep = discardHandManaLineAction(state, aiPlayerId, actions);
+    if (ledStep) return ledStep;
     const abilities = filterActions(actions, "activate-ability");
     if (abilities.length > 0) {
       // Slice 1 — EQUIP: move each equipment onto the AI's best body (strict improvement only).
@@ -3266,7 +3427,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
       // A held token loop (its own copy on the stack, or enough) is already out of `abilities` (the gate above the pickers).
-      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility), { state, aiPlayerId });
+      const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility), { state, aiPlayerId, archetype, pol });
       if (generic) return generic;
     }
     // CREW (VH-1) — take a ZERO-COST crew: the offer's auto-picked tap set is all summoning-sick
@@ -3291,7 +3452,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // THE END-STEP SINK (pickEndStepSink, 2026-10-20): at the end step of the player right before its own turn, the mana that untaps
   // a moment later goes to a draw, a token, a scry or life — after the casts, never past a spell it holds up.
   if (extra.length && pol.ability !== "v1") {
-    const sink = pickEndStepSink(state, aiPlayerId, extra, pol);
+    const sink = pickEndStepSink(state, aiPlayerId, extra, pol, archetype);
     if (sink) return sink;
   }
 

@@ -326,6 +326,15 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
 
     case "tap-for-mana": {
       const name = action.name || "the source";
+      // The explicit-only mana abilities (2026-11-02): their costs are the point of the choice, so the narration says them.
+      if (action.discardsHand) {
+        if (difficulty === "beginner") return `Sacrifice [[${name}]] and discard your whole hand to add {${action.color}}{${action.color}}{${action.color}}. You can only do this when you could cast an instant — never in the middle of casting a spell — so the mana floats in your pool for what you cast or activate next this step.`;
+        return `Sacrifice [[${name}]] and discard your hand for {${action.color}}{${action.color}}{${action.color}}.`;
+      }
+      if (action.exertHaste) {
+        if (difficulty === "beginner") return `Pay {${action.color}}, tap and exert [[${name}]] to add {${action.color}}{${action.color}}. If any of that mana pays for a creature spell, the creature has haste this turn. An exerted land won't untap during your next untap step.`;
+        return `Exert [[${name}]] for {${action.color}}{${action.color}} (haste for a creature spell it pays for).`;
+      }
       const amt = action.amount && action.amount > 1 ? `${action.amount} ` : "";
       if (difficulty === "beginner") {
         return `Tap [[${name}]] for ${amt}{${action.color}}. Mana abilities don't use the stack — the mana goes straight into your pool to spend this step. (You don't have to tap first; casting taps for you.)`;
@@ -457,6 +466,11 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
     }
 
     case "free-cast-decline": {
+      // PAID (Conduit of Worlds, 2026-11-02): the cast an effect offers as it resolves, at the card's own costs — declined, nothing is cast.
+      if (action.paid) {
+        if (difficulty === "beginner") return `Don't cast it. The card stays where it is — you can't wait and cast it later this turn.`;
+        return `Don't cast it.`;
+      }
       // FREE-CAST: an engine-generic "you may cast this without paying its mana cost" window (impulse/
       // foretell/discover-style effects) — no single CR number covers the family, each granting effect
       // cites its own. Decline lets the window close with no cast.

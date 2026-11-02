@@ -62,8 +62,15 @@ describe("⛔ CREED — what must NOT reanimate", () => {
   it("⛔ a SUBTYPE / negation / intersection still parks (parseGraveyardFilter returns null)", () => {
     // Safe FNs, and the reason the flip count is smaller than the raw corpus tally for this phrasing.
     expect(atomOf("rebel permanent")).toBeNull();
-    expect(atomOf("nonland permanent")).toBeNull();
     expect(atomOf("legendary creature")).toBeNull();
+  });
+
+  // GRADUATED (2026-11-02, the play-weighted slice — Moira and Teshar's "return target nonland permanent card from your graveyard to the
+  // battlefield"): "nonland permanent" is no longer parked. It reads as a permanent card whose front face is no land — the structured
+  // `nonland` gate cardMatchesGraveyardFilter applies at enumeration and resolution (parseGraveyardFilter still returns null for it, so
+  // no string-token reader sees a new word).
+  it("⭐ 'nonland permanent' reanimates a permanent card that is not a land", () => {
+    expect(atomOf("nonland permanent")).toEqual({ op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter: "permanent", nonland: true } });
   });
 });
 

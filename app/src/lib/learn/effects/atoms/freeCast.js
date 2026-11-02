@@ -162,10 +162,42 @@ export function freeCastClauseParser(clause) {
   if (m3) {
     return { op: "free-cast", capFromCombatDamage: true, countContext: "combatDamageAmount", maxMv: null, typeFilter: null, targetType: null };
   }
+  // CONDUIT OF WORLDS (the play-weighted program, 2026-11-02): "Choose target nonland permanent card in your graveyard. If you haven't
+  // cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn." — the splitter's folds
+  // hand the three sentences over whole; one atom (applyGraveyardResolutionCast).
+  if (/^choose target nonland permanent card in your graveyard\. if you haven't cast a spell this turn, you may cast that card\. if you do, you can't cast additional spells this turn$/.test(t)) {
+    return { op: "graveyard-resolution-cast", targetType: "graveyardCard", cardFilter: { typeFilter: "permanent", nonland: true }, ifNoSpellCastThisTurn: true, lockAfterCast: true };
+  }
   return null;
 }
 
+/**
+ * CONDUIT OF WORLDS — "Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn, you may cast that
+ * card. If you do, you can't cast additional spells this turn." As the ability resolves (CR 608.2c, in the order written): the target
+ * still in its controller's graveyard (else the ability does nothing — CR 608.2b), and that player's turn ledger empty of casts — every
+ * spell they cast this turn counts, a countered one and Conduit itself included (its bundled ruling; `spellsCastThisTurn`, stamped at
+ * the cast chokepoint) — the card is parked on the free-cast window as a PAID cast from the graveyard (`paid`): it is cast now or not
+ * at all (the ruling — "You can't wait and cast that card later in the turn"), following the casting steps with its own costs and no
+ * timing restriction (CR 608.2g), or declined. The cast stamps the lock ("you can't cast additional spells this turn" — CR 101.2, the
+ * turn-stamped all-spells lock, castLocksThisTurn) in actionDispatcher. Pure data; the decision is the action layer's.
+ */
+export function applyGraveyardResolutionCast(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const t = (ctx.targets || []).find((x) => x.type === "graveyardCard");
+  const card = t ? (player.graveyard || []).find((c) => c.id === t.id) : null;
+  if (!card) return logEvent(state, { kind: "spell-effect", effect: "graveyard-resolution-cast", controller, offered: false, reason: "target-gone" });
+  if (atom.ifNoSpellCastThisTurn && (player.spellsCastThisTurn || 0) > 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "graveyard-resolution-cast", controller, offered: false, reason: "cast-this-turn", spellsCast: player.spellsCastThisTurn });
+  }
+  const next = { ...state, pendingFreeCast: { controller, candidateIds: [card.id], fromZone: "graveyard", paid: true, ...(atom.lockAfterCast ? { lockAfterCast: true } : {}), sourceName: ctx.cardName || null } };
+  return logEvent(next, { kind: "spell-effect", effect: "graveyard-resolution-cast", controller, offered: true, cardName: card.name || null });
+}
+
 export const freeCastResolvers = {
+  // CONDUIT OF WORLDS — a paid cast of the targeted graveyard card as the ability resolves, on the free-cast window.
+  "graveyard-resolution-cast": applyGraveyardResolutionCast,
   // FREE-CAST (CR 601.2b) — park eligible hand cards for the action-layer cast-free/decline decision.
   // Rishkar's/Baral's/Sram's/Yahenni's/Kari Zev's Expertise + Electrodominance(fixed-cap forms) flip native-spell.
   "free-cast": applyFreeCastAtom,

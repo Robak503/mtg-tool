@@ -94,10 +94,14 @@ const sourceIds = (s) => manaSources(s, "user").map((x) => x.permanentId);
 const actionsOf = (s, kind) => legalActionsForPlayer(s, "user").filter((a) => a.kind === kind);
 
 describe("on a board — nothing is paid by the sacrifice alone", () => {
-  it("⭐ Lion's Eye Diamond: no source record, no tap-for-mana action, and no spell in hand is castable off it", () => {
+  // GRADUATED (2026-11-02, the play-weighted slice that reads Lion's Eye Diamond — lionsEyeDiamond.test.js): it is still no source
+  // record and still pays for no spell (it can't be activated mid-cast), but it is now its own explicit activation — one per colour,
+  // every one discarding the hand and sacrificing it (manaModel.manualOnlyManaRecords; commitManaTap pays both).
+  it("⭐ Lion's Eye Diamond: no source record, and no spell in hand is castable off it; its five explicit activations pay both costs", () => {
     const s = board([LED], HAND);
     expect(sourceIds(s)).toEqual([]);
-    expect(actionsOf(s, "tap-for-mana")).toEqual([]);
+    expect(actionsOf(s, "tap-for-mana").map((a) => [a.permanentId, a.color, a.amount, !!a.sacrifices, !!a.discardsHand])).toEqual(
+      ["W", "U", "B", "R", "G"].map((c) => ["src0", c, 3, true, true]));
     expect(actionsOf(s, "cast-spell")).toEqual([]);
   });
 
@@ -132,8 +136,10 @@ describe("classification", () => {
   // NOTE (2026-10-16): both cards were native-mana. The tier stood on manaProduction, which credited three mana for a
   // cost the engine never charged — the credit was the over-claim. With the source refused they fall to body-only (the
   // Arbiter), where they stay until the discard is paid for real.
-  it("Lion's Eye Diamond and Overeager Apprentice are not native-mana; the clean self-sacrifices still are", () => {
-    expect(classifyCard(LED)).toBe("body-only");
+  // GRADUATED (2026-11-02): Lion's Eye Diamond's discard is paid for real now (commitManaTap), so it is native-mana again — through
+  // the explicit-tap lane, never as a planner source. Overeager Apprentice's discard rides a creature-sacrifice line nothing reads.
+  it("Overeager Apprentice is not native-mana; Lion's Eye Diamond is, on its explicit lane; the clean self-sacrifices still are", () => {
+    expect(classifyCard(LED)).toBe("native-mana");
     expect(classifyCard(APPRENTICE)).toBe("body-only");
     expect(classifyCard(LOTUS_PETAL)).toBe("native-mana");
     expect(classifyCard(SATYR_HEDONIST)).toBe("native-mana");

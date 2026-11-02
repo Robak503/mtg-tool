@@ -280,7 +280,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   };
   // An opponent's summary glows while a permanent on their board is a legal target (their board shows it once focused).
   const holdsTarget = (p) => !!legalTargetIds && [...p.permanents, ...p.lands].some(c => legalTargetIds.has(c.id));
-  const barOptions = options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana");
+  // A mana ability no payment can use (manualOnly — Lion's Eye Diamond, Arena of Glory's exert line, 2026-11-02) is a play, not the
+  // auto-tap's plumbing: it stays in the bar, labelled with its costs, whatever the manual-mana toggle says.
+  const barOptions = options.filter(o => o.kind !== "pass-priority" && (o.kind !== "tap-for-mana" || o.manualOnly));
   const hiddenOptions = barOptions.slice(BAR_ACTION_LIMIT);
   const cmdCard = me.command?.[0] || null;
   const cmdCastable = !!cmdCard && optsForCard(cmdCard.id).length > 0;

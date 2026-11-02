@@ -872,6 +872,17 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   assertZone(fromZone);
   assertZone(toZone);
 
+  // LEAVE → EXILE INSTEAD (stampLeaveExiledInstead — Whip of Erebos, CR 614.1a): a stamped permanent leaving the battlefield for any
+  // zone but exile goes to exile instead — bounced, tucked, shuffled in, destroyed or sacrificed (the death sites already route it to
+  // exile through deathExiledInstead; a direct graveyard move lands here). Applied first, so no graveyard or hand event records a move
+  // that never happened; already being exiled, it doesn't apply (its bundled ruling).
+  if (fromZone === "battlefield" && toZone !== "battlefield" && toZone !== "exile"
+    && state.players?.[playerId]?.battlefield?.find((p) => p.id === cardId)?.leaveExiledInstead) {
+    const moving = peekMovingCard(state, playerId, fromZone, cardId);
+    const exiled = moveCardToZone(state, { playerId, fromZone, toZone: "exile", cardId });
+    return logEvent(exiled, { kind: "exiled-instead-of-leaving", playerId, cardName: moving?.name || null, wouldHaveGone: toZone });
+  }
+
   // NONLAND-LEFT-THE-BATTLEFIELD-THIS-TURN (the 09-06 plan's stage ③ · 11, 2026-09-30 — the Edge of Eternities void condition,
   // "if a nonland permanent left the battlefield this turn or a spell was warped this turn"): a GLOBAL turn stamp — any
   // player's permanent, a token included — written at this one battlefield exit BEFORE any replacement below, so a
@@ -2210,13 +2221,32 @@ export function untapAll(state, { playerId }) {
   // GROUP NO-UNTAP (UT-1): the continuous "<filter> don't untap" statics active on ANY battlefield this step.
   const groupFilters = groupNoUntapActiveFilters(state);
   const lossy = boardHasAbilityLoss(state); // the self no-untap lock's board test, once for the step
+  // EXERT (CR 701.43a, 2026-11-02 — Arena of Glory): `doesNotUntapNext` may name the EXERTING player instead of `true` ("its
+  // controller's next untap step"): it skips only that player's next untap step. On another player's step a permanent carrying it
+  // untaps as usual and keeps the flag (its bundled ruling — exerted while borrowed, it untaps during its owner's step); the
+  // exerter's step ends it wherever the permanent is (CR 701.43b). Board-rare: no flag names a player outside an exert.
+  const skipsThisStep = (p) => p.doesNotUntapNext === true || p.doesNotUntapNext === playerId;
+  {
+    let elsewhere = false;
+    for (const [pid, pl] of Object.entries(state.players || {})) {
+      if (pid !== playerId && (pl.battlefield || []).some((p) => p.doesNotUntapNext === playerId)) { elsewhere = true; break; }
+    }
+    if (elsewhere) {
+      const players = { ...state.players };
+      for (const [pid, pl] of Object.entries(players)) {
+        if (pid === playerId || !(pl.battlefield || []).some((p) => p.doesNotUntapNext === playerId)) continue;
+        players[pid] = { ...pl, battlefield: pl.battlefield.map((p) => { if (p.doesNotUntapNext !== playerId) return p; const { doesNotUntapNext: _x, ...rest } = p; return rest; }) };
+      }
+      state = { ...state, players };
+    }
+  }
   // BECAME-UNTAPPED events (Mesmeric Orb — a look-back list, CR 603.2e): record every permanent that
   // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun / attached-lock skips below
   // stay tapped and must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't
   // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
   // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
   const becameUntapped = (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(state, p, lossy) && !groupPreventsUntap(state, p, groupFilters))
+    .filter((p) => p.tapped && !skipsThisStep(p) && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(state, p, lossy) && !groupPreventsUntap(state, p, groupFilters))
     .map((p) => ({ id: p.id, controller: playerId }));
   const untapped = withPlayer(state, playerId, player => ({
     ...player,
@@ -2246,7 +2276,7 @@ export function untapAll(state, { playerId }) {
       // tapped and untaps normally on the following turn (CR 302.6 self-clearing one-shot). Summoning
       // sickness / loyalty flags still clear (those are tied to the controller's untap step, not the tap
       // state), matching how a normally-tapped permanent's non-tap flags reset.
-      if (p.doesNotUntapNext) {
+      if (skipsThisStep(p)) {
         const { doesNotUntapNext, ...rest } = p; // eslint-disable-line no-unused-vars
         return { ...rest, summoningSick: false, loyaltyActivatedThisTurn: false };
       }
@@ -2883,6 +2913,17 @@ export function markExileIfDies(state, { permanentId, turn }) {
   return updatePermanent(state, permanentId, p => ({ ...p, exileIfDiesTurn: turn }));
 }
 
+/**
+ * "IF IT WOULD LEAVE THE BATTLEFIELD, EXILE IT INSTEAD OF PUTTING IT ANYWHERE ELSE" (Whip of Erebos — CR 614.1a): a replacement on ONE
+ * permanent, stamped on it by the effect that returned it (zones.applyReanimate's temporary-return riders). moveCardToZone sends any
+ * move of it off the battlefield to a zone other than exile to its owner's exile instead, and deathExiledInstead says so at every death
+ * site (it never dies, CR 700.4 — no "dies" trigger, its bundled ruling). A permanent that leaves is a new object (CR 400.7), so the
+ * stamp never follows the card. Same state when the permanent is gone.
+ */
+export function stampLeaveExiledInstead(state, permanentId) {
+  return updatePermanentSafe(state, permanentId, (p) => ({ ...p, leaveExiledInstead: true }));
+}
+
 // EXILE WHAT IT DAMAGED (2026-09-30 — Incendiary Oracle, Kumano's Pupils, Frostwielder: "If a creature dealt damage by this
 // creature this turn would die, exile it instead."). The static's replacement applies only while its source is on the
 // battlefield (CR 614), so it is asked HERE, at the moment of death, of the pre-removal state: a source dying in the same
@@ -2921,7 +2962,7 @@ function opponentCreatureExiler(state, perm) {
  *  Dauthi Voidwalker) is applied by moveCardToZone's own redirect instead — the one place that puts Dauthi's void counter on it —
  *  so a death site moves to the graveyard unless this says otherwise. */
 export function deathExiledInstead(state, perm) {
-  return perm.exileIfDiesTurn === state.turn || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm);
+  return perm.exileIfDiesTurn === state.turn || !!perm.leaveExiledInstead || damagedByExilingSource(state, perm) || opponentCreatureExiler(state, perm);
 }
 
 export function diesExiledInstead(state, perm) {

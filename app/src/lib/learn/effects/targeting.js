@@ -251,6 +251,9 @@ function atomTargetSpec(atom) {
     // target" narrows the pool to spells with exactly one chosen target (CR 115.9a). Unlisted here = dropped = offered
     // every instant or sorcery, the uncounterable ones excluded — both wrong.
     ...(atom.notCounter && { notCounter: true }),
+    // TIBALT'S TRICKERY (2026-11-02): its counter may target a spell that can't be countered — not a pointless cast, since its rider
+    // still happens (its bundled ruling). Only the Trickery atom sets it.
+    ...(atom.trickeryRider && { targetsUncounterable: true }),
     ...(atom.singleTargetOnly && { singleTargetOnly: true }),
   };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so

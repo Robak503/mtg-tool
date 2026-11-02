@@ -245,6 +245,15 @@ export function removePlayerFromGame(state, playerId) {
     log = [...log, { turn: state.turn, kind: "left-game-objects", player: playerId, leftTheGame: record.leftTheGame, controlReleased: record.controlReleased, exiled: record.exiled, ceased: record.ceased }];
   }
   let base = { ...s, players, turnOrder, seatOrder: state.seatOrder || oldOrder, combat, log };
+  // THE DAMAGE THEY WERE DEALT THIS TURN outlives the seat (Spinerock Knoll's "an opponent was dealt 7 or more damage this turn" —
+  // its bundled ruling counts "a player who was your opponent at the time they left the game"): the turn total goes onto
+  // `departedDamageThisTurn` (interveningIf's OPP_DEALT_N_DAMAGE read). Entries of earlier turns are dropped as one is added; a seat
+  // dealt no damage this turn adds nothing, so the state is unchanged for it.
+  const damageTaken = gone.damageTakenThisTurn || 0;
+  if (damageTaken > 0) {
+    const kept = (s.departedDamageThisTurn || []).filter((d) => d.turn === state.turn);
+    base = { ...base, departedDamageThisTurn: [...kept, { playerId, amount: damageTaken, turn: state.turn }] };
+  }
   // PLAYER-AURA sweep (CR 303.4c — "the player it was attached to has left the game"): an Aura enchanting the departed
   // player is put into its owner's graveyard, through moveCardToZone so the leave and graveyard events record normally.
   for (const pid of Object.keys(base.players)) {

@@ -490,7 +490,15 @@ export const RESOLVERS = Object.freeze({
         return checkDiesTriggers(lethal.state, lethal.dead);
       }
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(manaSpentCounters > 0 ? { extraCounter: { type: "+1/+1", n: manaSpentCounters } } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    const entered = enterPermanent(state, card, controller, { xValue, kicked, timesKicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, escaped: !!escaped, ...(manaSpentByColor ? { manaSpentByColor } : {}), ...(manaSpentCounters > 0 ? { extraCounter: { type: "+1/+1", n: manaSpentCounters } } : {}), ...(printedCard ? { printedCard } : {}), ...(obj.owner ? { owner: obj.owner } : {}) }); // owner: shelf D3 — a spell cast from its owner's exile (the stack object's stamp)
+    // ARENA OF GLORY'S RIDER (2026-11-02 — actionDispatcher stamps `hasteUntilEndOfTurn` on a creature spell its exert mana paid for):
+    // the haste the spell gained continues on the permanent it becomes (CR 400.7a), until end of turn (CR 514.2) — this turn's only.
+    const hasteUntil = obj.payload?.params?.hasteUntilEndOfTurn;
+    if (hasteUntil == null || hasteUntil !== state.turn) return entered;
+    const perm = (entered.players?.[controller]?.battlefield || []).find((p) => p.card?.id === card.id);
+    if (!perm) return entered;
+    return addContinuousEffect(entered, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [perm.id] },
+      duration: { kind: "endOfTurn", turn: entered.turn }, source: { kind: "resolution", permanentId: null, cardName: card?.name || null } }).state;
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

@@ -356,6 +356,43 @@ describe("migrate", () => {
     const v9 = { ...upgraded, session: { ...upgraded.session, state: { ...upgraded.session.state, pendingLeaveEvents: [stamped] } } };
     expect(migrate(JSON.parse(JSON.stringify(v9))).session.state.pendingLeaveEvents).toEqual([stamped]);
   });
+  // CONTRACT-MIG (the play-weighted slice pw20): a v10 game may carry a permanent's `leaveExiledInstead` (Whip of Erebos), a
+  // `doesNotUntapNext` naming a seat (an exerted Arena of Glory), a tagged mana entry's `rider`, `departedDamageThisTurn` (Spinerock
+  // Knoll) and a paid graveyard `pendingFreeCast` (Conduit of Worlds). A v9 save has none, and absent means what every v9 game says,
+  // so the migration stamps the version only. The round trip: each field survives save → JSON → migrate and still plays — the stamped
+  // creature bounced goes to exile, the exerted land stays tapped through its exerter's untap step.
+  it("carries a v9 save forward to v10 (stamp-only; a v10 game's leave stamp, exert, rider, departed damage and paid window round-trip)", async () => {
+    const { moveCardToZone, untapAll } = await import("../learn/gameState.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [] };
+    const v9 = {
+      schemaVersion: 9, kind: "learn-session-save", savedAt: "2026-11-02T00:00:00.000Z", sessionId: "learn-v9", serializable: true,
+      session: { id: "learn-v9", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[9]).toBe("function"); // the v9 → v10 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[9](JSON.parse(JSON.stringify(v9)))).toEqual({ ...v9, schemaVersion: 10 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v9)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v9.session.state });
+    // a v10 game holding each new shape
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, ...extra });
+    const giant = perm("giant", { name: "Hill Giant", type: "Creature — Giant", power: "3", toughness: "3", oracle: "" }, { leaveExiledInstead: true });
+    const arena = perm("arena", { name: "Arena of Glory", type: "Land", oracle: "" }, { tapped: true, doesNotUntapNext: "user" });
+    const state = { ...v9.session.state,
+      players: { user: { ...empty, battlefield: [giant, arena], restrictedMana: [{ pool: { W: 0, U: 0, B: 0, R: 2, G: 0, C: 0 }, restriction: null, rider: { kind: "creatureSpellHasteEot" } }] }, ai: { ...empty } },
+      departedDamageThisTurn: [{ playerId: "ai2", amount: 8, turn: 5 }],
+      pendingFreeCast: { controller: "user", candidateIds: ["c-x"], fromZone: "graveyard", paid: true, lockAfterCast: true, sourceName: "Conduit of Worlds" } };
+    const v10 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v10.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v10)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 10, state });
+    const s = back.session.state;
+    const bounced = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "hand", cardId: "giant" });
+    expect({ hand: bounced.players.user.hand.map((c) => c.name), exile: bounced.players.user.exile.map((c) => c.name) }).toEqual({ hand: [], exile: ["Hill Giant"] });
+    const untapped = untapAll(s, { playerId: "user" }).players.user.battlefield.find((p) => p.id === "arena");
+    expect({ tapped: untapped.tapped, flag: untapped.doesNotUntapNext ?? null }).toEqual({ tapped: true, flag: null });
+  });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration
   // stamps the version only. The round trip: a v7 game with an undrained leave event resumes unchanged, and a v8 leave event's stamp

@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps, stampTriggeringLki, groupLeaveEvents } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, deterministicRng, advanceRngSeed, attachPermanent, withoutExileStamps, stampTriggeringLki, groupLeaveEvents, stampLeaveExiledInstead } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { applyEnterReplacements, settleEnterReplacements, sagaEntryChapterTriggers } from "../../enterReplacements.js"; // the entry replacements (CR 614.1c, 614.1d, 614.12) — the ONE reader resolvers.enterPermanent shares; a leaf that reaches neither resolvers.js nor any atom importing this file
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -595,6 +595,22 @@ export function applyReanimate(state, atom, ctx) {
         duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
       next = fireEnterTriggers(next, findPermanent(next, r.permanentId)?.permanent || r.permanent);
     }
+    // THE TEMPORARY REANIMATION's riders (Whip of Erebos — graveyardReturnClauseParser's temporary-return arm), on the one permanent this
+    // return made (a later object is a new one, CR 400.7, and none of them follows it):
+    //   · "It gains haste." — a layer-6 grant that lasts while it is on the battlefield (CR 611.2a, 613.1f);
+    //   · "If it would leave the battlefield, exile it instead of putting it anywhere else." — `leaveExiledInstead` on the permanent,
+    //     honoured by gameState.moveCardToZone at every move off the battlefield and by deathExiledInstead at every death site (it never
+    //     dies, CR 700.4). A stamp, not a granted ability: the bundled ruling — it is exiled even if it loses all its abilities;
+    //   · "Exile it at the beginning of the next end step." — a delayed trigger bound to this permanent id (CR 603.7, 603.7c), the
+    //     minted-leave sentinel's exile: whoever controls it then, it is exiled; gone already, nothing happens.
+    if (r.entered && (atom.gainsHaste || atom.leaveExiled || atom.exileAtNextEndStep) && findPermanent(next, r.permanentId)) {
+      if (atom.gainsHaste) {
+        next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [r.permanentId] },
+          duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
+      }
+      if (atom.leaveExiled) next = stampLeaveExiledInstead(next, r.permanentId);
+      if (atom.exileAtNextEndStep) next = applyScheduleDelayed(next, { delayedClause: `[minted-leave exile ${r.permanentId}]`, fireStep: "end", fireScope: "any" }, ctx);
+    }
     if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
   if (atom.stampMv) next = { ...next, revealedCardMV: lastMv }; // for the following drain (Reanimate); 0 if no card reanimated → clean no-op drain
@@ -848,6 +864,24 @@ export function applyReturnFromGraveyardPick(state, atom, ctx) {
 
 export function graveyardReturnClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== THE TEMPORARY REANIMATION (the play-weighted program, 2026-11-02 — Whip of Erebos: "Return target creature card from your
+  // graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step. If it would leave the battlefield,
+  // exile it instead of putting it anywhere else."; Moira and Teshar's nonland permanent card; Gruesome Encore's "from an opponent's
+  // graveyard … under your control" with "that creature") — the splitter's folds hand the four sentences over whole. The lead is the
+  // single-target return this parser already reads; the three continuations ride it as riders on the one permanent it makes
+  // (applyReanimate): `gainsHaste` — a layer-6 grant that lasts while it stays (CR 611.2a, 613.1f); `exileAtNextEndStep` — a delayed
+  // trigger bound to that object (CR 603.7, 603.7c: once it leaves it is a new object and the trigger does nothing); `leaveExiled` —
+  // the replacement on that object (CR 614.1a): any move off the battlefield to a zone other than exile goes to exile instead, so it
+  // never dies (CR 700.4). Its bundled rulings: neither exile is granted to the creature (it keeps both if it loses all abilities —
+  // a stamp on the permanent, not an ability), and the replacement still applies if the delayed trigger is countered.
+  {
+    const tm = t.match(/^(return target (?:creature|nonland permanent) card from your graveyard to the battlefield|put target creature card from an opponent's graveyard onto the battlefield under your control)\. it gains haste\. exile it at the beginning of the next end step\. if (?:it|that creature) would leave the battlefield, exile it instead of putting it anywhere else$/);
+    if (tm) {
+      const lead = graveyardReturnClauseParser(tm[1]);
+      if (!lead || lead.op !== "reanimate" || lead.targetType !== "graveyardCard" || lead.maxTargets != null) return null;
+      return { ...lead, gainsHaste: true, exileAtNextEndStep: true, leaveExiled: true };
+    }
+  }
   // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <filter> cards from your graveyard to your hand"
   // (Morbid Plunder, March of the Returned, Soul Salvage, Dutiful Return). The SAME return-from-graveyard resolver
   // (applyReturnFromGraveyard already loops over every ctx.target); `maxTargets` tells targeting.expandAtoms to
@@ -1054,6 +1088,9 @@ export function graveyardReturnClauseParser(clause) {
     if (rbM[3] && rbM[3] !== "-1/-1" && !ENFORCED_KEYWORD_COUNTER_KINDS.has(rbM[3])) return null;
     const rider = { ...tap, ...(rbM[3] ? { entersWithCounter: { type: rbM[3], n: 1 } } : {}) };
     if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: nonlegendary ? { cardType: "creature", nonlegendary: true } : "creature", ...rider };
+    // "nonland permanent card" (Moira and Teshar, 2026-11-02): a permanent card whose front face is no land — the structured gate
+    // (cardMatchesGraveyardFilter's `nonland`), read at enumeration and at resolution like every filter here.
+    if (word === "nonland permanent") return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter: "permanent", nonland: true, ...(nonlegendary ? { nonlegendary: true } : {}) }, ...rider };
     const typeFilter = parseGraveyardFilter(word);
     if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
       return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter, ...(nonlegendary ? { nonlegendary: true } : {}) }, ...rider };

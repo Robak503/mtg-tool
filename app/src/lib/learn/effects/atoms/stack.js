@@ -9,6 +9,7 @@ import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPe
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
 import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider } from "./removal.js";
+import { applyTrickeryRider } from "./library.js"; // TIBALT'S TRICKERY (2026-11-02) — the countered spell's controller's mill and dig (library.js imports no stack atom)
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { atomTargetIntent } from "../programQueries.js"; // the side a copy's target slot wants (its new-target pick, CR 707.10c). A leaf (imports only targetTypes) — the one intent table, not a second mirror
@@ -222,6 +223,12 @@ function applyCounter(state, atom, ctx) {
       : counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
+    }
+    // TIBALT'S TRICKERY (2026-11-02 — library.applyTrickeryRider): the countered spell's controller mills 1–3 at random and digs to a
+    // nonland card with a different name than that spell (its name as it was cast — `card` is the stack object's own source, a face's
+    // name for a face cast), which they may cast free. Like the controller rider, whenever the target was legal.
+    if (atom.trickeryRider && next.players?.[riderController]) {
+      next = applyTrickeryRider(next, { playerId: riderController, spellNames: [card?.name].filter(Boolean), sourceName: ctx.cardName || null });
     }
     // MANA DRAIN (CR 603.7d) — schedule the {C} payout for the CASTER's next main phase, the clause
     // rewritten CONCRETE with the MV locked here (the sentinel discipline — the fired trigger parses
@@ -1152,6 +1159,9 @@ export function copySpellClauseParser(clause) {
   if (t === "copy it for each time you've cast your commander from the command zone this game") {
     return { op: "copy-spell", stormCopy: true };
   }
+  // "copy that spell" (Reflections of Littjara, 2026-11-02 — a cast watcher's payoff): the cast that triggered it (applyCopyCastSpell). Bare,
+  // whole-clause: "copy that spell. you may choose new targets for the copy" and any other rider stay unread.
+  if (t === "copy that spell") return { op: "copy-cast-spell", targetType: null };
   return null;
 }
 
@@ -1722,6 +1732,12 @@ export function spellCopyPayload(payload) {
   const cloned = JSON.parse(JSON.stringify(payload)); // every spell payload carries params (the dispatcher builds them all)
   delete cloned.params.spellToGraveyard;
   delete cloned.params.adventureExile;
+  // A MANA ABILITY'S RIDER on the spell it paid for is an effect on that spell, not a characteristic or a choice made for it, so a copy
+  // doesn't have it (CR 707.2, 707.10): Arena of Glory's haste (`hasteUntilEndOfTurn`) and the land lines' enters-with +1/+1 counters
+  // (`manaSpentCounters` — Opal Palace, Guildmages' Forum). Before 2026-11-02 a copy (Reflections of Littjara, Double Down, Double
+  // Major) entered with both.
+  delete cloned.params.hasteUntilEndOfTurn;
+  delete cloned.params.manaSpentCounters;
   if (cloned.params.context) {
     delete cloned.params.context.castFromGraveyard;
     delete cloned.params.context.castDuringMainPhase;
@@ -2147,6 +2163,45 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: copyable ? 1 : 0, cardName: targetObj.source?.name });
 }
 
+/**
+ * ===== COPY THE CAST SPELL (the play-weighted program, 2026-11-02 — Reflections of Littjara: "Whenever you cast a spell of the chosen
+ * type, copy that spell. (A copy of a permanent spell becomes a token.)") ===== A watcher's payoff with no target: "that spell" is the
+ * cast that triggered it (`ctx.castStackObjectId`, the cast trigger's context). The copy copies the spell and every choice made for it
+ * — its targets, its X, its kicker (CR 707.10) — and, the printed text offering none, keeps those targets (CR 707.10c applies only
+ * when an effect says so). Still on the stack, the spell is read as it is now; gone (countered in response), its last known
+ * information — the snapshot checkCastTriggers took as it was cast (CR 608.2h). The copy is put onto the stack above everything
+ * (it resolves before the spell — the bundled ruling), under the trigger's controller (CR 707.10), and is never cast.
+ *   · a PERMANENT spell (a PERMANENT_ETB or AURA_ETB payload): the copy resolves as a TOKEN (CR 707.10f, 608.3f) — its copiable card
+ *     (CR 707.2, snapshotCopiedCard) with a fresh id, its payload cloned (an Aura copy keeps the original's target);
+ *   · an instant or sorcery: its payload cloned, the same targets; their wards owed again (CR 702.21a).
+ * "This spell can't be copied" (CR 707.10) is honoured. Pure.
+ */
+function applyCopyCastSpell(state, atom, ctx) {
+  const live = ctx.castStackObjectId ? (state.stack || []).find((o) => o.id === ctx.castStackObjectId && o.kind === "spell") : null;
+  const obj = live || ctx.castSpellSnapshot || null;
+  if (!obj?.payload?.params) return logEvent(state, { kind: "spell-effect", effect: "copy-cast-spell", controller: ctx.controller, count: 0, reason: "no-spell" });
+  if (/^this spell can't be copied\.$/im.test(String(obj.source?.oracle || "").replace(/[’]/g, "'"))) {
+    return logEvent(state, { kind: "spell-effect", effect: "copy-cast-spell", controller: ctx.controller, count: 0, reason: "cant-be-copied", cardName: obj.source?.name });
+  }
+  const { id, state: s2 } = mintId(state, "stk");
+  const clonedPayload = spellCopyPayload(obj.payload);
+  clonedPayload.params.controller = ctx.controller;
+  const permanentSpell = (obj.payload.resolver === RESOLVER_KEYS.PERMANENT_ETB || obj.payload.resolver === RESOLVER_KEYS.AURA_ETB) && !!obj.payload.params.card;
+  let copyObj;
+  let copiedCard;
+  if (permanentSpell) {
+    copiedCard = { ...snapshotCopiedCard({ card: obj.payload.params.card }, undefined, []), token: true, id: `tok-${id}` };
+    clonedPayload.params.card = copiedCard;
+    copyObj = { ...createStackObject({ id, kind: "spell", source: { ...copiedCard, token: true, isCopy: true }, controller: ctx.controller, targets: obj.targets || [], payload: clonedPayload }), isCopy: true };
+  } else {
+    copiedCard = obj.source;
+    copyObj = withWardOwed(s2, { ...createStackObject({ id, kind: "spell", source: obj.source, controller: ctx.controller, targets: obj.targets || [], payload: clonedPayload }), isCopy: true });
+  }
+  let next = { ...s2, stack: [...s2.stack, copyObj] };
+  next = checkCopyTriggers(next, { copiedSpellCard: copiedCard, controllerId: ctx.controller, copyObj });
+  return logEvent(next, { kind: "spell-effect", effect: "copy-cast-spell", controller: ctx.controller, count: 1, cardName: obj.source?.name || null, token: permanentSpell, fromLastKnown: !live });
+}
+
 function applyCopyCreatureSpell(state, atom, ctx) {
   const t = (ctx.targets || []).find((x) => x?.type === "spell");
   if (!t?.id) {
@@ -2568,6 +2623,7 @@ export const stackResolvers = {
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-self-spell": applyCopySelfSpell, // P·23 — Sevinne's Reclamation: one copy of the resolving spell, its target re-picked (CR 707.10c)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
+  "copy-cast-spell": applyCopyCastSpell, // 2026-11-02 — Reflections of Littjara: copy the cast that triggered it (a permanent spell's copy a token), its targets kept
   "copy-instant-or-sorcery": applyCopyInstantOrSorcery, // COPY AN INSTANT/SORCERY (Reverberate, CR 707.10) — clones the resolving payload; the copy is no card and goes to no zone
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "cdmg-to-each-other-opponent": applyCdmgToEachOtherOpponent, // CDMG-TO-EACH-OTHER-OPPONENT (Super State) — deal the combat-damage amount to each opponent EXCEPT the one just combat-damaged

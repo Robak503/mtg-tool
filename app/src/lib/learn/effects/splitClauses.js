@@ -355,6 +355,25 @@ export function splitClauses(oracle) {
       // (fetch + haste + the delayed return); both continuations fold onto their exact leads, so this can
       // only ever reassemble the one shape the cz arm claims (the anchored-fold discipline above).
       || (/^it gains haste$/i.test(sentence) && /put a commander you own from the command zone onto the battlefield$/i.test(prev))
+      // THE TEMPORARY REANIMATION (Whip of Erebos, the play-weighted program 2026-11-02) — "Return target creature card from your
+      // graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step. If it would leave the
+      // battlefield, exile it instead of putting it anywhere else." is ONE instruction: every continuation names the returned
+      // creature, and split, the return would parse alone and stay forever. Each continuation folds only onto its exact lead
+      // (zones.graveyardReturnClauseParser's temporary-return arm claims the whole).
+      || (/^it gains haste$/i.test(sentence)
+          && /^(?:return target (?:creature|nonland permanent) card from your graveyard to the battlefield|put target creature card from an opponent's graveyard onto the battlefield under your control)$/i.test(prev))
+      // CONDUIT OF WORLDS (the play-weighted program, 2026-11-02) — "Choose target nonland permanent card in your graveyard. If you
+      // haven't cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn." is ONE
+      // instruction (the target, the conditional cast as it resolves, the lock on the cast); split, the target sentence would
+      // parse alone. Each continuation folds only onto its exact lead (freeCast.js claims the whole).
+      || (/^if you haven['’]t cast a spell this turn, you may cast that card$/i.test(sentence)
+          && /^choose target nonland permanent card in your graveyard$/i.test(prev))
+      || (/^if you do, you can['’]t cast additional spells this turn$/i.test(sentence)
+          && /^choose target nonland permanent card in your graveyard\. if you haven['’]t cast a spell this turn, you may cast that card$/i.test(prev))
+      || (/^exile it at the beginning of the next end step$/i.test(sentence)
+          && /^(?:return target (?:creature|nonland permanent) card from your graveyard to the battlefield|put target creature card from an opponent's graveyard onto the battlefield under your control)\. it gains haste$/i.test(prev))
+      || (/^if (?:it|that creature) would leave the battlefield, exile it instead of putting it anywhere else$/i.test(sentence)
+          && /^(?:return target (?:creature|nonland permanent) card from your graveyard to the battlefield|put target creature card from an opponent's graveyard onto the battlefield under your control)\. it gains haste\. exile it at the beginning of the next end step$/i.test(prev))
       || (/^return it to the command zone at the beginning of the next end step$/i.test(sentence)
           && /put a commander you own from the command zone onto the battlefield\. it gains haste$/i.test(prev))
       // KLAUTH (QUARTET Phase 4, 2026-08-15) — the three-sentence restricted-mana instruction is ONE

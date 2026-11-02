@@ -151,6 +151,10 @@ export function cardMatchesGraveyardFilter(card, cardFilter, state = null, holde
     // NONLEGENDARY (Persist — play-weighted, 2026-10-20): the front face must not carry the Legendary supertype (CR 205.4a), the
     // same front-face read as every gate here.
     if (cardFilter.nonlegendary && /\bLegendary\b/.test(front)) return false;
+    // NONLAND (the play-weighted program, 2026-11-02 — "nonland permanent card": Moira and Teshar's return, Six's retrace grant,
+    // Conduit of Worlds' target): the front face carries no Land type (CR 205.2a, 712.8a), beside a `typeFilter: "permanent"` — a
+    // card of a permanent type that is not a land (CR 110.4a). A structured gate, so no string-token reader sees a new word.
+    if (cardFilter.nonland && /\bLand\b/.test(front)) return false;
     // BASE CARD-TYPE gate (BLITZ PW-1 — the reanimate-MV filter {cardType:"creature", mvMax:N}): front-face
     // type-line containment (CR 712.8a, same front-face read as the string-token branch below). An unknown
     // cardType word can never pass → the card is rejected (never a mis-scoped return; whole-or-nothing).
@@ -896,7 +900,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // `recheck` (CR 608.2b): a spell that can't be countered is still a legal target for a counter — the exclusion only spares
       // the offer a pointless cast — so a counter whose target became uncounterable in response still resolves (its counter
       // does nothing, counterSpellById, and the rest of the spell — Dismiss's draw — happens).
-      if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter && !recheck) {
+      // `targetsUncounterable` — Tibalt's Trickery (2026-11-02): its rider happens whether or not the counter takes, so an uncounterable
+      // spell is a target worth choosing (its bundled ruling).
+      if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter && !effect.targetsUncounterable && !recheck) {
         // The four CR 701.6a exclusions — the on-card "can't be countered"; a resolved GRANT's mark (Vexing Shusher's
         // "{R/G}: Target spell can't be countered", the one path that cannot be re-derived from the board); a subtype
         // static (Root Sliver); a controller static, whole (Chimil) or filtered by type (Prowling Serpopard) or colour
