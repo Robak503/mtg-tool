@@ -3069,7 +3069,9 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // THE LOOP STEPS (loopStepLine.js — Colton 2026-10-03: build only to enough; never infinite). A loop step that adds nothing it can
   // use leaves both lists here, before every picker, like the token loop's hold: an activation that reads only its own empty library
   // (a draw there loses, CR 704.5b); a recast while one of its own cast triggers would be forced onto its own permanent (Tidespout
-  // Tyrant with every opponent's permanent gone — seed 3277877396 recast its own bounced permanents 5,417 times on turn 34). The
+  // Tyrant with every opponent's permanent gone — seed 3277877396 recast its own bounced permanents 5,417 times on turn 34); a draw
+  // that takes back a spell that comes back by itself while its recast adds nothing usable (Thrasios drawing back Green Sun's Zenith
+  // from an otherwise empty library — seed 106558's turn 46, 2026-11-02). The
   // untap steps (Kinnan beside Basalt Monolith) are not read here: no picker below takes an "untap this" activation (their op lists
   // hold no untap; the targeted and window pickers need a target or another op), so that read — two offers of the engine per
   // decision — could change no choice; the seam the persona pilots read holds them (loopStepLine.withLoopSteps). Everything stays

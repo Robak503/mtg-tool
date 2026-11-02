@@ -4886,6 +4886,18 @@ function splitSecondOnStack(state) {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * THE OFFER, KEPT (2026-11-02 — read back by loopStepLine.js). Each legalActionsForPlayer call with no options keeps a copy of the
+ * list it returned, per state object and player (a WeakMap: dropped with the state). legalActionsForPlayer is a pure function of the
+ * state it is handed, so the copy is the list another call on that object would build: a pure reader of the same state — the
+ * loop-step line's demand read, which compares the offer as it stands with a richer one — takes the engine's own list instead of
+ * building it again. null when no call was made on that state object for that player.
+ */
+const offersMade = new WeakMap();
+export function offerMadeFor(state, playerId) {
+  return (state && typeof state === "object" && offersMade.get(state)?.get(playerId)) || null;
+}
+
+/**
  * Aggregate all legal actions the given player can take right now.
  * Returns an array — empty when the player has nothing legal (the
  * decisionGate auto-passes in that case).
@@ -4897,7 +4909,17 @@ function splitSecondOnStack(state) {
  *                      because the engine tracks combat assignments
  *                      separately, not in state.
  */
-export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {}) {
+export function legalActionsForPlayer(state, playerId, options = {}) {
+  const actions = buildLegalActions(state, playerId, options);
+  if (options?.declaredAttackers === undefined && Array.isArray(actions)) {
+    let byPlayer = offersMade.get(state);
+    if (!byPlayer) offersMade.set(state, (byPlayer = new Map()));
+    byPlayer.set(playerId, actions.slice());
+  }
+  return actions;
+}
+
+function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
   if (!state || !state.players?.[playerId]) {
     throw new Error(`legalActionsForPlayer: invalid playerId "${playerId}"`);
   }

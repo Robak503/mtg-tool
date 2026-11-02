@@ -43,8 +43,14 @@ export function manaValueOf(state, playerId, permanentId) {
   const asUntapped = perm.tapped
     ? { ...state, players: { ...state.players, [playerId]: { ...player, battlefield: player.battlefield.map((p) => (p.id === permanentId ? { ...p, tapped: false } : p)) } } }
     : state;
+  return manaValueFromSources(manaSources(asUntapped, playerId), permanentId);
+}
+
+/** manaValueOf's last step, over a manaSources list read with the permanent untapped (loopStepLine reads one list for this and the
+ *  colours the permanent adds): its best non-sacrificing source's total, augments counted; 0 when it has none. */
+export function manaValueFromSources(sources, permanentId) {
   let best = 0;
-  for (const source of manaSources(asUntapped, playerId)) {
+  for (const source of sources) {
     if (source.permanentId === permanentId && !source.sacrifices) best = Math.max(best, sourceTotal(source));
   }
   return best;

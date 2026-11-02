@@ -2159,6 +2159,50 @@ with enough floating to pay itself reads −cost (held) and a float-then-sink li
 `loopStepLine.test.js` (the games), `loopStepReads.test.js` (the reads); policy
 `loopStep: "v1"` keeps the old pick.
 
+**The draw-back step (2026-11-02).** A fourth step kind: an activation whose every
+atom reads its controller's own library (the empty-library set) while that library
+holds nothing but spells that come back by themselves — each `program.selfShuffle`
+(the Sun's Zenith sentence) and every atom a library-only tutor whose filter no
+card of that library passes (`atoms/library.cardMatchesTutorFilter`; Green Sun's
+Zenith shuffled into an otherwise empty library, then Thrasios drawing it back).
+`isHeldLoopStep` holds it while recasting that spell adds nothing usable
+(`recastAddsNothing`, once per state): no own draw trigger fires on the draw
+(`triggers.checkCardDrawnTriggers` on a copy with the draw counted); every own cast
+trigger the recast fires, previewed by `gameEngine.castTriggerOutcomes` (the
+`castTriggerRemovesOwn` preview, reporting every own trigger's outcome: removed, or
+its chosen atoms and targets), only untaps, pumps until end of turn or adds mana on
+the seat's own side, or does nothing; the mana has no use (`loopManaHasUse` over all
+six colours); and the pump has none — `pumpHasUse`: "enough" for a pump is lethal,
+so on the seat's own turn before combat damage it is a use while its attack-capable
+power is short of the lowest opponent life, and on another player's turn never.
+Holding the draw (not the cast) leaves the spell in the library, so its next draw
+does not lose (CR 704.5b). Other seats' cast triggers on the seat's cast are not
+read (they give those seats something, never this one). `pickAction` holds it too.
+In the demand read a draw-back that is a play counts as a spend (`isSpend`), so the
+untap of a Monolith that pays for Thrasios while the Zenith's recast still takes an
+opponent's permanent has a use; the draw-back's own mana read counts a draw-back
+only by a use of its own (`recastYield`, `ownUseOnly` — no mana read), so a loop is
+never its own use and no read asks itself. Witnesses `loopDrawBack.test.js`.
+
+**The loop-step memos (2026-11-02).** Every loop-step read is a pure function of
+the state object, and the engine hands its AI readers one object per tick
+(`pickAction`, then the pilot through the seam), so `loopStepLine` keeps one memo
+table per state object (a WeakMap): each offered action's step, the cast-trigger
+previews per (card object, seat, zone) — one card offered at ten X values is one
+preview — one `manaSources` list per (state, permanent read untapped) serving both
+the mana value (`manaUntapLine.manaValueFromSources`, `manaValueOf`'s last step) and
+the colours, the copy with the loop's source kept tapped, and the demand read per
+(kept state, colours). The offer as it stands is the engine's own list for that state
+object when it built one (`legalChoices.offerMadeFor` — each `legalActionsForPlayer`
+call with no options keeps a copy per state object and player), else
+`legalActionsForPlayer`'s. `richUnlocks` reads the cheap side first: an action of the
+richer offer is read as a step only when its card or ability is not already a spend
+now — the same boolean as collecting both sets. No memo crosses state objects, so a
+state is never answered from another; `loopStepCost.test.js` counts the calls (one
+preview, one offer beyond the engine's per tick, whatever the X values and untap
+sources), and the A/B and seed 106558 compare every pick against the same code with
+the memos bypassed.
+
 **Which side the AI casts an Aura on (`opponentAI.pickAuraCast`, 2026-10-16).** An
 Aura spell targets what it will enchant (CR 303.4a) and the offer lists every legal
 host, so the pick chooses the side. By what the Aura enchants: the lanes offered

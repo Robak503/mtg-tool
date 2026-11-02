@@ -2358,6 +2358,46 @@ export function castTriggerRemovesOwn(state, controller, card, { castFromZone = 
 }
 
 /**
+ * CAST-TRIGGER OUTCOMES (2026-11-02 — the loop-step line's draw-back read, loopStepLine.js). What `controller` casting `card` now would
+ * put on the stack from the "whenever you cast" triggers of the permanents it controls — the same preview as castTriggerRemovesOwn
+ * above (the cast counted by recordSpellCast, the watchers fired by checkCastTriggers, each own trigger routed and targeted by
+ * buildTriggerStack with chooseTriggerTargets — the flush's own code), but every own trigger's outcome, not only a forced removal.
+ * One entry per own trigger, in the order checkCastTriggers fired them:
+ *   { source, removed: true, clauseAtoms }  — the flush removes it: no legal target (CR 603.3d) or an intervening-if not met (CR 603.4);
+ *                                             `clauseAtoms` is its effect clause as parsed (every mode's atoms), for a reader that
+ *                                             must know what it could have targeted (the cast spell is not on the copy's stack);
+ *   { source, atoms, targets, forced, noSafeTarget, programmed } — it goes on the stack: `atoms` the chosen mode's (or the whole
+ *                                             program's), `targets` as chosen, `programmed` false for an ability with no program of
+ *                                             its own (routed to the Arbiter).
+ * Nothing is minted or logged; `state` is never written.
+ */
+export function castTriggerOutcomes(state, controller, card, { castFromZone = "hand" } = {}) {
+  if (!card || !state?.players?.[controller]) return [];
+  const board = recordSpellCast({ ...state, pendingTriggers: [] }, { playerId: controller, spellCard: card });
+  const fired = checkCastTriggers(board, { spellCard: card, casterId: controller, castFromZone });
+  const out = [];
+  for (const trigger of fired.pendingTriggers || []) {
+    if (trigger.controller !== controller) continue;
+    const source = trigger.source?.name || card.name;
+    const built = buildTriggerStack(fired, trigger, chooseTriggerTargets);
+    if (!built || built === TRIGGER_CONDITION_NOT_MET) {
+      const clause = trigger.descriptor?.effectClause;
+      const parsed = clause ? parseEffectClause(clause, "Instant", { hasX: !!trigger.descriptor?.effectHasX, sourceScoped: true }) : null;
+      const clauseAtoms = parsed?.structure === "modal" ? (parsed.modal?.modes || []).flatMap((m) => m.atoms || []) : parsed?.atoms || [];
+      out.push({ source, removed: true, clauseAtoms });
+      continue;
+    }
+    const params = built.payload?.params || {};
+    const program = params.program || null;
+    const modes = program?.modal?.modes || [];
+    const atoms = !program ? [] : program.structure !== "modal" ? program.atoms || []
+      : Array.isArray(params.chosenMode) ? params.chosenMode.flatMap((k) => modes[k]?.atoms || []) : modes[params.chosenMode]?.atoms || [];
+    out.push({ source, removed: false, atoms, targets: built.targets || [], forced: !!built.forced, noSafeTarget: !!built.noSafeTarget, programmed: !!program });
+  }
+  return out;
+}
+
+/**
  * Move every pending trigger onto the stack at this priority-grant checkpoint (CR
  * 603.3). Targets for a targeted trigger are chosen HERE, as the ability goes on the
  * stack (CR 603.3d → 601.2c); pass `{ chooseTargets }` to override the default first-legal
