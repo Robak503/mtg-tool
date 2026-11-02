@@ -32,7 +32,7 @@
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // the count the create-token atom reads on resolution — the loop's X, read the same way
 import { opponentsOf } from "./gameState.js";
-import { permanentIsCreature, permanentPower, permanentHasKeyword, summoningSickNow, goaderControllersOf } from "./layers.js";
+import { permanentIsCreature, permanentPower, permanentHasKeyword, summoningSickNow, goaderControllersOf, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f)
 import { outletState } from "./outletFinishLine.js"; // E7.2 — the finishes that are not combat: a sacrifice outlet on the battlefield
 import { tokenExtraKinds, tokenMultiplier } from "./replacementEffects.js"; // the token replacements a creation event meets (CR 614.1, 616) — Parallel Lives, Peregrin Took
 
@@ -61,9 +61,10 @@ export function isTokenLoopAbility(ability) {
 /** Map(permanentId → Set(abilityIndex)) of the loop abilities on the seat's battlefield; empty for nearly every seat. */
 export function tokenLoopSources(state, playerId) {
   const sources = new Map();
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
-    const card = perm.card;
-    if (!card || card.token) continue;
+    if (!perm.card || perm.card.token) continue;
+    const card = lossy ? withAbilityLoss(state, perm) : perm.card; // a loop source that lost its abilities has no loop
     const oracle = String(card.oracle || card.oracle_text || "");
     if (!/create/i.test(oracle) || !oracle.includes(":")) continue; // cheap gate before the parse
     const indexes = parseActivatedAbilities(card).filter(isTokenLoopAbility).map((a) => a.index);
@@ -83,7 +84,7 @@ export function loopYield(state, playerId, sources) {
   for (const [permanentId, indexes] of sources) {
     const perm = (state.players?.[playerId]?.battlefield || []).find((p) => p.id === permanentId);
     if (!perm) continue;
-    for (const ability of parseActivatedAbilities(perm.card)) {
+    for (const ability of parseActivatedAbilities(withAbilityLoss(state, perm))) {
       if (!indexes.has(ability.index)) continue;
       x = Math.max(x, countForSpec(state, { controller: playerId, sourceId: permanentId }, ability.program.atoms[0].countFor));
     }

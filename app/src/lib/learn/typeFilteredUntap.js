@@ -49,7 +49,7 @@
  *     tail stay unmatched.
  */
 import { logEvent, untapOrConsumeStun } from "./gameState.js";
-import { permanentTypes } from "./layers.js";
+import { permanentTypes, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + withAbilityLoss: a watcher that lost its abilities untaps nothing (CR 613.1f)
 
 // Anchored whole. The three type words map to the layer-4 type tokens the runtime tests.
 const TYPE_UNTAP_RE =
@@ -116,10 +116,11 @@ export function applyTypeFilteredUntap(state, activePlayer, { stepStart = null }
     // A player controlling TWO different watchers (an Unwinding Clock and a Drumbellower) untaps the UNION
     // — each static applies independently, so collecting them is what the cards actually say.
     const wanted = new Set();
+    const lossy = boardHasAbilityLoss(next);
     for (const perm of player.battlefield) {
-      for (const t of parseTypeFilteredUntap(perm.card) || []) wanted.add(t);
+      for (const t of parseTypeFilteredUntap(lossy ? withAbilityLoss(next, perm) : perm.card) || []) wanted.add(t);
     }
-    const selfIds = new Set(player.battlefield.filter((perm) => parseSelfOtherUntap(perm.card)).map((perm) => perm.id));
+    const selfIds = new Set(player.battlefield.filter((perm) => parseSelfOtherUntap(lossy ? withAbilityLoss(next, perm) : perm.card)).map((perm) => perm.id));
     if (!wanted.size && !selfIds.size) continue;
     // ONE UNTAP PER STEP: what an earlier member of the family (Seedborn Muse, Murkfiend Liege) already did to a permanent this
     // step — untapped it (it reads untapped now and is skipped below) or removed a stun counter instead (CR 122.1d).

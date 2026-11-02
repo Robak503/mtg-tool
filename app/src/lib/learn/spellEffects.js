@@ -55,7 +55,7 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTrigger
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { departedSourceLki, lkiRecordIsCreature } from "./gameState.js"; // a departed ability source's last known information (CR 113.7a, 608.2b) — the re-check's colours and creature-ness, the damage path's one reader
-import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -844,8 +844,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // case (no such static in play) → zero behavior change. CR 701.6a: the spell simply can't be countered.
   const uncounterableSubs = (() => {
     const cards = [];
+    const lossy = boardHasAbilityLoss(state);
     for (const pid of Object.keys(state.players || {})) {
-      for (const perm of state.players[pid]?.battlefield || []) if (perm?.card) cards.push(perm.card);
+      for (const perm of state.players[pid]?.battlefield || []) if (perm?.card) cards.push(lossy ? withAbilityLoss(state, perm) : perm.card); // a Root Sliver that lost its abilities protects nothing (CR 613.1f)
     }
     return uncounterableSubtypesOnBattlefield(cards);
   })();
@@ -1431,7 +1432,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       continue;
     }
     // A destroyed planeswalker's look-back (no power — the only modeled PW-death watcher is Cruel Celebrant's flat drain).
-    if (isPlaneswalker(lk.permanent.card)) deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+    if (isPlaneswalker(lk.permanent.card)) deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, ...abilityLossStamp(state, lk.permanent) });
     moves.push({ id: t.id, controller: lk.controller, toZone: "graveyard", deathKind: null, name: lk.permanent.card?.name });
   }
   let next = state;
@@ -1589,7 +1590,7 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
   // FOG-1 (CR 615): the creature's own printed "Prevent all damage …" wall — the ALL form blocks
   // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
   // takes the Bolt), handled at the combat funnel instead.
-  if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
+  if (lk && selfDamagePrevention(withAbilityLoss(s, lk.permanent)) === "all") return s; // a wall that lost its abilities prevents nothing (CR 613.1f)
   // COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — the same wall the combat funnel enforces,
   // applied to NON-COMBAT damage: a Phantom shrugs off a Bolt exactly as it shrugs off a blocker. Unlike
   // the combat path (which must record and pay after its loops, because `state` there is the frozen
@@ -1599,7 +1600,7 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
   // a Phantom still prevents with nothing left to shed, while Bloatfly stops preventing entirely and must
   // FALL THROUGH to take the damage. Collapsing them makes one immortal or the other paper.
   if (lk) {
-    const csMode = counterShieldPrevention(lk.permanent.card);
+    const csMode = counterShieldPrevention(withAbilityLoss(s, lk.permanent));
     if (csMode === "phantom") {
       const have = (lk.permanent.counters?.["+1/+1"]) || 0;
       return have > 0 ? removeCounter(s, { permanentId: permId, type: "+1/+1", amount: 1 }) : s;

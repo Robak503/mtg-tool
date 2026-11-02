@@ -40,6 +40,7 @@
  */
 
 import { advanceSacrificeChain } from "./effects/atoms/removal.js";
+import { withAbilityLoss } from "./layers.js"; // the ability view (CR 613.1f) — a permanent that lost its abilities reads none (ABILITY-LOSS-PROGRAM.md, S0b)
 
 // Keyword-position match (line start / keyword-list separator) so a reminder-text or a granted/printed
 // mention buried mid-sentence can't false-fire. Mirrors fading.js's keyword anchor discipline. The capture
@@ -95,7 +96,7 @@ export function applyAnnihilatorTriggers(state) {
     const defender = a?.defender;
     if (!defender || !state.players?.[defender]) continue; // no defending player / left the game → skip
     const perm = (state.players?.[a.attackingPlayer]?.battlefield || []).find((p) => p.id === a.permanentId);
-    const instances = annihilatorInstances(perm?.card);
+    const instances = annihilatorInstances(perm ? withAbilityLoss(state, perm) : null);
     if (!instances.length) continue;
     sources.push(perm?.card?.name || "creature");
     // The defending player sacrifices N permanents of their choice — N queue entries (one permanent apiece), each with the

@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -125,6 +125,13 @@ export const MIGRATIONS = {
   // more bytes, and a live v7 game holds unstamped counters too — those written outside addCounter); this migration only stamps the
   // version forward, as v2→v3 and v4→v5 do. (CONTRACT-MIG.)
   6: (doc) => ({ ...doc, schemaVersion: 7 }),
+
+  // v7 → v8 — the ability-loss readers (S0b, 2026-11-01): a leave event on `pendingLeaveEvents` (gameState.recordLeaveEvent) may carry
+  // `lkiAbilityLoss` — the "loses all abilities" effects the permanent had as it left (layers.abilityLossStamp, CR 603.10a), read by the
+  // leave triggers' look-back. It is written only for a permanent that had lost its abilities, and an ABSENT stamp already has its
+  // meaning there: it left with every ability it printed — what a v7 game's leave events say (no v7 save holds a loss; no build emits
+  // one). So a v7 save needs no backfill; this migration only stamps the version forward, as v6 → v7 does. (CONTRACT-MIG.)
+  7: (doc) => ({ ...doc, schemaVersion: 8 }),
 };
 
 export class SaveMigrationError extends Error {

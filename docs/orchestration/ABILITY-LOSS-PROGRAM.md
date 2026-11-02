@@ -12,8 +12,23 @@ every stage off, its predicate wired into the four consult points. Mechanics: EN
 S0a's blind review (LAND-WITH-NOTES): F1 (the view memo's key), F2 (the subtype counts inside the derive), F4 (loyalty lines), F7
 (memo reads inside a loss decision), F8 (the Changeling pins) and F9 (the save format, v7) are fixed in S0a; F3 and F6 are S3
 prerequisites (below, after the slice table); F5 is in S0b's hand-off (the research file's table).
-**S0b (next):** §1 items 8–9 and every reader OUTSIDE layers.js routed through the view, and the §5 census witness complete. S0 lands
-only when S0b's census is complete; no stage turns on before.
+**S0b (built, 2026-11-01 — day/abloss-s0b on 24f69959; awaiting its blind review):** §1 items 8–9 and every reader OUTSIDE layers.js
+routed through the view — the research file's §0b table (file:line) and ENGINE-SCAFFOLD §4.6 "The routed readers". Four mechanisms: the
+view (`withAbilityLoss` over each reader's own base; `abilityView.abilityViewOf` for the modules layers.js imports), the look-back stamp
+(`abilityLossStamp` → `lkiAbilityLoss` on the death and leave look-backs — §1.9, the review's F5), the attachment cutoff
+(`attachedGrantCutByLoss` — §1.8), the entering side (`entersWithoutAbilities` / `enteringAbilityCard` — CR 614.12). The board fast path
+needs no collection: no live shape (`abilityLossShapesMayEmit`) and no stored loss (one memo per continuousEffects array) is the empty
+list. S0a's found-not-fixed (2) is fixed (`permanentHasKeyword` seeds from the copy-aware card); the save format is v8 (the leave event's
+stamp, a stamp-only migration). The §5 witnesses: `abilityLossReaders.test.js` (the census over 118 real cards, the neutral-name
+vanilla-twin differential, grant timing, the look-back, the copy-aware seed) and the source lint `abilityLossLint.test.js` (two
+allowlists — five raw reader calls, three direct text reads — each with its reason). Evidence: the RUN-LEDGER entry. S0 lands when
+S0b's review passes; no stage turns on before.
+**What S1 needs from S0b** (Lignify and the existing-op family): an Aura shape emitting `loseAllAbilities` beside its 7b set / subtype
+replace / colour set — the readers are routed, so a lost Lignified creature already reads vanilla everywhere once the op is emitted;
+the fast path then takes the full collection on every board (`abilityLossShapesMayEmit` turns true with the stage), so S1 re-measures
+the big board and, if needed, adds a per-card "may emit" pre-check; the entering side reads only a STATIC loss over a dynamic selector
+(an Aura's fixed loss never meets an entering object); the attachment readers cut a grant from the very Aura that removes the abilities
+(the under-read S4's `grantedWith` siblings lift).
 
 ## 0. Why a program, not a slice
 ~150 engine sites read a permanent's abilities from its PRINTED card (`perm.card`, `classLiveCard(...)`, the face-up view),

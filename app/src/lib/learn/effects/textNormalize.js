@@ -13,11 +13,14 @@
  *     genuinely vacuous in this engine. Plus rewriteAmountX (the {X}-amount sentinel
  *     rewrite for the numeric clause parsers).
  *
- * LEAF — imports nothing; no cycle risk. parser.js imports the exported names back.
+ * LEAF — imports only the zero-import abilityView.js (the board scanners read a battlefield permanent through the ability
+ * view, CR 613.1f — layers.js registers it); no cycle risk. parser.js imports the exported names back.
  * manaOf, CANT_REGEN_SUBJECTS/STRIP, CAST_KEYWORD_LINE, MADNESS_LINE stay
  * module-private (no external consumer). CANT_REGEN_TEST is exported: the
  * parseEffectClause wrapper re-detects the regen rider to stamp `cannotRegenerate`.
  */
+
+import { abilityViewOf, abilityViewLossy } from "../abilityView.js"; // a battlefield permanent that lost its abilities reads none (CR 613.1f; a zero-import leaf)
 
 /**
  * ABILITY-WORD LABELS (CR 207.2c) — "Landfall — Whenever …", "Morbid — …if a creature died this turn…".
@@ -420,7 +423,8 @@ export function skipsDrawStepOf(card) {
   return SKIP_DRAW_STEP_RE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 export function skipsDrawStep(state, playerId) {
-  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (skipsDrawStepOf(perm.card)) return true;
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
+  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (skipsDrawStepOf((lossy ? abilityViewOf(state, perm) : perm.card))) return true;
   return false;
 }
 // ── OPPONENTS' EXTRA TURNS ARE SKIPPED (play-weighted #626 — Trouble in Pairs): "If an opponent would begin an extra turn, that
@@ -433,8 +437,9 @@ export function skipsOpponentExtraTurnsOf(card) {
   return SKIP_OPPONENT_EXTRA_TURN_RE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 export function extraTurnSkipped(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   for (const [pid, pl] of Object.entries(state?.players || {})) {
-    if (pid !== playerId && (pl?.battlefield || []).some((perm) => skipsOpponentExtraTurnsOf(perm.card))) return true;
+    if (pid !== playerId && (pl?.battlefield || []).some((perm) => skipsOpponentExtraTurnsOf((lossy ? abilityViewOf(state, perm) : perm.card)))) return true;
   }
   return false;
 }
@@ -448,7 +453,8 @@ export function grantsWubrgAltCostOf(card) {
   return WUBRG_ALT_COST_RE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 export function grantsWubrgAltCost(state, playerId) {
-  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (grantsWubrgAltCostOf(perm.card)) return true;
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
+  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (grantsWubrgAltCostOf((lossy ? abilityViewOf(state, perm) : perm.card))) return true;
   return false;
 }
 // ── THE SPELL'S OWN FIXED-MANA ALTERNATIVE COST (residue grind RG-8, 2026-09-05 — the Bringers "You may pay {W}{U}{B}{R}{G}
@@ -493,18 +499,20 @@ export function oppEntersDontTriggerOf(card) {
 /** ONE battlefield scan per enters event → a predicate: are `pid`'s PERMANENTS' abilities silenced — does another player
  *  control a carrier? (The dispatchers run on every land drop, so the scan is not repeated per watcher or per player.) */
 export function entersSilencer(state) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   const carriers = [];
   for (const [pid, pl] of Object.entries(state?.players || {})) {
-    if ((pl?.battlefield || []).some((perm) => oppEntersDontTriggerOf(perm.card))) carriers.push(pid);
+    if ((pl?.battlefield || []).some((perm) => oppEntersDontTriggerOf((lossy ? abilityViewOf(state, perm) : perm.card)))) carriers.push(pid);
   }
   return (pid) => carriers.some((c) => c !== pid);
 }
 export function creatureEntersSuppressed(state, enteredPerm) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
   // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.
   if (!/\bCreature\b/i.test(String(enteredPerm?.card?.type || enteredPerm?.card?.type_line || "").split(" // ")[0])) return false;
   for (const pl of Object.values(state?.players || {})) {
-    for (const perm of (pl.battlefield || [])) if (entersDontTriggerOf(perm.card)) return true;
+    for (const perm of (pl.battlefield || [])) if (entersDontTriggerOf((lossy ? abilityViewOf(state, perm) : perm.card))) return true;
   }
   return false;
 }

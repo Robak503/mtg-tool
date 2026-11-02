@@ -91,7 +91,7 @@ import { isNativeAura, isNativeManaAura, playerAuraSpellSubject, entersTapped, i
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.6b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
+import { permanentHasKeyword, permanentIsCreature, crewCostWithOverrides, permanentColors, permIsEveryCreatureType, permanentManaValue, permanentTypes, withAbilityLoss, enteringAbilityCard } from "./layers.js"; // + the ability view (CR 613.1f — a Vehicle that lost its abilities has no crew) // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions; + permIsEveryCreatureType (P·39b — a battlefield commander for Path of Ancestry)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell / command-zone card that is every creature type (Changeling, Maskwood Nexus); a leaf over keywords.js
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39b — every creature type shares a creature type only (CR 205.3d); a zero-import leaf
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility, parseHandSelfPutAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost; play-weighted #570 — the hand self-put, re-read from the card
@@ -205,6 +205,10 @@ function applyPlayLand(state, action) {
   // The entered land is ALREADY on the battlefield at this point, so its own id is threaded for the
   // evaluator's "other lands" exclusion — without it a fast land would count itself and enter tapped a
   // turn late. A condition the shared evaluator can't read leaves the land UNTAPPED (the FN-safe side).
+  // THE LAND'S OWN REPLACEMENT ABILITIES AS IT ENTERS (CR 614.12 — layers.enteringAbilityCard, read against the board before it
+  // entered): a loss that already exists and would apply to it (Blood Sun's "All lands lose all abilities except mana abilities")
+  // leaves it none of them — no chosen type, no enters tapped, no counters it enters with. `card` itself on every other board.
+  const ownLand = enteringAbilityCard(state, action.playerId, card);
   {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
@@ -212,11 +216,11 @@ function applyPlayLand(state, action) {
     // (Cavern of Souls, Unclaimed Territory). resolvers.enterPermanent stamps `chosenType` for every OTHER entry path
     // (a fetched or ramped land); a land played from hand enters HERE, so the same auto-pick stamps it here. No
     // pick (no creatures anywhere to read) → no stamp → the chosen-type mana line is offered to nothing.
-    if (entered && choosesCreatureTypeOnEnter(card)) {
+    if (entered && choosesCreatureTypeOnEnter(ownLand)) {
       const chosenType = autoPickCreatureType(state, action.playerId);
       if (chosenType) next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId], battlefield: bf.map((p) => (p.id === entered.id ? { ...p, chosenType } : p)) } } };
     }
-    if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id) || revealLandEntersTapped(next, card, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
+    if (entered && (entersTapped(ownLand) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, ownLand, action.playerId, entered.id) || revealLandEntersTapped(next, ownLand, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
       next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
     } else if (entered) {
       // THE SHOCKLAND CLAUSE (LANDS-TIER slice 2, CR 614.1c + 119.4): "you may pay N life. If you don't, it
@@ -225,7 +229,7 @@ function applyPlayLand(state, action) {
       // (autoPickOptionalLifePayment: pay iff life ≥ 10). Nothing can act while the pause is open, so
       // "enter untapped → decide → tap on decline" is observably the replacement it models. A controller
       // who cannot pay at all (life < N, CR 119.4) has no choice to make: tapped, no pause.
-      const shock = paysLifeOrEntersTapped(card);
+      const shock = paysLifeOrEntersTapped(ownLand);
       if (shock) {
         if ((next.players[action.playerId].life ?? 0) < shock.life) {
           next = tapPermanent(next, entered.id, { fromEnter: true });
@@ -238,7 +242,7 @@ function applyPlayLand(state, action) {
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): a fading/vanishing LAND enters with N fade/time
   // counters via the play-land path too (the PERMANENT_ETB resolver only covers cast creature/artifact
   // permanents). The upkeep remove-or-sacrifice (gameEngine) then ticks it down like any other.
-  const fade = entersWithFadeCounters(card);
+  const fade = entersWithFadeCounters(ownLand);
   if (fade && fade.n > 0) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
@@ -248,7 +252,7 @@ function applyPlayLand(state, action) {
   // lands, the depletion lands, Gemstone Mine): the tutor site (resolvers.enterPermanent) already places the
   // named counters through the same reader and the same doubling seam; the play-land path did not, so a
   // played Vivid Marsh arrived with no charge counters. Same reader, same doubling, same addCounter.
-  const namedLandCtr = entersWithNamedCounters(card);
+  const namedLandCtr = entersWithNamedCounters(ownLand);
   if (namedLandCtr && namedLandCtr.n > 0) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
@@ -261,7 +265,7 @@ function applyPlayLand(state, action) {
   // stamps, through the SAME auto-pick (most-needed casting color, honouring a printed "other than <X>").
   // The mana model's "one mana of the chosen color" leg resolves it against this permanent; an unstamped
   // land simply never yields that color (FN-safe).
-  const landCC = choosesColorOnEnter(card);
+  const landCC = choosesColorOnEnter(ownLand);
   if (landCC) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
@@ -1452,7 +1456,7 @@ function applyCrewVehicle(state, action) {
   const vehicle = lk.permanent;
   if (!/\bVehicle\b/.test(String(vehicle.card?.type || ""))) throw new DispatcherError("Not a Vehicle", "BAD_TARGET");
   if (permanentIsCreature(state, vehicle.id)) throw new DispatcherError("Vehicle is already a creature", "BAD_TARGET");
-  const n = crewCostWithOverrides(state, vehicle.id, parseCrewCost(vehicle.card)); // S17 — the crew-number grant, re-read at dispatch
+  const n = crewCostWithOverrides(state, vehicle.id, parseCrewCost(withAbilityLoss(state, vehicle))); // S17 — the crew-number grant, re-read at dispatch
   if (n == null) throw new DispatcherError("No crew cost", "BAD_TARGET");
   let power = 0;
   for (const id of action.tapIds || []) {
@@ -1460,7 +1464,7 @@ function applyCrewVehicle(state, action) {
     if (!c || c.controller !== action.playerId || c.permanent.tapped || !permanentIsCreature(state, id)) {
       throw new DispatcherError(`Crew member ${id} is not a live untapped creature you control`, "BAD_TARGET");
     }
-    power += Math.max(0, creaturePower(c.permanent, state) + crewPowerBonus(c.permanent.card)); // S8 — the Pilot's "as though its power were N greater"
+    power += Math.max(0, creaturePower(c.permanent, state) + crewPowerBonus(withAbilityLoss(state, c.permanent))); // S8 — the Pilot's "as though its power were N greater"
   }
   if (power < n) throw new DispatcherError(`Crew total power ${power} < ${n}`, "CREW_SHORT");
   let working = state;

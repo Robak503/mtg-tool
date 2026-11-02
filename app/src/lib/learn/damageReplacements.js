@@ -42,7 +42,7 @@
  * Leaf module: imports only the layer/board readers and two zero-import leaves (no gameState mutation, no cycle). Pure —
  * `applyDamageReplacements` returns `{ amount, prevented }` and never mutates `state`.
  */
-import { permIsEveryCreatureType, permanentIsCreature, permanentColors, permanentTypes, permanentPower } from "./layers.js"; // + permanentIsCreature (the type-line audit — a creature source is one NOW) // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle) // + the source's colours and types NOW and a replacement's own power (Torbran, Mechanized Warfare, Hawkeye)
+import { permIsEveryCreatureType, permanentIsCreature, permanentColors, permanentTypes, permanentPower, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities replaces no damage) // + permanentIsCreature (the type-line audit — a creature source is one NOW) // P·39 — the subtype filters' every-creature-type read (layers' closure never reaches this file — no cycle) // + the source's colours and types NOW and a replacement's own power (Torbran, Mechanized Warfare, Hawkeye)
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — a double-faced permanent's statics are its front face's (a zero-import leaf)
 import { classTopView, classLiveCard, hasClassLevelBar } from "./classLevels.js"; // CLASS (CR 716.2a) — a level section is an ability only at that level (a zero-import leaf)
 import { ABILITY_WORD_LABEL_RE } from "./effects/textNormalize.js"; // CR 207.2c ability-word labels — the single shared list (a zero-import leaf)
@@ -289,15 +289,16 @@ export function stripDamageReplacementClauses(oracle, card) {
 
 // ─── Synthesized-on-read scan ──────────────────────────────────────────────────
 
-/** The card a permanent's replacements are read from: a modeled Class at its own level (classLevels.classLiveCard). */
-const liveCard = (perm) => classLiveCard(perm) ?? perm?.card;
+/** The card a permanent's replacements are read from: a modeled Class at its own level (classLevels.classLiveCard), then the
+ *  stripped view when the permanent lost its abilities (layers.withAbilityLoss, CR 613.1f). */
+const liveCard = (state, perm, lossy = true) => (lossy ? withAbilityLoss(state, perm, classLiveCard(perm) ?? perm?.card) : classLiveCard(perm) ?? perm?.card);
 
 /**
  * Does this permanent (its card) carry a damage-replacement static ability?
  * Synthesized-on-read from the card oracle — no stored entry, no removal hook.
  */
-export function isDamageReplacement(permanent) {
-  return parseDamageReplacements(liveCard(permanent)).length > 0;
+export function isDamageReplacement(permanent, state = null, lossy = true) {
+  return parseDamageReplacements(liveCard(state, permanent, lossy)).length > 0;
 }
 
 /**
@@ -307,9 +308,10 @@ export function isDamageReplacement(permanent) {
  */
 export function collectDamageReplacements(state) {
   const out = [];
+  const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
-      parseDamageReplacements(liveCard(perm)).forEach((entry, index) => {
+      parseDamageReplacements(liveCard(state, perm, lossy)).forEach((entry, index) => {
         out.push({ ...entry, permanentId: perm.id, permanentController: pid, entryIndex: index });
       });
     }
@@ -333,9 +335,11 @@ export function collectDamageReplacements(state) {
  * Noncombat prevention is untouched. Read off the exact sentence, own line.
  */
 export function combatDamageUnpreventable(state) {
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
-      const o = String(perm?.card?.oracle || perm?.card?.oracle_text || "");
+      const c = lossy ? withAbilityLoss(state, perm) : perm.card; // a Frenzied Baloth that lost its abilities lets combat damage be prevented
+      const o = String(c?.oracle || c?.oracle_text || "");
       if (/(?:^|\n)\s*combat damage can't be prevented\.?\s*(?:\n|$)/i.test(o)) return true;
     }
   }
@@ -349,9 +353,10 @@ export function combatDamageUnpreventable(state) {
  */
 export function boardHasDamageReplacement(state) {
   if ((state?.damageReplacementEffects || []).length) return true; // a stored replacement (Lightning's Stagger)
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
-      if (isDamageReplacement(perm)) return true;
+      if (isDamageReplacement(perm, state, lossy)) return true;
     }
   }
   return false;

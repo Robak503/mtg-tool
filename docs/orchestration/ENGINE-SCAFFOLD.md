@@ -1324,8 +1324,7 @@ shape in `abilityLossShapes.js` is off), so no card is credited and no game crea
   `manaAbilitiesKept` (review F1 — one view for both made a Dryad Arbor that lost everything tap for {G}). The object- and text-keyed
   caches stay warm; `perm.card` is never rewritten (CR 707.2). `abilityCardOf` = copy-aware base
   (`copyBaseOf` — manaCardOf's pick, recursion-free) → `classLiveCard` → the view; on a board without a loss it is the permanent's
-  own card object. **Every ability reader outside layers.js still reads the printed card** — routing them is S0b (the hand-off list
-  is in the research file).
+  own card object. Every ability reader outside layers.js routes through it (S0b, below).
 - **The seeds in layers.js**: `keywordSet`, `permanentHasKeyword`, `keywordInstanceCount` (the printed count is zero), the protection
   colours / classes, and gateMet's host-printed-keyword gate read the view; a keyword counter counts only when its kind's stamp
   (`perm.counterTimestamps[kind]`) is newer than the latest loss, the suspected designation likewise (`perm.suspectedTimestamp`), and
@@ -1353,6 +1352,65 @@ shape in `abilityLossShapes.js` is off), so no card is credited and no game crea
     Treefolk). `boardChangesCardTypes` names both ops too.
   - the save format (learnSaveSchema.js CONTRACT-MIG): `counterTimestamps` / `suspectedTimestamp` are v7 (`CURRENT_SCHEMA_VERSION`
     7); the v6 → v7 migration stamps the version only — an absent stamp already reads as older than every effect (review F9).
+- **The routed readers (S0b, 2026-11-01)** — every reader of a permanent's abilities OUTSIDE layers.js reads it through one of four
+  chokepoints, so a permanent that lost all its abilities reads as one with none (the file:line table: ABILITY-LOSS-RESEARCH.md §0b):
+  - **the view** — `withAbilityLoss(state, perm, base?)` over the reader's OWN base (its printed card, its Class level view, a copy's
+    copiable card — whatever it read before), so a board without a loss reads the same object as before. The modules layers.js imports
+    (staticAbilityParser.js, effects/textNormalize.js) and the leaf attackTax.js read it through `abilityView.abilityViewOf` (a
+    zero-import leaf; layers.js registers withAbilityLoss as it loads; unregistered it returns the card, and throws if the state holds a
+    loss). The trigger scans share one helper (`triggers.liveTriggerCard` = the view over `classLiveCard`); manaModel's `manaCardOf`
+    is the view over the copy-aware card and `ownManaCardOf` the view over the printed one (the per-line reads); `canBlockAttacker`
+    tests `boardHasAbilityLoss` once per call and reads both cards, the team gate and the group restrictions through the view. The
+    list-taking scanners (collectCostReducers / collectCostTaxers / collectActivatedCostReducers / collectEquipCostOverrides) are handed
+    `abilityViewPermanents(state, list)` — the list itself on a loss-free board.
+  - **the look-back stamp** (CR 603.10a) — `abilityLossStamp(state, perm)` = `{ lkiAbilityLoss }` (abilityLossOf's frozen answer) when the
+    permanent had lost its abilities, else nothing, spread into `deathLookback`, the leave event (`recordLeaveEvent`, off `before`), the
+    sacrifice and planeswalker look-backs; triggers.js's look-back copies carry it on (`lookBackLoss`). `withAbilityLoss` reads a stamp
+    before the live answer, so a departed permanent's own dies and leave triggers, its indestructible fallback and its shuffle-instead
+    read it as it last existed; `grantedTriggeredQuotedFor`'s two dead-look-back branches cut a granted trigger at or before the stamped
+    loss (review F5). The printed `card` on a look-back is never the view (a copy of it, or the card in the graveyard, is the original —
+    CR 707.2). Save format v8 (the leave event may carry the stamp; a stamp-only migration).
+  - **the attachment cutoff** — `attachedGrantCutByLoss(state, host, attachment, kind)`: an Aura's or Equipment's printed grant read off
+    the attachment (grantedActivatedForHost, grantedTriggersForHost) does not apply to a host whose loss is at or after the attachment's
+    attach timestamp (CR 613.7e); the attachment's own text is read through the view. A grant from the very Aura that removes the
+    abilities is cut (no `grantedWith` marker on a printed grant — S4).
+  - **the entering side** (CR 614.12, 603.6b) — `entersWithoutAbilities(state, controller, card, bestowed)` answers the STATIC losses over
+    a dynamic selector that would reach the card as it enters (a fixed loss names permanents already there; a resolved one affects only
+    the objects it began with — CR 611.2c; a creatures-only selector skips a card that would not enter as a creature — entersAsCreature);
+    `enteringAbilityCard` is the view it implies. applyEnterReplacements reads ITS OWN replacements through it (`own`) and the others'
+    statics through the view; the land drop (actionDispatcher `ownLand`) likewise; a granted riot is dropped when a loss reaches the
+    entering card (the under-read). The AI's blink and land-drop reads ask the same (the object re-enters new, CR 400.7).
+  - **one board test per scan** — a scan over LIVE battlefield permanents asks `boardHasAbilityLoss(state)` ONCE, before its loop
+    (`abilityView.abilityViewLossy` in the modules layers.js imports), and reads `lossy ? withAbilityLoss(state, p) : p.card` inside it,
+    so a board without a loss pays no per-permanent call. Gated this way: manaModel `manaSources` (with `manaCardOf` / `ownManaCardOf` /
+    `extraLineSources` taking the scan's `lossy`), `globalTapManaAugment`, `landsCouldProduce`; replacementEffects `allDoublers`,
+    `manaMultiplier`; gameState `graveyardExileFor`, `untapAll` (the self lock) and `groupNoUntapActiveFilters`, the life floor and
+    life-loss multiplier, the exile-instead and umbra-armor scans, Oath's loyalty, radiation; combatEvasion `canBlockAttacker`, the menace
+    team count, the team block count, the group prevent-and-put; damageReplacements' three scans; enterReplacements' two; legalChoices'
+    cast locks, flash, granted zero costs, the activation and double-mana loops, the graveyard-cast permissions, the free-cast
+    permissions, the can't-cast descriptors, the cast limits, the target taxes, the attack / block filters; staticAbilityParser's 14
+    scanners, textNormalize's 5, attackTax's 2; fetchLand, groupWard, spellEffects' uncounterable scan, outletFinishLine,
+    tokenLoopLine, loopStepLine's untap gate, seedbornUntap, typeFilteredUntap, urDragonAttack, vihaanAnimate, auraEntry, gameEngine's two, opponentAI's
+    crack-back. A reader that may be handed a LOOK-BACK keeps the full stamp-aware read (`triggersForEvent` through `liveTriggerCard`,
+    which tests the board first and reads the stamp whatever the board — a look-back's stamp outlives the loss; the dies and leave
+    look-back readers; `isIndestructible`'s fallback). Measured on the 446-permanent big board (15 decisions): `abilityLossOf` 119,186
+    calls after vs 119,171 on the base, `withAbilityLoss` 6,120 vs 6,105 — a first build without the per-scan test made millions and
+    raised the mean decision ~20%.
+  - **the fast path** — `boardLossEffects` answers "no loss" WITHOUT collecting the board when no shape of the registry can emit
+    (`abilityLossShapes.abilityLossShapesMayEmit` — false while every stage is off; sticky true once a test installs a shape) and the
+    state's `continuousEffects` array holds no loss (one memo per array, shared by every state between two effect changes). Measured:
+    one game builds fewer raw collections than on the base (the RUN-LEDGER entry). **A stage that turns on makes it true for every
+    board**, so that slice re-measures the big board.
+  - **the copy-aware keyword seed** — `permanentHasKeyword` seeds from `copyBaseOf(state, perm).card` (the derive's keywordSet seed),
+    O(1) on a board with no layer-1 copy effect (`boardCopyEffects`, memoized beside the raw collection).
+  - **the source lint** (`abilityLossLint.test.js`): no ability reader (its READERS list) takes a bare `<x>.card` in src/lib/learn outside
+    its ALLOWLIST; no direct `<x>.card.oracle` / `.oracle_text` read (a reader inlined at its call site) outside its TEXT_ALLOWLIST; no
+    `classLiveCard(…)` outside layers.js / classLevels.js reaches a reader unwrapped; no allowlist entry is stale. ALLOWLIST: layers.js's
+    two Changeling reads (`changelingCounts`, matchesSelector — a characteristic-defining ability applied in layer 4, before a layer-6
+    loss: CR 702.73a, 613.3), manaModel `tapCostPayerOrder` (a stateless sort key, ×2), triggers' `gyEnterSelf` (a graveyard card).
+    TEXT_ALLOWLIST: boardEval `isUntappedManaSource` (the AI's stateless estimate), gameState `recordLeaveEvent`'s sourceLki test (it
+    records data), sba.js's Aura Enchant legality (S5's). A new reader joins READERS; a new raw read routes or earns an entry with its
+    reason. The triggers' own-text helper for the readers that read the oracle directly is `ownText(state, perm)`.
 
 ### 4.7 Mana (`manaModel.js`)
 

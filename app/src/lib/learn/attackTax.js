@@ -47,6 +47,7 @@
  * reads.
  */
 
+import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // a Propaganda that lost its abilities taxes nothing (CR 613.1f — the ability view; a zero-import leaf)
 import { parseCountSource } from "./effects/parseHelpers.js"; // the shared "for each <X> you control" count-source reader (parseHelpers imports only keywords.js — no cycle)
 
 /**
@@ -153,9 +154,10 @@ function chargesAttackAt(defends, defenderPlaneswalkerId) {
  * overwhelmingly common case and costs one scan.
  */
 export function attackTaxToDeclare(state, defenderId, defenderPlaneswalkerId = null) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   let total = 0;
   for (const perm of state?.players?.[defenderId]?.battlefield || []) {
-    const read = readAttackTax(perm?.card);
+    const read = readAttackTax(perm ? (lossy ? abilityViewOf(state, perm) : perm.card) : null);
     if (!read || !chargesAttackAt(read.defends, defenderPlaneswalkerId)) continue;
     if (read.tax.generic != null) total += read.tax.generic;
     else if (read.tax.countSource) total += countedTaxAmount(state, defenderId, read.tax.countSource);
@@ -174,9 +176,10 @@ export const PHYREXIAN_LIFE_PER_PIP = 2;
  * with the attack's target, so a pip-only board never reads as untaxed and a tax never reaches a target its card doesn't name.
  */
 export function attackTaxDetail(state, defenderId, defenderPlaneswalkerId = null) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   const phyrexian = [];
   for (const perm of state?.players?.[defenderId]?.battlefield || []) {
-    const read = readAttackTax(perm?.card);
+    const read = readAttackTax(perm ? (lossy ? abilityViewOf(state, perm) : perm.card) : null);
     if (read?.tax.phyrexian && chargesAttackAt(read.defends, defenderPlaneswalkerId)) phyrexian.push(read.tax.phyrexian);
   }
   return { generic: attackTaxToDeclare(state, defenderId, defenderPlaneswalkerId), phyrexian };

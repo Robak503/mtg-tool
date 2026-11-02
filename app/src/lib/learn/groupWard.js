@@ -30,7 +30,7 @@
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentTypes, permIsEveryCreatureType } from "./layers.js";
+import { permanentTypes, permIsEveryCreatureType, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a Diffusion Sliver that lost its abilities taxes nothing)
 
 // The canonical Diffusion-Sliver sentence → the subtype + the generic mana amount, or null. Reminder text
 // (CR 207.2) is parenthetical and stripped; the sentence is matched lowercased + whole. ONLY fixed-generic
@@ -79,13 +79,14 @@ export function groupWardInstancesFor(state, stackObj) {
   const names = [];
   if (!caster) return { costs, names };
   const seen = new Set();
+  const lossy = boardHasAbilityLoss(state);
   for (const t of stackObj.targets || []) {
     if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") || seen.has(t.id)) continue;
     seen.add(t.id);
     const lk = findPermanent(state, t.id);
     if (!lk?.permanent || lk.controller === caster) continue; // a player targeting their own creature is never taxed
     for (const perm of state.players?.[lk.controller]?.battlefield || []) {
-      const gw = parseGroupWard(perm?.card);
+      const gw = parseGroupWard(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null);
       if (!gw || !permIsSubtypeCreature(state, t.id, gw.subtype)) continue;
       costs.push(genericCost(gw.generic));
       const name = perm.card?.name || null;

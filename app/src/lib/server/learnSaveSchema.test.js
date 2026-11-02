@@ -334,6 +334,49 @@ describe("migrate", () => {
     expect(permanentHasKeyword(back.session.state, "perm-1", "flying")).toBe(true);
   });
 
+  // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
+  // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration
+  // stamps the version only. The round trip: a v7 game with an undrained leave event resumes unchanged, and a v8 leave event's stamp
+  // survives save → JSON → migrate, still read by the look-back (the departed creature's granted dies trigger stays cut).
+  it("carries a v7 save forward to v8 (stamp-only; a v8 leave event's ability-loss stamp round-trips)", async () => {
+    const { addContinuousEffect, grantedTriggeredQuotedFor } = await import("../learn/layers.js");
+    const { moveCardToZone } = await import("../learn/gameState.js");
+    const bear = { id: "perm-1", card: { id: "card-1", name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user", owner: "user", tapped: false,
+      summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1 };
+    const leave = { id: "perm-0", controller: "user", card: { id: "card-0", name: "Grizzly Bears", type: "Creature — Bear", oracle: "" }, toGraveyard: true, counters: {} };
+    const v7 = {
+      schemaVersion: 7, kind: "learn-session-save", savedAt: "2026-11-01T00:00:00.000Z", sessionId: "learn-v7", serializable: true,
+      session: {
+        id: "learn-v7", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, pendingLeaveEvents: [leave],
+          players: { user: { life: 20, battlefield: [bear], hand: [], graveyard: [], exile: [], library: [] }, ai: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] } } },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[7]).toBe("function"); // the v7 → v8 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[7](JSON.parse(JSON.stringify(v7)))).toEqual({ ...v7, schemaVersion: 8 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v7)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded) }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true });
+    expect(upgraded.session.state.pendingLeaveEvents).toEqual([leave]); // no field added: absent means "left with its abilities"
+    // a v8 game: a granted dies trigger, then a loss, then the creature leaves — its leave event carries the stamp
+    let s = upgraded.session.state;
+    const quoted = "When this creature dies, draw a card.";
+    s = addContinuousEffect(s, { layer: 6, op: { layerOp: "addAbility", grant: { kind: "triggered", quoted } }, affects: { mode: "fixed", permanentIds: ["perm-1"] }, duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: null, controller: "user" } }).state;
+    s = addContinuousEffect(s, { layer: 6, op: { layerOp: "loseAllAbilities" }, affects: { mode: "fixed", permanentIds: ["perm-1"] }, duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: null, controller: "ai" } }).state;
+    s = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "perm-1" });
+    const ev = s.pendingLeaveEvents.find((e) => e.id === "perm-1");
+    expect(ev.lkiAbilityLoss?.keep).toBe("none");
+    const v8 = { ...v7, schemaVersion: CURRENT_SCHEMA_VERSION, session: { ...v7.session, state: s } };
+    expect(isSerializable(v8.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v8)));
+    const evBack = back.session.state.pendingLeaveEvents.find((e) => e.id === "perm-1");
+    expect(evBack.lkiAbilityLoss).toEqual(JSON.parse(JSON.stringify(ev.lkiAbilityLoss)));
+    // the resumed look-back still cuts the grant made before the loss (CR 603.10a, 613.7)
+    expect(grantedTriggeredQuotedFor(back.session.state, "perm-1", { id: "perm-1", controller: "user", card: evBack.card, lkiAbilityLoss: evBack.lkiAbilityLoss })).toEqual([]);
+    expect(grantedTriggeredQuotedFor(back.session.state, "perm-1", { id: "perm-1", controller: "user", card: evBack.card })).toEqual([quoted]); // control: no stamp → it fires
+  });
+
   // A game serialized mid-tutor-search (a paused pendingChoice + its resume continuation)
   // is plain JSON — it must round-trip losslessly so save/resume mid-search is exact.
   it("a v4 save paused on a tutor-search (pendingChoice + resume) round-trips serializably", () => {

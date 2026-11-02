@@ -42,6 +42,19 @@ const SHAPES = Object.freeze([]);
 
 let _testShapes = null;
 let _testStages = null;
+// Has any shape been able to emit in this process? True from the start when a stage is on; set (and kept) once a test installs shapes,
+// since a consult point's parse is cached by card object or text and may still carry what a test shape emitted after it is restored.
+let _mayHaveEmitted = SHAPES.some((s) => ABILITY_LOSS_STAGES[s.stage]);
+
+/**
+ * CAN A STATIC ABILITY CARRY A LOSS? The board fast path's static half (layers.boardLossEffects): a `loseAllAbilities` effect comes
+ * from a resolved spell or ability (stored on the state) or from a static ability, and a static emits one only through a shape of
+ * this registry. With every stage off and no test shape ever installed this is false, so a board's losses are exactly its stored
+ * ones and no reader needs the board's statics collected to know there is none.
+ */
+export function abilityLossShapesMayEmit() {
+  return _mayHaveEmitted;
+}
 
 /**
  * The value an ENABLED shape emits for `text` at consult point `context`, or null — null for every text while no shape's stage is on.
@@ -87,6 +100,7 @@ export function _withAbilityLossShapesForTests(shapes, stages, fn) {
   for (const s of shapes) if (!shapeIsWellFormed(s)) throw new Error(`abilityLossShapes: malformed test shape ${s?.id ?? "(no id)"}`);
   const prevShapes = _testShapes;
   const prevStages = _testStages;
+  if (shapes.length) _mayHaveEmitted = true;
   _testShapes = Object.freeze([...shapes]);
   _testStages = Object.freeze({ ...ABILITY_LOSS_STAGES, ...stages });
   try {

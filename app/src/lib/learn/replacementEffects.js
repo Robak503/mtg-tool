@@ -31,7 +31,7 @@
  * imports none of the modules that import this one (its whole closure is a set of leaves — verified), so there is still no cycle.
  */
 
-import { permanentHasTypeWord } from "./layers.js";
+import { permanentHasTypeWord, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a doubler that lost its abilities replaces nothing)
 
 function oracleOf(card) {
   return String(card?.oracle ?? card?.oracle_text ?? card?.text ?? "").toLowerCase();
@@ -373,9 +373,10 @@ export function stripModeledDoublerClauses(oracle, card = null) {
  *  "another creature you control" counter-replacement (CR 109.5) skip the recipient when it IS the source. */
 function allDoublers(state) {
   const out = [];
+  const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
-      const profile = doublerProfile(perm.card);
+      const profile = doublerProfile(lossy ? withAbilityLoss(state, perm) : perm.card);
       if (profile) out.push({ ownerId: pid, permId: perm.id, profile });
     }
   }
@@ -619,8 +620,9 @@ export function manaMultiplierProfile(card) {
  */
 export function manaMultiplier(state, controllerId) {
   let mult = 1;
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state?.players?.[controllerId]?.battlefield || []) {
-    const p = manaMultiplierProfile(perm.card);
+    const p = manaMultiplierProfile(lossy ? withAbilityLoss(state, perm) : perm.card);
     if (p) mult *= p.factor;
   }
   return mult;

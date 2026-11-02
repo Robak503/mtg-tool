@@ -66,7 +66,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
 import { findPermanent, creaturePower } from "./gameState.js";
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the evasion text is the front face's
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
@@ -348,11 +348,12 @@ export function attackerMinBlockers(state, attackerId) {
   const hasMenace = permanentHasKeyword(state, attackerId, "Menace");
   let n = hasMenace ? 2 : 1;
   const lk = findPermanent(state, attackerId);
-  const printed = lk?.permanent?.card ? minBlockerCountOf(lk.permanent.card) : null;
+  const printed = lk?.permanent?.card ? minBlockerCountOf(withAbilityLoss(state, lk.permanent)) : null;
   if (printed && printed > n) n = printed;
   if (hasMenace && lk?.controller) {
+    const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
     for (const perm of state.players?.[lk.controller]?.battlefield || []) {
-      const teamN = menaceTeamMinBlockersOf(perm?.card);
+      const teamN = menaceTeamMinBlockersOf(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null);
       if (teamN && teamN > n) n = teamN;
     }
   }
@@ -652,7 +653,8 @@ export function groupPreventPutCountersOf(card) {
 export function groupPreventPutCounters(state, permId) {
   const lk = findPermanent(state, permId);
   if (!lk?.permanent) return false;
-  return (state.players?.[lk.controller]?.battlefield || []).some((p) => p.id !== permId && !!groupPreventPutCountersOf(p.card));
+  const lossy = boardHasAbilityLoss(state);
+  return (state.players?.[lk.controller]?.battlefield || []).some((p) => p.id !== permId && !!groupPreventPutCountersOf(lossy ? withAbilityLoss(state, p) : p.card));
 }
 
 /**
@@ -666,7 +668,7 @@ export function attachedPreventPutCounters(state, permId) {
   for (const attId of lk.permanent.attachments) {
     const att = findPermanent(state, attId);
     if (!att?.permanent?.card) continue;
-    if (attachedPreventPutCountersOf(att.permanent.card)) return "put-that-many";
+    if (attachedPreventPutCountersOf(withAbilityLoss(state, att.permanent))) return "put-that-many";
   }
   return null;
 }
@@ -682,7 +684,7 @@ export function attachedPreventPutCountersPlacer(state, permId) {
   const placers = new Set();
   for (const attId of lk?.permanent?.attachments || []) {
     const att = findPermanent(state, attId);
-    if (att?.permanent?.card && attachedPreventPutCountersOf(att.permanent.card)) placers.add(att.controller);
+    if (att?.permanent?.card && attachedPreventPutCountersOf(withAbilityLoss(state, att.permanent))) placers.add(att.controller);
   }
   return placers.size === 1 ? [...placers][0] : null;
 }
@@ -700,7 +702,7 @@ export function attachedDamagePrevention(state, permId) {
   for (const attId of lk.permanent.attachments) {
     const att = findPermanent(state, attId);
     if (!att?.permanent?.card) continue;
-    const p = attachedPreventionOf(att.permanent.card);
+    const p = attachedPreventionOf(withAbilityLoss(state, att.permanent)); // an Aura that lost its abilities prevents nothing (CR 613.1f)
     if (p.to) to = stronger(to, p.to);
     if (p.by) by = stronger(by, p.by);
   }
@@ -757,11 +759,12 @@ const reTeamBlockAdditional = new RegExp(`(?:^|[\\n.;])\\s*${CORE_TEAM_BLOCK_ADD
 const reClauseTeamBlockAdditional = new RegExp(`^${CORE_TEAM_BLOCK_ADDITIONAL}$`);
 /** How many "each creature you control can block an additional creature" statics this player controls (each adds one block). */
 export function teamBlockAdditionalCount(state, playerId) {
-  return (state?.players?.[playerId]?.battlefield || []).filter((p) => reTeamBlockAdditional.test(String(p.card?.oracle ?? p.card?.oracle_text ?? ""))).length;
+  const lossy = boardHasAbilityLoss(state);
+  return (state?.players?.[playerId]?.battlefield || []).filter((p) => { const c = lossy ? withAbilityLoss(state, p) : p.card; return reTeamBlockAdditional.test(String(c?.oracle ?? c?.oracle_text ?? "")); }).length;
 }
 /** The max number of attackers this permanent may block this combat: its own printed cap plus one per team static its controller has. */
 export function maxBlocksFor(state, perm, controller) {
-  const base = maxBlocksOf(perm.card);
+  const base = maxBlocksOf(withAbilityLoss(state, perm));
   return base === Infinity ? Infinity : base + teamBlockAdditionalCount(state, controller);
 }
 
@@ -991,7 +994,7 @@ export function selfCantAttackBlockGate(card) {
 
 /** True iff this permanent may NOT be declared as an attacker right now (the gate's land window is read LIVE). */
 export function selfCantAttackNow(state, perm) {
-  const g = selfCantAttackBlockGate(perm?.card);
+  const g = selfCantAttackBlockGate(perm ? withAbilityLoss(state, perm) : null);
   if (!g || !g.attack) return false;
   if (g.needsBlessing) return !hasCitysBlessing(state, perm.controller); // restricted until the controller has it (CR 702.131)
   if (!g.minLands) return true;                                   // unconditional
@@ -1002,7 +1005,7 @@ export function selfCantAttackNow(state, perm) {
 
 /** The block-side twin of selfCantAttackNow. */
 export function selfCantBlockNow(state, perm) {
-  const g = selfCantAttackBlockGate(perm?.card);
+  const g = selfCantAttackBlockGate(perm ? withAbilityLoss(state, perm) : null);
   if (!g || !g.block) return false;
   if (g.needsBlessing) return !hasCitysBlessing(state, perm.controller);
   if (!g.minLands) return true;
@@ -1266,7 +1269,7 @@ export function grantedAttackerExceptions(state, attackerId) {
   for (const attId of aLook?.permanent?.attachments || []) {
     const att = findPermanent(state, attId);
     if (!att?.permanent || att.permanent.attachedTo !== attackerId) continue;
-    const e = attachedExceptByOf(att.permanent.card);
+    const e = attachedExceptByOf(withAbilityLoss(state, att.permanent)); // an Equipment that lost its abilities restricts nothing (CR 613.1f)
     if (e) out.push(e);
   }
   // SHELF-85 V14 (2026-09-04 — Gingerbrute "can't be blocked this turn except by creatures with haste"): an effect-granted
@@ -1290,8 +1293,12 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   const aLook = findPermanent(state, attackerId);
   const bLook = findPermanent(state, blockerId);
   if (!aLook?.permanent || !bLook?.permanent) return true;
-  const aCard = aLook.permanent.card;
-  const bCard = bLook.permanent.card;
+  // THE ABILITY VIEW (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b): an attacker or blocker that lost its abilities has none of its
+  // printed combat text ("can't block", "can't be blocked", the except-by and power gates). One identity test per call on a board
+  // without a loss (`lossy`), then the printed cards exactly as before.
+  const lossy = boardHasAbilityLoss(state);
+  const aCard = lossy ? withAbilityLoss(state, aLook.permanent) : aLook.permanent.card;
+  const bCard = lossy ? withAbilityLoss(state, bLook.permanent) : bLook.permanent.card;
 
   // Blocker-side restrictions.
   if (isSelfCantBlock(bCard)) return false;
@@ -1419,7 +1426,8 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   {
     const bPow = creaturePower(bLook.permanent, state);
     for (const src of state.players?.[aLook.controller]?.battlefield || []) {
-      if (!teamPowerBlockGateOf(deriveCharacteristics(state, src.id).copiableValues || src.card)) continue;
+      const srcBase = deriveCharacteristics(state, src.id).copiableValues || src.card;
+      if (!teamPowerBlockGateOf(lossy ? withAbilityLoss(state, src, srcBase) : srcBase)) continue;
       if (bPow < creaturePower(src, state)) return false;
     }
   }
@@ -1485,7 +1493,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   const attackerController = aLook.controller;
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
-      const r = groupBlockRestrictionOf(perm?.card);
+      const r = groupBlockRestrictionOf(lossy && perm ? withAbilityLoss(state, perm) : perm?.card);
       if (!r) continue;
       if (r.controllerScope === "you" && attackerController !== pid) continue; // "…you control…" — only the source's own creatures
       const attackerIsNamed = r.subtypes.some((s) => permIsSubtype(state, attackerId, s));

@@ -24,6 +24,7 @@
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { cardMatchesTutorFilter, tutorManaValue } from "./effects/atoms/library.js";
 import { findPermanent } from "./gameState.js";
+import { withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // the ability view (CR 613.1f) — a source that lost its abilities makes no mana
 import { manaProduction } from "./manaModel.js";
 
 const COLOURS = ["W", "U", "B", "R", "G"];
@@ -49,8 +50,9 @@ function coloredPips(mana) {
 export function colourNeed(state, playerId) {
   const player = state?.players?.[playerId];
   const producible = new Set();
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of player?.battlefield || []) {
-    for (const c of manaProduction(perm?.card)?.colors || []) producible.add(c);
+    for (const c of manaProduction(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null)?.colors || []) producible.add(c);
   }
   const needed = new Set();
   const pips = Object.fromEntries(COLOURS.map((c) => [c, 0]));

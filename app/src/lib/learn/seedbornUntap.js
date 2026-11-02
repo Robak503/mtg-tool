@@ -25,6 +25,7 @@
  * watcher is byte-identical (the watchers scan is empty → the state is returned unchanged).
  */
 import { logEvent, untapOrConsumeStun } from "./gameState.js";
+import { withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // the ability view (CR 613.1f) — a permanent that lost its abilities reads none (ABILITY-LOSS-PROGRAM.md, S0b)
 
 // Anchored to the WHOLE Seedborn templating so no other card false-matches. The subject must be "all
 // permanents YOU control" (the controller's own permanents) and the timing must be "during each other
@@ -60,7 +61,8 @@ export function applySeedbornUntap(state, activePlayer) {
     if (pid === activePlayer) continue; // the active player already untapped via the normal turn-based untapAll
     const player = next.players[pid];
     if (!player?.battlefield?.length) continue;
-    const hasWatcher = player.battlefield.some((perm) => isSeedbornUntap(perm.card));
+    const lossy = boardHasAbilityLoss(next);
+    const hasWatcher = player.battlefield.some((perm) => isSeedbornUntap(lossy ? withAbilityLoss(next, perm) : perm.card));
     if (!hasWatcher) continue;
     // BECOMES-UNTAPPED events (Mesmeric Orb + Seedborn = the classic mill engine): record every real
     // tapped→untapped transition (a stun-consume stays tapped and never fires), the untapAll pattern.

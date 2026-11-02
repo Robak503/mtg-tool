@@ -43,6 +43,8 @@ import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, 
 import { classLiveCard } from "./classLevels.js"; // CLASS (CR 716.2a) — a modeled Class's statics are read off its level view (a zero-import leaf)
 import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGate.js"; // P·12 — Animate Dead's -1/-0 (a zero-import leaf)
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
+import { abilityLossShapesMayEmit } from "./abilityLossShapes.js"; // can a static carry a loss? (false while every stage is off — the board fast path; a zero-import leaf)
+import { registerAbilityView } from "./abilityView.js"; // the ability view for the modules this one imports (a zero-import leaf; registered below)
 import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
@@ -1050,9 +1052,19 @@ function effectNamesPermanent(e, perm) {
  *  it — the pick deriveCharacteristics makes (latestCopySource) — or the permanent itself when nothing copies. Recursion-free:
  *  every layer-1 copy effect the engine emits names its permanent (becomeCopy — self). */
 function copyBaseOf(state, perm) {
-  const copySource = latestCopySource((state ? rawContinuousEffects(state) : []) // layer 1 only — the loss filter never removes one
-    .filter((e) => e.layer === 1 && e.op === "copy" && e.copiableCard && effectNamesPermanent(e, perm)));
+  const copies = boardCopyEffects(state); // layer 1 only — the loss filter never removes one
+  if (copies.length === 0) return perm; // the board fast path: no copy effect anywhere — one memo read
+  const copySource = latestCopySource(copies.filter((e) => effectNamesPermanent(e, perm)));
   return copySource ? { ...perm, card: copySource } : perm;
+}
+
+/** The board's layer-1 copy effects (CR 613.1a — `op: "copy"` with a copiable card), from the raw collection, memoized beside it
+ *  (an empty array when there is none — the fast path copyBaseOf and the keyword seed share). */
+function boardCopyEffects(state) {
+  if (!state) return NO_COPIES;
+  let memo = _copyBoardMemo.get(state);
+  if (memo === undefined) { rawContinuousEffects(state); memo = _copyBoardMemo.get(state); }
+  return memo;
 }
 
 // GOD-DEVOTION (CR 700.5) — count the mana-symbol pips of any color in `colors` (a WUBRG-letter array) among
@@ -1330,9 +1342,14 @@ function rawContinuousEffects(state) {
   }
   for (const e of state.continuousEffects || []) effects.push(e);
   let losses = null;
-  for (const e of effects) if (e.layer === 6 && e.op?.layerOp === LOSE_ALL_ABILITIES) (losses ??= []).push(e);
+  let copies = null;
+  for (const e of effects) {
+    if (e.layer === 6 && e.op?.layerOp === LOSE_ALL_ABILITIES) (losses ??= []).push(e);
+    else if (e.layer === 1 && e.op === "copy" && e.copiableCard) (copies ??= []).push(e);
+  }
   _rawBoardMemo.set(state, effects);
   _lossBoardMemo.set(state, losses ? losses.sort(byTimestamp) : NO_LOSSES);
+  _copyBoardMemo.set(state, copies || NO_COPIES);
   return effects;
 }
 
@@ -1357,12 +1374,18 @@ function rawContinuousEffects(state) {
 //   · withoutLostStatics         — the collection without a lost permanent's own layer ≥ 6 statics and markers;
 //   · effectAffects              — the grant cutoff (grantCutByLoss);
 //   · the keyword / protection / gate seeds — read the stripped view (strippedCardView), counters and suspicion by their stamps.
-// Every reader OUTSIDE this module routes through abilityCardOf / withAbilityLoss (the program's S0b stage).
+// Every reader OUTSIDE this module routes through withAbilityLoss / abilityCardOf (the program's S0b stage — ENGINE-SCAFFOLD §4.6
+// "The routed readers"); a module this one imports reads it through abilityView.js (registered at the bottom of this file). A death or
+// leave LOOK-BACK carries the loss it had as it left (abilityLossStamp, CR 603.10a), and withAbilityLoss reads that stamp first; the
+// readers that parse an attachment's printed grant outside the layers ask attachedGrantCutByLoss; the entering side asks
+// entersWithoutAbilities (CR 614.12).
 
 export const LOSE_ALL_ABILITIES = "loseAllAbilities";
 const NO_LOSSES = Object.freeze([]);
 const _rawBoardMemo = new WeakMap();  // state -> every continuous effect, before the ability-loss filter
 const _lossBoardMemo = new WeakMap(); // state -> the loseAllAbilities effects among them, timestamp order (NO_LOSSES when none)
+const NO_COPIES = Object.freeze([]);
+const _copyBoardMemo = new WeakMap(); // state -> the layer-1 copy effects among them, collection order (NO_COPIES when none)
 const _lossMemo = new WeakMap();      // state -> Map(permanent id -> loss | null)
 const _lossInProgress = new Map();    // state -> Set(id) of each permanent whose loss is being decided right now (the re-entry guard)
 let _lossDepth = 0;                   // how many loss decisions are in flight; while > 0 no derived memo is written
@@ -1376,10 +1399,28 @@ function boardLossEffects(state) {
   if (!state) return NO_LOSSES;
   if (state === _lastLossState) return _lastLossList;
   let memo = _lossBoardMemo.get(state);
-  if (memo === undefined) { rawContinuousEffects(state); memo = _lossBoardMemo.get(state); }
+  if (memo === undefined) {
+    // NO LOSS WITHOUT COLLECTING (S0b — the readers outside this module ask this on states nothing else collects: an attack tax, a
+    // text scan, an untap step): a loss is either stored on the state (a resolved spell's) or emitted by a static ability, and a
+    // static emits one only through a live shape of the registry (abilityLossShapesMayEmit — false while every stage is off). So with
+    // no live shape and no stored loss the answer is the empty list, read off one memo per continuousEffects ARRAY (shared, by
+    // reference, by every state between two effect changes) — the board's statics are never collected for it.
+    if (!abilityLossShapesMayEmit() && !storedLossIn(state.continuousEffects)) memo = NO_LOSSES;
+    else { rawContinuousEffects(state); memo = _lossBoardMemo.get(state); }
+  }
   _lastLossState = state;
   _lastLossList = memo;
   return memo;
+}
+const _storedLossMemo = new WeakMap(); // continuousEffects array -> does it hold a loseAllAbilities effect?
+function storedLossIn(effects) {
+  if (!Array.isArray(effects) || effects.length === 0) return false;
+  let has = _storedLossMemo.get(effects);
+  if (has === undefined) {
+    has = effects.some((e) => e?.layer === 6 && e.op?.layerOp === LOSE_ALL_ABILITIES);
+    _storedLossMemo.set(effects, has);
+  }
+  return has;
 }
 
 /** A stored effect's id, else (a static's descriptor carries none) its source — the key a `grantedWith` sibling names. */
@@ -1560,8 +1601,75 @@ function manaAbilityTextOf(card) {
  */
 export function withAbilityLoss(state, perm, card = perm?.card) {
   if (!perm || perm.id == null) return card;
-  const loss = abilityLossOf(state, perm.id);
+  const loss = lossOfReader(state, perm);
   return loss ? strippedCardView(card, loss.keep) : card;
+}
+
+/**
+ * The loss a reader of `perm`'s abilities honours: a LOOK-BACK's stamp (`lkiAbilityLoss` — the loss it had as it last existed on
+ * the battlefield, CR 603.10a; written by abilityLossStamp at the death and leave look-back constructors), else the live answer
+ * (abilityLossOf). A permanent on the battlefield carries no stamp, so it always reads live; a look-back of a permanent that had
+ * lost nothing carries none either and reads null (its id is gone from the battlefield).
+ */
+function lossOfReader(state, perm) {
+  return perm.lkiAbilityLoss ?? abilityLossOf(state, perm.id);
+}
+
+/**
+ * THE LOOK-BACK STAMP (CR 603.10a — a leaves-the-battlefield ability looks back in time; ABILITY-LOSS-PROGRAM.md §1.9): the fields a
+ * death or leave look-back of `perm` carries so every routed reader (withAbilityLoss, the attachment cutoff, the granted-trigger
+ * look-back) reads it as it last existed — `{ lkiAbilityLoss }` when `perm` had lost its abilities, else nothing at all (a look-back of
+ * a permanent that lost nothing is unchanged, field for field). Read while `perm` is still on the battlefield of `state`. The stamp
+ * is plain data (abilityLossOf's frozen answer), so a saved look-back round-trips.
+ */
+const NO_STAMP = Object.freeze({});
+export function abilityLossStamp(state, perm) {
+  if (!perm || perm.id == null) return NO_STAMP;
+  const loss = lossOfReader(state, perm);
+  return loss ? { lkiAbilityLoss: loss } : NO_STAMP;
+}
+
+/** Does the board hold any loseAllAbilities effect? The one per-state test the routed readers' fast paths share: a scan over LIVE
+ *  battlefield permanents asks it ONCE, before its loop, and reads each permanent's own card when it answers false (no per-permanent
+ *  work on a board without a loss). A reader that may be handed a LOOK-BACK reads withAbilityLoss itself (the stamp outlives the loss). */
+export function boardHasAbilityLoss(state) {
+  return boardLossEffects(state).length > 0;
+}
+
+/**
+ * A LIST OF PERMANENTS AS THEIR ABILITY READERS SEE THEM — for the list-taking board scanners that read `entry.card` themselves
+ * (staticAbilityParser's collectCostReducers / collectCostTaxers / collectActivatedCostReducers / collectEquipCostOverrides, the
+ * uncounterable-subtype scan): each permanent that lost its abilities becomes `{ ...perm, card: <its stripped view> }`, every other
+ * entry is itself. On a board without a loss it is `perms` itself, the same array (one identity test). A non-permanent entry (a bare
+ * card — the command zone's) passes through unread.
+ */
+export function abilityViewPermanents(state, perms) {
+  if (!Array.isArray(perms) || perms.length === 0 || boardLossEffects(state).length === 0) return perms;
+  let out = null;
+  for (let i = 0; i < perms.length; i++) {
+    const p = perms[i];
+    if (!p?.card || p.id == null) continue;
+    const view = withAbilityLoss(state, p);
+    if (view !== p.card) (out ??= perms.slice())[i] = { ...p, card: view };
+  }
+  return out || perms;
+}
+
+/**
+ * THE ATTACHMENT CUTOFF for the readers that parse an attached Aura's or Equipment's printed grant ("Enchanted creature has
+ * \"…\"") straight off the attachment, outside the layer system (legalChoices.grantedActivatedForHost, triggers.grantedTriggersForHost):
+ * does a loss on the HOST remove the ability `attachment` grants it? Yes when a loss on the host
+ * has a timestamp at or after the attachment's (CR 613.7, 613.7e — an Aura or Equipment gets a new timestamp as it becomes attached;
+ * grantCutByLoss's reading: the earlier effect applies first and the loss then removes it), unless `kind` is "mana" and that loss
+ * keeps the mana abilities. A grant from an attachment attached after the loss applies. The host may be a look-back (its stamp).
+ * The same-effect exception (`grantedWith`) is a layer-system descriptor; a printed attachment grant carries none, so a grant from
+ * the very Aura that removes the abilities reads as cut (an under-read — S4 models those grants as siblings).
+ */
+export function attachedGrantCutByLoss(state, host, attachment, kind = "ability") {
+  if (!host || host.id == null) return false;
+  const loss = lossOfReader(state, host);
+  if (!loss) return false;
+  return grantCutByLoss(loss, { timestamp: attachment?.timestamp, source: { kind: "static", permanentId: attachment?.id ?? null } }, kind);
 }
 
 /**
@@ -2698,8 +2806,12 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   // ABILITY LOSS (CR 613.1f): the stripped view has no printed keyword; a keyword counter or the suspected designation counts only
   // when newer than the latest loss (their stamps — keywordSet's reading); a kicked keyword (the permanent's own ability, CR 702.33e)
   // is gone; the grants below were already cut by effectAffects.
+  // THE SEED IS THE CARD AFTER LAYER 1 (CR 613.1a, 707.2 — the S0a found-not-fixed (2)): a permanent that became a copy has the
+  // copiable card's printed keywords, not its own — copyBaseOf, the derive's keyword seed (keywordSet over the copy-swapped
+  // permanent); a board with no copy effect reads the permanent's own card (one memo read).
+  const base = copyBaseOf(state, perm).card;
   const loss = abilityLossOf(state, permanentId);
-  const printed = hasKeyword(loss ? strippedCardView(perm.card, loss.keep) : perm.card, keyword);
+  const printed = hasKeyword(loss ? strippedCardView(base, loss.keep) : base, keyword);
   const fromCounter = (perm.counters?.[kwLower] || 0) > 0 && (!loss || counterStampNewerThan(perm, kwLower, loss.timestamp));
   // SUSPECTED (BLITZ EK-1, CR 701.60c) — the suspected designation grants menace + "can't block"
   // ("cantblock" is the pseudo-keyword the granted can't-block reads already use: combatEvasion.
@@ -3117,6 +3229,47 @@ export function entersAsCreature(state, controller, card, bestowed = false) {
 }
 
 /**
+ * WILL THIS CARD ENTER WITHOUT ITS ABILITIES? (CR 614.12 — "check the characteristics of the permanent as it would exist on the
+ * battlefield, taking into account … continuous effects that already exist and would apply to the permanent"; CR 603.6b's example:
+ * under "All creatures lose all abilities" an entering creature's enters triggered ability won't trigger.) The loss that would apply
+ * to `card` as it enters under `controller`, `{ keep }` (the view's keep — "mana" when every such loss keeps the mana abilities), or
+ * null. Only a STATIC loss over a DYNAMIC selector can reach an object entering the battlefield: a fixed or self loss names
+ * permanents already there, and a loss from a resolved spell or ability affects only the objects it affected as it began
+ * (CR 611.2c — it modifies characteristics). The selector is read against the entering object as `entersAsCreature` reads it: a
+ * card entering bestowed, or a God below its devotion with its own pips counted, is not a creature, so a creatures-only loss does
+ * not reach it. Not read (an under-read — its own replacements apply): a loss from the entering card's OWN static ability (none
+ * is emitted — the program's S3). The board fast path answers null on one identity test. applyEnterReplacements reads the
+ * entering card's own replacement abilities through the stripped view when this answers.
+ */
+export function entersWithoutAbilities(state, controller, card, bestowed = false) {
+  if (!card || !state) return null;
+  const losses = boardLossEffects(state);
+  if (losses.length === 0) return null;
+  const candidate = { id: ENTERING_CANDIDATE_ID, card, controller };
+  let creature = null;
+  let keep = null;
+  for (const e of losses) {
+    if (e.source?.kind !== "static" || e.affects?.mode !== "dynamic") continue;
+    const sel = e.affects.selector || {};
+    if ((sel.cardTypes || []).some((t) => String(t).toLowerCase() === "creature")) {
+      creature ??= entersAsCreature(state, controller, card, bestowed);
+      if (!creature) continue;
+    }
+    if (!effectSelects(e, candidate, state)) continue;
+    keep = keep === "none" || !e.op.exceptMana ? "none" : "mana";
+  }
+  return keep ? { keep } : null;
+}
+const ENTERING_CANDIDATE_ID = "\u0000entering"; // an id no permanent carries: the entering object is not on the battlefield yet
+
+/** `card` as the entering permanent's own replacement abilities read it (CR 614.12): the stripped view when
+ *  entersWithoutAbilities answers, else `card` itself. */
+export function enteringAbilityCard(state, controller, card, bestowed = false) {
+  const loss = entersWithoutAbilities(state, controller, card, bestowed);
+  return loss ? strippedCardView(card, loss.keep) : card;
+}
+
+/**
  * THE TYPES A CARD ENTERS WITH — lowercase card types and subtypes of the face that is up (CR 712.8d), "creature" only when
  * entersAsCreature says it is one as it enters (CR 614.12: a bestowed Aura, a God below its devotion are not). The counter
  * replacements read it for a permanent entering with counters (CR 122.6 — "put on" includes an object given counters as it
@@ -3204,11 +3357,16 @@ export function grantedTriggeredQuotedFor(state, permanentId, lookBack = null) {
     // recipients explicitly, so it can be matched by id alone. STORED effects only (state.continuousEffects
     // — statics are collected live and can never carry a fixed-ids triggered grant), so the blast radius is
     // exactly the until-EOT grant vehicle; a dead id simply isn't in any list otherwise.
+    // ABILITY LOSS (CR 603.10a, 613.7 — the S0a review's F5): the departed permanent's look-back stamp (abilityLossStamp) is the loss
+    // it had as it last existed; a grant at or before that loss was removed with its other abilities and does not fire (a Feign
+    // Death grant made before a Turn to Frog), exactly as effectAffects cuts it on the battlefield. A grant made after it fires.
+    const lkLoss = lookBack?.lkiAbilityLoss ?? null;
     const out = [];
     for (const e of state?.continuousEffects || []) {
       if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
       if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
       if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(permanentId)) continue;
+      if (lkLoss && grantCutByLoss(lkLoss, e, "ability")) continue;
       out.push(e.op.grant.quoted);
     }
     // DYNAMIC DEAD-LOOK-BACK (BLITZ BG-2, CR 603.6c/603.10a — Candlekeep Sage's "When this creature
@@ -3226,6 +3384,7 @@ export function grantedTriggeredQuotedFor(state, permanentId, lookBack = null) {
         if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
         if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
         if (e.affects?.mode !== "dynamic" || !effectAffects(e, lookBack, state)) continue;
+        if (lkLoss && grantCutByLoss(lkLoss, e, "ability")) continue; // effectAffects' live cutoff finds no loss for a departed id
         out.push(e.op.grant.quoted);
       }
     }
@@ -3776,3 +3935,8 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
   if (kept.length === list.length) return state;
   return { ...state, continuousEffects: kept };
 }
+
+// THE ABILITY VIEW for the modules this one imports (staticAbilityParser.js, effects/textNormalize.js — abilityView.js): their board
+// scanners read a battlefield permanent through withAbilityLoss (and test the board once per scan through boardHasAbilityLoss), registered
+// here as this module loads.
+registerAbilityView(withAbilityLoss, boardHasAbilityLoss);

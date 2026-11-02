@@ -27,6 +27,7 @@
  */
 
 import { addCounter, findPermanent, logEvent } from "./gameState.js";
+import { withAbilityLoss } from "./layers.js"; // the ability view (CR 613.1f) — a permanent that lost its abilities reads none (ABILITY-LOSS-PROGRAM.md, S0b)
 
 // The end-step-counter clause, anchored to Wolverine's exact templating so no other card false-matches.
 // "another creature" (CR 109.2 self-exclusion) is load-bearing — Wolverine's own damage to a DIFFERENT
@@ -50,7 +51,7 @@ export function marksDamageToCreature(card) {
  * source doesn't carry the clause — so non-Wolverine damage is byte-identical). Pure.
  */
 export function armDamageToCreatureFlag(state, sourcePerm, targetId) {
-  if (!sourcePerm?.card || !marksDamageToCreature(sourcePerm.card)) return state;
+  if (!sourcePerm?.card || !marksDamageToCreature(withAbilityLoss(state, sourcePerm))) return state;
   if (!targetId || targetId === sourcePerm.id) return state; // "another creature" — self-damage doesn't arm it
   const target = findPermanent(state, targetId);
   if (!target) return state;
@@ -68,7 +69,7 @@ export function applyWolverineEndStep(state) {
   let next = state;
   for (const pid of Object.keys(next.players || {})) {
     for (const perm of next.players[pid].battlefield || []) {
-      if (perm.dealtDamageToCreatureThisTurn && marksDamageToCreature(perm.card)) {
+      if (perm.dealtDamageToCreatureThisTurn && marksDamageToCreature(withAbilityLoss(next, perm))) {
         next = addCounter(next, { permanentId: perm.id, type: "+1/+1", amount: 1, placedBy: pid }); // its own ability, its controller
         next = logEvent(next, { kind: "wolverine-endstep-counter", permanentId: perm.id, cardName: perm.card?.name, controller: pid });
       }

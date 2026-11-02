@@ -87,7 +87,7 @@ import {
   checkCastTriggers, // the cast-trigger preview fires the "whenever you cast" watchers exactly as the cast dispatch does
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword, withAbilityLoss } from "./layers.js"; // + withAbilityLoss: the card-name mana registry reads a permanent that lost its abilities as its stripped view (CR 613.1f) // + the forced pick's survival read
+import { enteringAbilityCard, expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount, permanentIsCreature, permanentToughness, permanentHasKeyword, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + withAbilityLoss: the card-name mana registry reads a permanent that lost its abilities as its stripped view (CR 613.1f) // + the forced pick's survival read
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // the finished Saga's sacrifice (CR 714.4) — THE sacrifice outside a resolution
 import {
   parseEffectClause,
@@ -309,7 +309,8 @@ export function emptyManaPools(state) {
 // Battlefields are keyed by controller, a phased-out permanent is spliced out of `battlefield`, and a face-down permanent's
 // `card` is its 2/2 stand-in (CR 708.2), so this array is exactly the permanents whose static applies.
 function lostManaTurnsColorless(state, playerId) {
-  return (state.players?.[playerId]?.battlefield || []).some((perm) => lostManaBecomesColorless(perm?.card));
+  const lossy = boardHasAbilityLoss(state);
+  return (state.players?.[playerId]?.battlefield || []).some((perm) => lostManaBecomesColorless(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null)); // a Kruphix that lost its abilities keeps nothing (CR 613.1f)
 }
 
 // A restricted entry's mana, turned colorless: the same amount, the same restriction, and no until-end-of-turn hold — the
@@ -970,7 +971,8 @@ const MAX_HAND_RE = /maximum hand size/i;
 export function cleanupDiscardExcess(state, playerId) {
   const player = state.players?.[playerId];
   if (!player) return 0;
-  const oracleOf = (p) => String(p?.card?.oracle || p?.card?.oracle_text || "");
+  const lossy = boardHasAbilityLoss(state);
+  const oracleOf = (p) => { const c = p?.card ? (lossy ? withAbilityLoss(state, p) : p.card) : null; return String(c?.oracle || c?.oracle_text || ""); }; // a Reliquary Tower that lost its abilities lifts no maximum (CR 613.1f)
   if (player.noMaxHandSizeForGame) return 0; // SEA GATE RESTORATION (BI-3): the spell-granted flag, for the rest of the game
   if ((player.battlefield || []).some((p) => NO_MAX_HAND_RE.test(oracleOf(p)))) return 0;
   // ⛔⛔ THE SUSPENSION IS NOW NARROW. It used to fire on ANY "maximum hand size" text anywhere on the
@@ -1981,7 +1983,8 @@ function pickFlickerCandidate(state, controller, safe, program) {
     if (p.card?.token || p.token) return -Infinity;
     // Brago returns cards "under their owner's control": a permanent you took goes home, lost to you.
     if (blink.returnTo === "owner" && (p.owner || lk.controller) !== controller) return -Infinity;
-    let g = detectTriggers(p.card).some((d) => d.event === "etb" && d.scope === "self") ? 3 : 0;
+    // It returns as a NEW object (CR 400.7): its enters trigger as it would enter (layers.enteringAbilityCard, CR 614.12).
+    let g = detectTriggers(enteringAbilityCard(state, p.owner || lk.controller, p.card)).some((d) => d.event === "etb" && d.scope === "self") ? 3 : 0;
     if (p.tapped) g += 1;
     if (isAura(p)) g += reaimGain(p, onReturn || exiled([t.id]));
     else if (p.attachedTo) g -= 2;

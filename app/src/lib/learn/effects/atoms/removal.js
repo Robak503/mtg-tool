@@ -17,7 +17,7 @@ import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { applyPumpEffect } from "./combat.js"; // the chosen-type -N/-N (Crippling Fear) rides the shared pump over a fixed set (combat.js imports no removal module)
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, abilityLossStamp, withAbilityLoss, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
@@ -240,7 +240,7 @@ export function applyDestroyDiesCopy(state, atom, ctx) {
       copiable,
       power: half(creaturePower(perm, state)),
       toughness: half(creatureToughness(perm, state)),
-      redirected: diesExiledInstead(state, perm) || shufflesIntoLibraryInsteadOfGraveyard(copiable),
+      redirected: diesExiledInstead(state, perm) || shufflesIntoLibraryInsteadOfGraveyard(withAbilityLoss(state, perm, copiable)), // its own shuffle-instead, as it is now (CR 613.1f)
     });
   }
   let next = applyDestroyEffect(state, { controller: ctx.controller, targets });
@@ -347,10 +347,10 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
   // effect send theirs (Cruel Celebrant's "creature or planeswalker you control dies") — Sheoldred's Edict's planeswalker mode,
   // Korvold's "sacrifice another permanent". One a replacement exiled never died; the dispatch reads where the card went. Missing
   // until 2026-10-17: a lone planeswalker sacrificed by an effect fired no planeswalker-dies watcher.
-  else if (lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card }]);
+  else if (lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: permId, controller: playerId, name: lk.permanent.card?.name, card: lk.permanent.card, ...abilityLossStamp(state, lk.permanent) }]);
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing player. The perm has left the
   // battlefield, so its look-back carries its card and the types it had (sacScopeMatches' creature scope reads them).
-  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes] });
+  next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...lkiTypes], ...abilityLossStamp(state, lk.permanent) });
   // + P·36: its last-known power (CR 603.6e) — "where X is that creature's power" (Disciple of Freyalise) reads it off this entry.
   return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name, cardTypes: sacTypes, power: sacPower });
 }

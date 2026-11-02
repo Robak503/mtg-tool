@@ -30,7 +30,7 @@ import {
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { characteristicTypeLine, faceUpView, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card; a cast spell's colours are the face being cast's (CR 712.8c)
-import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
+import { grantedTriggeredQuotedFor, withAbilityLoss, attachedGrantCutByLoss, boardHasAbilityLoss, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -7619,14 +7619,45 @@ export function parseGrantedTriggeredAbilities(card) {
   return out;
 }
 
+/**
+ * THE CARD A PERMANENT'S TRIGGERED ABILITIES ARE READ FROM — the one reader every trigger scan in this module calls (the
+ * ability-loss program's triggers chokepoint, S0b): a modeled Class's level view (classLiveCard, CR 716.2a), then the stripped view
+ * when the permanent has lost its abilities (CR 613.1f — layers.withAbilityLoss: live, or a look-back's `lkiAbilityLoss` stamp as it
+ * last existed, CR 603.10a). On a board without a loss it is classLiveCard's own answer, the same object.
+ */
+function liveTriggerCard(state, perm) {
+  const base = classLiveCard(perm);
+  // The board fast path first (one identity test); a look-back's stamp outlives the loss that wrote it, so it is read whatever the board.
+  if (!boardHasAbilityLoss(state) && perm?.lkiAbilityLoss === undefined) return base;
+  return withAbilityLoss(state, perm, base);
+}
+
+/** A look-back built from a death or leave record carries that record's ability-loss stamp (gameState.deathLookback /
+ *  recordLeaveEvent — layers.abilityLossStamp, CR 603.10a), so the departed source reads its abilities as it last existed. Nothing
+ *  when the record has none: every other look-back is unchanged, field for field. */
+/** A permanent's OWN rules text for the block-trigger synthesizers that read it directly (rampage, the per-blocker pump, contact
+ *  damage, basilisk touch, the blocks-a-flyer pump): through the ability view (CR 613.1f) — "" once it lost its abilities. */
+function ownText(state, perm) {
+  const c = perm?.card ? withAbilityLoss(state, perm) : null;
+  return String(c?.oracle || c?.oracle_text || "");
+}
+
+function lookBackLoss(record) {
+  return record?.lkiAbilityLoss ? { lkiAbilityLoss: record.lkiAbilityLoss } : null;
+}
+
 // The granted triggered descriptors an Aura/Equipment confers on its host (walks the host's attachments,
 // mirroring grantedActivatedForHost). Each is treated as if printed on the host by triggersForEvent.
+// ABILITY LOSS (CR 613.1f, 613.7e — the layer-bypassing attachment reader, ABILITY-LOSS-PROGRAM.md §1.8): an attachment that lost its
+// own abilities grants nothing (its text through the stripped view), and a host that lost its abilities keeps only the grants of an
+// attachment attached after the loss (layers.attachedGrantCutByLoss — the attach timestamp against the loss's).
 function grantedTriggersForHost(state, hostPerm) {
   if (!hostPerm?.attachments?.length) return [];
   const out = [];
   for (const attId of hostPerm.attachments) {
     const lk = findPermanent(state, attId);
-    if (lk?.permanent?.card) out.push(...parseGrantedTriggeredAbilities(lk.permanent.card));
+    if (!lk?.permanent?.card || attachedGrantCutByLoss(state, hostPerm, lk.permanent)) continue;
+    out.push(...parseGrantedTriggeredAbilities(withAbilityLoss(state, lk.permanent)));
   }
   return out;
 }
@@ -7662,9 +7693,9 @@ function grantedTriggersForGroup(state, perm) {
  */
 export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {}, beneficiary = null, scopeFilter = null, descriptorFilter = null }) {
   if (!sourcePermanent?.card) return [];
-  // classLiveCard: a modeled Class at level N reads its top section plus its sections up to N (CR 716.2a); every
-  // other permanent reads its own card unchanged.
-  const printed = detectTriggers(classLiveCard(sourcePermanent)).filter(d => d.event === event);
+  // liveTriggerCard: a modeled Class at level N reads its top section plus its sections up to N (CR 716.2a); a permanent that lost
+  // its abilities reads its stripped view (CR 613.1f); every other permanent reads its own card unchanged.
+  const printed = detectTriggers(liveTriggerCard(state, sourcePermanent)).filter(d => d.event === event);
   // GRANTED-TRIGGERED (subsystem 1 phase 1c): an Aura/Equipment on this permanent confers a triggered
   // ability. Merge the host's granted descriptors so they fire on the host's event exactly like printed
   // ones (source = host → "this creature"/source bind to the host). Additive — the printed path is untouched.
@@ -7976,7 +8007,7 @@ export function checkDiesTriggers(state, dead) {
   // creature in the same batch of deaths can never fire off this one.
   const orphanedAuras = (state.pendingLeaveEvents || [])
     .filter((e) => e?.card && e.toGraveyard && /\bAura\b/.test(String(e.card.type || e.card.type_line || "")))
-    .map((e) => ({ id: e.id, controller: e.controller, card: e.card, attachedTo: null }));
+    .map((e) => ({ id: e.id, controller: e.controller, card: e.card, attachedTo: null, ...lookBackLoss(e) }));
   // The batch's creatures left the battlefield in ONE event (CR 603.10a): marked so a leave watcher among them sees the others go
   // (checkLeavesTriggers' departed look-back) — an event already grouped by its operation (a wipe) keeps that wider group.
   let state2 = checkLeavesTriggers(dead && dead.length > 1 ? groupLeaveEvents(state, dead.map((d) => d?.id)) : state);
@@ -8026,7 +8057,7 @@ export function checkDiesTriggers(state, dead) {
     // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
     // Vehicle or an animated land that died fires "whenever a creature dies".
     // + wasAttacking (Kardur, Doomscourge — "an attacking creature dies"): carried only when the death look-back recorded it.
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}) };
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}), ...lookBackLoss(d) };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so
@@ -8206,7 +8237,7 @@ export function checkDiesBatchTriggers(state, dead) {
 function deadLookBackSources(state, dead) {
   return (dead || [])
     .filter((w) => w?.card && !findPermanent(state, w.id))
-    .map((w) => ({ id: w.id, controller: w.controller, card: w.card, attachments: w.attachments || [], counters: w.counters || {}, damagedBy: w.damagedBy || [] }));
+    .map((w) => ({ id: w.id, controller: w.controller, card: w.card, attachments: w.attachments || [], counters: w.counters || {}, damagedBy: w.damagedBy || [], ...lookBackLoss(w) }));
 }
 
 /**
@@ -8240,7 +8271,7 @@ export function checkPlaneswalkerDiesTriggers(state, deadPw) {
   for (const d of deadPw) {
     if (!d?.card) continue;
     if (walkerExiledInstead(state, d)) continue;
-    const lookBack = { id: d.id, controller: d.controller, card: d.card };
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, ...lookBackLoss(d) };
     // self ("when this planeswalker dies") + every surviving watcher ("a creature or planeswalker you control dies")
     fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
     for (const pid of Object.keys(state.players)) {
@@ -8282,7 +8313,7 @@ export function checkLeavesTriggers(state) {
     // + `lkiTypes`: the types it had as it left (CR 603.10a — recorded by gameState.recordLeaveEvent; the type-line audit), so a
     // God below its devotion leaving is not "another creature you control" leaving (Ninth Bridge Patrol, The Ozolith).
     // + `leftToExile` (play-weighted 2026-10-20 — Soulherder's "a creature is exiled from the battlefield"): the exit went to exile.
-    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) };
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) };
     // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
     // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
     // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never
@@ -8373,7 +8404,7 @@ export function checkLeavesTriggers(state) {
   // left in the same batch still saw the others go. A card flickered back already sits on the battlefield as a NEW object
   // (CR 400.7) that never saw this batch leave, so its look-back is the one source for it: a battlefield watcher whose card
   // left in the batch is skipped. "without dying" skips the graveyard exits (CR 700.4).
-  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) })); // + the types it had (the type-line audit)
+  const batch = events.filter((e) => e?.card).map((e) => ({ id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) })); // + the types it had (the type-line audit)
   const leftCardIds = new Set(batch.map((b) => b.card.id).filter(Boolean));
   for (const pid of Object.keys(cleared.players)) {
     const onBattlefield = triggerSourcesOf(cleared, pid).filter((w) => !leftCardIds.has(w.card?.id)); // an emblem has no card id: always kept
@@ -8402,7 +8433,7 @@ export function checkLeavesTriggers(state) {
 function departedLeaveSources(state, events) {
   return events
     .filter((e) => e?.card && !findPermanent(state, e.id))
-    .map((e) => ({ id: e.id, event: e, lookBack: { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}) } }));
+    .map((e) => ({ id: e.id, event: e, lookBack: { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...lookBackLoss(e) } }));
 }
 
 /**
@@ -8649,7 +8680,7 @@ export function checkAttackTriggers(state) {
       let exaltedCount = 0;
       for (const p of state.players?.[atkPlayer]?.battlefield || []) {
         exaltedCount += keywordInstanceCount(state, p.id, "Exalted",
-          exaltedKeywordCount(p.card?.oracle || p.card?.oracle_text || ""));
+          exaltedKeywordCount(ownText(state, p)));
       }
       if (exaltedCount > 0) {
         const descriptor = {
@@ -8829,7 +8860,7 @@ export function checkBlockTriggers(state) {
     if (count < 2) continue;
     const lk = findPermanent(state, attId);
     if (!lk) continue;
-    const ramp = String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").match(/\brampage (\d+)\b/i);
+    const ramp = ownText(state, lk.permanent).match(/\brampage (\d+)\b/i);
     if (!ramp) continue;
     const amt = parseInt(ramp[1], 10) * (count - 1);
     if (amt <= 0) continue;
@@ -8844,7 +8875,7 @@ export function checkBlockTriggers(state) {
     if (count < 1) continue;
     const lk = findPermanent(state, attId);
     if (!lk) continue;
-    const pbp = String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " ")
+    const pbp = ownText(state, lk.permanent).replace(/\([^)]*\)/g, " ")
       .match(/(?:^|[\n.;]\s*)whenever this creature becomes blocked, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn for each creature blocking it\b/i);
     if (!pbp) continue;
     const p = parseInt(pbp[1], 10) * count;
@@ -8866,7 +8897,7 @@ export function checkBlockTriggers(state) {
     // (Sidewinder Sliver "All Sliver creatures have flanking", an Aura/pump "gains flanking") — one
     // fire per instance (CR 702.25b), read through the same gate-aware index the immunity check uses.
     const instances = keywordInstanceCount(state, b.attackerId, "Flanking",
-      flankingKeywordCount(String(att.permanent.card?.oracle || att.permanent.card?.oracle_text || "")));
+      flankingKeywordCount(ownText(state, att.permanent)));
     if (instances <= 0) continue;
     if (permanentHasKeyword(state, b.blockerId, "Flanking")) continue; // a flanking blocker is immune (CR 702.25a)
     const blk = findPermanent(state, b.blockerId);
@@ -8884,7 +8915,7 @@ export function checkBlockTriggers(state) {
   {
     const CONTACT_RE = /(?:^|[\n.;]\s*)whenever this creature blocks or becomes blocked by a creature, (?:it|this creature) deals (\d+) damage to that creature(?=\s*(?:\.|\n|$))/i;
     const contactOf = (perm) => {
-      const m = String(perm.card?.oracle || perm.card?.oracle_text || "").replace(/\([^)]*\)/g, " ").match(CONTACT_RE);
+      const m = ownText(state, perm).replace(/\([^)]*\)/g, " ").match(CONTACT_RE);
       return m ? parseInt(m[1], 10) : null;
     };
     for (const b of blockers) {
@@ -8915,7 +8946,7 @@ export function checkBlockTriggers(state) {
     const att = findPermanent(state, b.attackerId);
     if (!blk || !att) continue;
     for (const [me, other] of [[blk, att], [att, blk]]) {
-      const spec = basiliskTouchOf(me.permanent.card?.oracle || me.permanent.card?.oracle_text || "");
+      const spec = basiliskTouchOf(ownText(state, me.permanent));
       if (!spec) continue;
       if (!basiliskPartnerMatches(state, spec.filter, other.permanent.id)) continue;
       const descriptor = { event: "blocksOrBlockedByCreature", scope: "self", whose: "any", effect: null, effectClause: "destroy the triggering creature at end of combat", optional: false, sourceText: `blocks-or-blocked ${spec.tag} delayed destroy` };
@@ -8931,7 +8962,7 @@ export function checkBlockTriggers(state) {
     if (!b?.blockerId || !b?.attackerId) continue;
     const blk = findPermanent(state, b.blockerId);
     if (!blk) continue;
-    const m = String(blk.permanent.card?.oracle || blk.permanent.card?.oracle_text || "").replace(/\([^)]*\)/g, " ")
+    const m = ownText(state, blk.permanent).replace(/\([^)]*\)/g, " ")
       .match(/(?:^|[\n.;]\s*)whenever this creature blocks a creature with flying, (?:it|this creature) gets \+(\d+)\/\+(\d+) until end of turn\b/i);
     if (!m) continue;
     if (!permanentHasKeyword(state, b.attackerId, "Flying")) continue;
@@ -9212,7 +9243,7 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents,
       // checkTapTriggers comment documents the same catch). The host is the dealer, so the granted
       // selfDealerToCreature descriptor's identity gate below works unchanged.
       const descriptors = [
-        ...detectTriggers(classLiveCard(watcher)),
+        ...detectTriggers(liveTriggerCard(state, watcher)),
         ...grantedTriggersForHost(state, watcher),
         ...grantedTriggersForGroup(state, watcher),
       ].filter((d) => d.event === "combatDamageToCreature"
@@ -9556,7 +9587,7 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1, { draw
   if (crossedSecond) {
     for (const pid of Object.keys(state.players)) {
       for (const watcher of triggerSourcesOf(state, pid)) {
-        for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "drawSecond" && x.whose === "opponent")) {
+        for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "drawSecond" && x.whose === "opponent")) {
           if (!opponentsOf(state, watcher.controller).includes(drawingPlayerId)) continue;
           fired.push(makePendingTrigger(d, watcher, null, { drawingPlayerId }));
         }
@@ -9704,12 +9735,12 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   const sacIsToken = !!sacrificed.card?.token;
   let fired = [];
   for (const watcher of triggerSourcesOf(state, sacrificingPlayerId)) {
-    for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "sacrifice" && x.scope !== "anyPlayerSac")) {
+    for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "sacrifice" && x.scope !== "anyPlayerSac")) {
       if (!sacScopeMatches(d, watcher, sacrificed)) continue;
       fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
     }
     if (sacIsToken) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
         fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
       }
     }
@@ -9720,7 +9751,7 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   // (sacrificed.id === watcher.id) still correctly excludes a permanent seeing its own sacrifice.
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "sacrifice" && x.scope === "anyPlayerSac")) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "sacrifice" && x.scope === "anyPlayerSac")) {
         if (!sacScopeMatches(d, watcher, sacrificed)) continue;
         fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
       }
@@ -9737,7 +9768,7 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   // EVERY sacrifice chokepoint (this function is the single funnel) and from NO other exit path — an SBA /
   // destroy / bounce never calls it, so the payoff never over-fires (CREED).
   if (sacrificingPlayerId === sacrificed.controller) {
-    for (const d of detectTriggers(classLiveCard(sacrificed)).filter((x) => x.event === "youSacrificeThis")) {
+    for (const d of detectTriggers(liveTriggerCard(state, sacrificed)).filter((x) => x.event === "youSacrificeThis")) {
       fired.push(makePendingTrigger(d, sacrificed, sacrificed, {}));
     }
   }
@@ -9772,7 +9803,7 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
   const isCreatureToken = !!createdCard && /\bCreature\b/.test(String(createdCard.type || createdCard.type_line || ""));
   let fired = [];
   for (const watcher of triggerSourcesOf(state, creatingPlayerId)) {
-    const descriptors = detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "tokenChange" && x.onCreate && (!x.creatureTokensOnly || isCreatureToken));
+    const descriptors = detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "tokenChange" && x.onCreate && (!x.creatureTokensOnly || isCreatureToken));
     for (const d of descriptors) {
       const n = d.oncePerBatch ? 1 : numCreated; // ONE firing per create event for the batched form (CR 603.2d)
       for (let i = 0; i < n; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
@@ -9816,7 +9847,7 @@ export function checkLibrarySearchTriggers(state, searcherId) {
   for (const pid of Object.keys(state.players)) {
     if (pid === searcherId) continue;
     for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "librarySearch" && x.scope === "opponent")) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "librarySearch" && x.scope === "opponent")) {
         fired.push(makePendingTrigger(d, watcher, watcher, { searcherId }));
       }
     }
@@ -9830,7 +9861,7 @@ export function checkClashTriggers(state, clashers) {
   for (const { id, won } of clashers || []) {
     if (!id || !state.players?.[id]) continue;
     for (const watcher of triggerSourcesOf(state, id)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "clash" && (!x.winOnly || won))) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "clash" && (!x.winOnly || won))) {
         fired.push(makePendingTrigger(d, watcher, watcher, { clashWon: !!won }));
       }
     }
@@ -9861,7 +9892,7 @@ export function checkCounterPlacedTriggers(state, { placingPlayerId, placedOnYou
   if (!(placedOnAny > 0)) return state; // no +1/+1 counter actually placed on a creature → no event
   let fired = [];
   for (const watcher of triggerSourcesOf(state, placingPlayerId)) {
-    for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "countersPlaced")) {
+    for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "countersPlaced")) {
       // The count this scope cares about: own-creatures-only ("on a creature you control") or any creature.
       const count = d.scope === "creatureYouControl" ? placedOnYours : placedOnAny;
       if (!(count > 0)) continue; // this scope saw no qualifying counter → it doesn't fire (clean skip)
@@ -9885,7 +9916,7 @@ export function checkBecomesMonarchTriggers(state, newMonarchId) {
   if (!newMonarchId || !state.players?.[newMonarchId]) return state;
   let fired = [];
   for (const watcher of triggerSourcesOf(state, newMonarchId)) {
-    for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "becomesMonarch")) {
+    for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "becomesMonarch")) {
       fired.push(makePendingTrigger(d, watcher, watcher, { newMonarchId }));
     }
   }
@@ -9940,7 +9971,7 @@ export function checkLifeLossTriggers(state, { playerId, amount } = {}) {
   const fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "lifeLost")) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "lifeLost")) {
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(playerId)) continue;
         if (d.whose === "you" && playerId !== watcher.controller) continue; // "Whenever YOU lose life" (Vilis) — its controller's own loss
         // "…for the first time each turn" (Vengeful Warchief): this loss is the player's first of the turn — the ledger, already
@@ -10022,7 +10053,7 @@ export function checkCounterTriggers(state) {
     const lk = findPermanent(cleared, ev.id);
     if (!lk) continue; // left the battlefield before the flush → no-op, never a fabricated fire
     fired = fired.concat(
-      detectTriggers(classLiveCard(lk.permanent))
+      detectTriggers(liveTriggerCard(cleared, lk.permanent))
         .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type
           // "YOU put" (Exemplar of Light): the row's named placer is the recipient's controller (an entering permanent's rows name its
           // controller, CR 122.6a). A row with no named placer never fires it — false-negative safe.
@@ -10038,7 +10069,7 @@ export function checkCounterTriggers(state) {
     // it again. A row with no recorded `before` (a state saved before the field existed) fires nothing — never a guessed count.
     if (Number.isInteger(ev.before)) {
       fired = fired.concat(
-        detectTriggers(classLiveCard(lk.permanent))
+        detectTriggers(liveTriggerCard(cleared, lk.permanent))
           .filter((d) => d.event === "nthCounterPut" && d.scope === "self" && d.counterType === ev.type
             && Number.isInteger(d.counterThreshold) && ev.before < d.counterThreshold && ev.before + ev.amount >= d.counterThreshold)
           .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
@@ -10175,7 +10206,7 @@ export function checkGraveyardEventTriggers(state) {
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         if (inGraveyardThisDrain.has(watcher.card?.id)) continue; // not on the battlefield for this drain's events (above)
-        for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === evEvent)) {
+        for (const d of detectTriggers(liveTriggerCard(cleared, watcher)).filter((x) => x.event === evEvent)) {
           if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) continue;
           if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) continue;
           if (d.gyOwnerScope === "opponent" && !opponentsOf(cleared, watcher.controller).includes(ev.gyOwner)) continue;
@@ -10224,7 +10255,7 @@ export function checkGraveyardEventTriggers(state) {
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         if (inGraveyardThisDrain.has(watcher.card?.id)) continue; // the same skip as the per-card loop (above)
-        for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === evName)) {
+        for (const d of detectTriggers(liveTriggerCard(cleared, watcher)).filter((x) => x.event === evName)) {
           const hits = dirEvents.filter((ev) => {
             if (d.gyCardType && !new RegExp(`\\b(?:${d.gyCardType})\\b`).test(frontFaceType(ev.card))) return false; // grouped — a "|"-union (Dredger's "Artifact|Creature") tests ANY listed type; single words unchanged
             if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) return false;
@@ -10257,7 +10288,7 @@ export function checkGraveyardEventTriggers(state) {
 export function checkEvolvesTriggers(state, permanentId) {
   const lk = findPermanent(state, permanentId);
   if (!lk) return state;
-  const fired = detectTriggers(classLiveCard(lk.permanent))
+  const fired = detectTriggers(liveTriggerCard(state, lk.permanent))
     .filter((d) => d.event === "evolves")
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
   if (!fired.length) return state;
@@ -10288,7 +10319,7 @@ export function checkCycleSelfTriggers(state, card, playerId) {
 export function checkBecomesMonstrousTriggers(state, permanentId) {
   const lk = findPermanent(state, permanentId);
   if (!lk) return state;
-  const fired = detectTriggers(classLiveCard(lk.permanent))
+  const fired = detectTriggers(liveTriggerCard(state, lk.permanent))
     .filter((d) => d.event === "becomesMonstrous")
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
   if (!fired.length) return state;
@@ -10343,7 +10374,7 @@ export function checkTurnedFaceUpTriggers(state, permanentId) {
 export function checkSagaChapterTriggers(state, permanentId, from, to) {
   const lk = findPermanent(state, permanentId);
   if (!lk) return state;
-  const fired = detectTriggers(classLiveCard(lk.permanent))
+  const fired = detectTriggers(liveTriggerCard(state, lk.permanent))
     .filter((d) => d.event === "sagaChapter" && d.chapter > from && d.chapter <= to)
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
   if (!fired.length) return state;
@@ -10358,7 +10389,7 @@ export function checkSagaChapterTriggers(state, permanentId, from, to) {
  * event (CR 603.10). Only the descriptor whose N equals the level just reached fires (only that event carries one).
  */
 export function checkClassLevelTriggers(state, perm, level) {
-  const fired = detectTriggers(classLiveCard(perm))
+  const fired = detectTriggers(liveTriggerCard(state, perm))
     .filter((d) => d.classLevel === level)
     .map((d) => makePendingTrigger(d, perm, perm, {}));
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
@@ -10374,7 +10405,7 @@ export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {})
       // A GY-FUNCTIONING descriptor (functionsFromGraveyard — Radroach) never fires from the battlefield:
       // its printed zone statement (CR 603.3d) says it functions in the graveyard only. The graveyard scan
       // below is its sole fire site.
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "milled" && !x.functionsFromGraveyard)) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "milled" && !x.functionsFromGraveyard)) {
         // whose:"opponent" — the MILLING player must be an opponent of this watcher's controller.
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(milledByPlayer)) continue;
         // The filtered count this trigger cares about: nonland-only or every milled card.
@@ -10613,7 +10644,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       // is a real difference (a visible trigger that does nothing is a bug report waiting to happen) and is
       // what the battlefield test now pins. If the gy-self-return atom is ever changed to fall back to a
       // by-name lookup, THIS LINE BECOMES LOAD-BEARING — and nothing here will warn you.
-      const descriptors = detectTriggers(classLiveCard(watcher)).filter(d => d.event === "cast" && !d.functionsFromGraveyard);
+      const descriptors = detectTriggers(liveTriggerCard(state, watcher)).filter(d => d.event === "cast" && !d.functionsFromGraveyard);
       for (const d of descriptors) {
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
@@ -10702,7 +10733,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
       if (targetPerm) break;
     }
     if (!targetPerm || targetPerm.controller !== casterId) continue;
-    for (const d of detectTriggers(classLiveCard(targetPerm)).filter(x => x.event === "heroic")) {
+    for (const d of detectTriggers(liveTriggerCard(state, targetPerm)).filter(x => x.event === "heroic")) {
       fired.push(makePendingTrigger(d, targetPerm, null, context));
     }
   }
@@ -10731,7 +10762,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // coverage classifies prowess (granted prowess isn't modeled anywhere — a consistent, honest scope).
   if (spellMatchesFilter("noncreature", spellCard)) {
     for (const perm of state.players[casterId]?.battlefield || []) {
-      if (isCreaturePerm(perm, state) && hasKeyword(perm.card, "Prowess")) {
+      if (isCreaturePerm(perm, state) && hasKeyword(withAbilityLoss(state, perm), "Prowess")) { // a creature that lost its abilities has no prowess (CR 613.1f)
         fired.push(makePendingTrigger(prowessDescriptor(), perm, null, context));
       }
     }
@@ -10743,7 +10774,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   const castCount = state.players[casterId]?.spellsCastThisTurn;
   if (castCount === 2) {
     for (const watcher of triggerSourcesOf(state, casterId)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "castSecond")) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "castSecond")) {
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
@@ -10759,7 +10790,7 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // PAYOFF still must parse HIGH at flush to fire natively.
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      for (const d of detectTriggers(classLiveCard(watcher)).filter((x) => x.event === "castNth")) {
+      for (const d of detectTriggers(liveTriggerCard(state, watcher)).filter((x) => x.event === "castNth")) {
         if (castCount !== d.nth) continue;
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
@@ -10854,7 +10885,7 @@ export function checkCopyTriggers(state, { copiedSpellCard, controllerId, copyOb
   const fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      const descriptors = detectTriggers(classLiveCard(watcher)).filter((d) => d.event === "cast" && d.firesOnCopy);
+      const descriptors = detectTriggers(liveTriggerCard(state, watcher)).filter((d) => d.event === "cast" && d.firesOnCopy);
       for (const d of descriptors) {
         // whose:"you" = the copy's controller must BE the watcher's controller (magecraft is "whenever YOU …
         // copy"). "opponent" is honored for symmetry though no printed "cast or copy" trigger uses it.
@@ -11056,7 +11087,7 @@ export function checkStateTriggers(state) {
   let players = null;
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of triggerSourcesOf(state, pid)) {
-      const descriptors = detectTriggers(classLiveCard(perm)).filter((d) => d.event === "stateTrigger");
+      const descriptors = detectTriggers(liveTriggerCard(state, perm)).filter((d) => d.event === "stateTrigger");
       if (!descriptors.length) continue;
       for (const d of descriptors) {
         const met = evaluateInterveningIf(state, d.stateCondition, perm.controller, { sourcePermanentId: perm.id }) === true;

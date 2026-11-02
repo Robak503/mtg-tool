@@ -41,7 +41,7 @@ import { parseActivatedAbilities } from "./effects/abilities.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { opponentsOf } from "./gameState.js";
-import { permanentIsCreature, permanentPower } from "./layers.js";
+import { permanentIsCreature, permanentPower, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f)
 
 /**
  * The outlet routes ask the loop for more only while the board its next activation would leave stays under this many
@@ -108,10 +108,10 @@ function rolesOf(card) {
 /** The outlets on the seat's battlefield: mill and shot abilities by permanent, and the passive mills' permanents. */
 export function outletSources(state, playerId) {
   const out = { mills: [], shots: [], entersMill: [] };
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
-    const card = perm.card;
-    if (!card || card.token) continue;
-    const roles = rolesOf(card);
+    if (!perm.card || perm.card.token) continue;
+    const roles = rolesOf(lossy ? withAbilityLoss(state, perm) : perm.card); // an outlet that lost its abilities is no outlet (the view: one per base card, so the WeakMap stays warm)
     for (const abilityIndex of roles.mills) out.mills.push({ permanentId: perm.id, abilityIndex });
     for (const shot of roles.shots) out.shots.push({ permanentId: perm.id, tapped: !!perm.tapped, ...shot });
     if (roles.entersMill) out.entersMill.push(perm.id);

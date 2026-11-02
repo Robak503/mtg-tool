@@ -28,7 +28,7 @@
  */
 import { drawCards, findPermanent, destroyLethalCreatures } from "./gameState.js";
 import { checkCardDrawnTriggers, checkDiesTriggers } from "./triggers.js";
-import { permIsEveryCreatureType } from "./layers.js"; // P·39 — attacking Dragons: every creature type counts (layers' closure never reaches this file)
+import { permIsEveryCreatureType, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // P·39 — attacking Dragons: every creature type counts (layers' closure never reaches this file)
 import { enterCardFromZone } from "./effects/atoms/zones.js"; // the one non-cast entry (entry replacements, ETB / landfall / permanent-enters); no module zones.js reaches imports this file
 
 // Anchored to the WHOLE unique templating so none of the 24 other "one or more <X> you control attack"
@@ -121,8 +121,9 @@ export function applyUrDragonAttackTriggers(state) {
     if (!player) continue;
     // Snapshot the watchers up front: the cheat-in below mutates the battlefield, and a freshly cheated
     // permanent never attacked, so it must not be (re)counted as a watcher this combat.
+    const lossy = boardHasAbilityLoss(next);
     const watchers = (player.battlefield || [])
-      .map((perm) => ({ perm, spec: parseUrDragonAttackTrigger(perm.card) }))
+      .map((perm) => ({ perm, spec: parseUrDragonAttackTrigger(lossy ? withAbilityLoss(next, perm) : perm.card) }))
       .filter((w) => w.spec);
     for (const { spec } of watchers) {
       // "that many" = the number of this player's attacking creatures of the captured subtype (read from the

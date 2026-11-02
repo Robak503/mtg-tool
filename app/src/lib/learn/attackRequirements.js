@@ -25,7 +25,7 @@
  *
  * The AI's attack planner (opponentAI.pickAttackPlan) reads the same functions.
  */
-import { permanentHasKeyword, attackOtherThanRequirementsOf } from "./layers.js";
+import { permanentHasKeyword, attackOtherThanRequirementsOf, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f)
 import { mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js";
 import { opponentsOf } from "./gameState.js";
@@ -69,8 +69,10 @@ export function mustAttackNow(state, seat, permanent) {
   // the turn is another combat and carries no requirement from it.
   const stamp = permanent.mustAttackCombat;
   if (stamp && stamp.turn === state.turn && state.combatsThisTurn?.turn === state.turn && state.combatsThisTurn.count === stamp.combat) return true;
-  if (!selfMustAttack(permanent.card)) return false;
-  const unless = mustAttackUnlessOf(permanent.card);
+  // The PRINTED requirement is the permanent's own static ability: one that lost its abilities has none (CR 613.1f — the ability view).
+  const own = withAbilityLoss(state, permanent);
+  if (!selfMustAttack(own)) return false;
+  const unless = mustAttackUnlessOf(own);
   return !(unless && controllerMeetsBoardPredicate(state, seat, permanent.id, unless));
 }
 

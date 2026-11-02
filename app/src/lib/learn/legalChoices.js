@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, planPayment, manaSources, withoutOwnHandSource, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow } from "./layers.js"; // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -537,8 +537,9 @@ function canCastInstantSpeed(state, playerId) {
   // SG-8 — Dosan the Falling Leaf: "Players can cast spells only during their own turns." Any battlefield
   // permanent (any controller — the static is symmetric, CR 604.2) locks every OFF-turn cast; own-turn
   // casts are untouched. Read off the same sentence the static parser marks, via castOwnTurnOnlyLock.
+  const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
   if (state.activePlayer !== playerId
-    && Object.values(state.players || {}).some((p) => (p.battlefield || []).some((perm) => castOwnTurnOnlyLock(perm.card)))) return false;
+    && Object.values(state.players || {}).some((p) => (p.battlefield || []).some((perm) => castOwnTurnOnlyLock((lossy ? withAbilityLoss(state, perm) : perm.card))))) return false;
   return true;
 }
 
@@ -567,8 +568,9 @@ export function flashPermissionSpecsFor(state, playerId) {
   const player = state.players?.[playerId];
   if (!player) return [];
   const specs = [];
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of player.battlefield || []) {
-    for (const spec of flashCastPermissionsOf(perm.card)) specs.push(spec);
+    for (const spec of flashCastPermissionsOf((lossy ? withAbilityLoss(state, perm) : perm.card))) specs.push(spec);
   }
   // TURN-SCOPED grants (the spell form of the same permission — Borne Upon a Wind). Same spec shape as
   // the statics above, cleared at untap with the other per-turn player state, so ONE list serves both.
@@ -1002,7 +1004,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
           && (letter == null || permanentColors(state, v.id).includes(letter))
           // A victim whose OWN leave-trigger the dies path can't fire is excluded (mirror the
           // additional-cost sacrifice filter) so we never partially apply a payment.
-          && !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""))
+          && !sacrificeDropsTrigger(ownOracleOf(state, v)))
         .map((v) => ({ sacId: v.id, sacName: v.card?.name ?? null }));
     }
     case "returnLandsToHand": {
@@ -1013,7 +1015,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
       // mirroring the γ1g return-cost offer gate).
       const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
       const lands = (player.battlefield || [])
-        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(p.card?.oracle || p.card?.oracle_text || ""); })
+        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(ownOracleOf(state, p)); })
         .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
       if (lands.length < alt.count) return [];
       const chosen = lands.slice(0, alt.count);
@@ -1027,7 +1029,7 @@ function enumerateAltPayments(state, playerId, card, alt) {
       // (the same sacrificeDropsTrigger gate the creature sacrifice uses), so a payment is never partially applied.
       const re = new RegExp(`\\b${alt.subtype}\\b`, "i");
       const lands = (player.battlefield || [])
-        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(p.card?.oracle || p.card?.oracle_text || ""); })
+        .filter((p) => { const t = typeLineOf(p.card); return t.includes("Land") && re.test(t) && !sacrificeDropsTrigger(ownOracleOf(state, p)); })
         .sort((a, b) => (Number(!!b.tapped) - Number(!!a.tapped)) || String(a.id).localeCompare(String(b.id)));
       if (lands.length < alt.count) return [];
       const chosen = lands.slice(0, alt.count);
@@ -1216,8 +1218,9 @@ function carriesAdditionalMana(a) {
  */
 function grantedZeroAltCosts(state, playerId) {
   const out = [];
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state.players[playerId]?.battlefield || []) {
-    for (const d of parseStaticAbilities(perm.card)) {
+    for (const d of parseStaticAbilities((lossy ? withAbilityLoss(state, perm) : perm.card))) {
       const g = d.grantedZeroAltCost;
       if (!g) continue;
       if (g.oncePerTurn && state.onceTriggersFiredThisTurn?.[`${perm.id}_zeroAltCostOnce`]) continue;
@@ -1285,17 +1288,17 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   const costReducers = resolveCastSiteReducers([
         // Pass the battlefield PERMANENTS (not bare cards) so a CHOSEN-TYPE reducer (Urza's Incubator) can pair
         // with its source permanent's stored chosenType; collectCostReducers reads `.card` + `.chosenType`.
-        ...collectCostReducers(player.battlefield || []),
+        ...collectCostReducers(abilityViewPermanents(state, player.battlefield || [])),
         ...collectCostReducers(player.command || [], { commandZone: true }),
         ...Object.entries(state.players || {})
           .filter(([pid]) => pid !== playerId)
-          .flatMap(([, p]) => collectCostReducers(p?.battlefield || []).filter((r) => r.everyCaster)),
+          .flatMap(([, p]) => collectCostReducers(abilityViewPermanents(state, p?.battlefield || [])).filter((r) => r.everyCaster)),
       ], { casterIsActive: state.activePlayer === playerId, countFor: (spec) => countForSpec(state, { controller: playerId }, spec) });
   // STATIC-COST-TAX (CR 601.2f — the increase twin): taxes read EVERY battlefield (Sphere of Resistance
   // taxes everyone; Thalia taxes her own controller too; a "your opponents cast" tax skips its controller
   // via the stamped controller vs playerId check in costTaxForSpell). Gathered ONCE like the reducers.
   // A free cast reads them too: "without paying its mana cost" is an alternative cost of {0}, and the increases apply to it (CR 118.9d).
-  const costTaxers = collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: p.battlefield }))); 
+  const costTaxers = collectCostTaxers(Object.entries(state.players || {}).map(([pid, p]) => ({ controller: pid, battlefield: abilityViewPermanents(state, p.battlefield) }))); 
 
   // FLASH-CAST-PERMISSION (CR 601.3b): the flash-cast statics this player controls ("You may cast <FILTER>
   // spells as though they had flash" — Yeva, Vedalken Orrery, …), gathered ONCE (invariant across the loop).
@@ -1704,7 +1707,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const n = addCost.count;
         const pool = player.battlefield.filter(v =>
           sacTypeMatchesNow(state, v, addCost.sacType) && // the type it has NOW (the type-line audit)
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
+          !sacrificeDropsTrigger(ownOracleOf(state, v)));
         if (pool.length < n) continue;                    // fewer than N legal victims → cost can't be paid → uncastable
         // QUARTET PHASE 1 (the first converted site, 2026-08-14): behind `state.usePolicyEval` the
         // victim ranking consults the shared board evaluator (boardEval.evalLeastValuableCmp — a Sol
@@ -1745,7 +1748,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           // COLOR-qualified sac (Natural Order): the victim's CURRENT color (CR 613.1e — permanentColors), the same read
           // the dispatcher re-validates at charge time; a green creature turned blue doesn't pay "sacrifice a green creature".
           (addCost.color == null || permanentColors(state, v.id).includes(addCost.color)) &&
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
+          !sacrificeDropsTrigger(ownOracleOf(state, v)));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
         for (const victim of victims) {
           // W3 (two-sites invariant): a ONE-SHOT mana source (Treasure/Gold/Spawn) chosen as THE victim
@@ -2352,7 +2355,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (!new RegExp(`\\b${emergeSpec.sacType}\\b`, "i").test(vType)) return false;
         // Exclude a victim whose own leave-trigger the dies path can't fire (mirrors the additional-cost
         // sacrifice filter), so we never offer an emerge we can't cleanly complete (CREED).
-        return !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || "");
+        return !sacrificeDropsTrigger(ownOracleOf(state, v));
       });
       for (const victim of victims) {
         // CR 702.119a — the emerge cost is an alternative cost whose total is reduced by the sacrificed creature's MANA VALUE (generic
@@ -2527,6 +2530,16 @@ function lockedActivationSource(state, locked, permId) {
   return locked && permanentTypes(state, permId).types.includes("Artifact");
 }
 
+/** A sacrifice or bounce victim's OWN text for the fail-safe that refuses a victim whose leave trigger the path cannot fire
+ *  (sacrificeDropsTrigger): read through the ability view (CR 613.1f), so a victim that lost its abilities has no trigger to drop. */
+/** The board test as a per-permanent read for the filter chains (one identity test — boardLossEffects' last-state slot). */
+const lossyOf = (state) => boardHasAbilityLoss(state);
+
+function ownOracleOf(state, v) {
+  const c = v?.card ? (boardHasAbilityLoss(state) ? withAbilityLoss(state, v) : v.card) : null;
+  return c?.oracle || c?.oracle_text || "";
+}
+
 function actionsTapForMana(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
@@ -2570,7 +2583,10 @@ function grantedActivatedForHost(state, hostPerm) {
   const out = [];
   for (const attId of hostPerm.attachments) {
     const lk = findPermanent(state, attId);
-    if (lk?.permanent?.card) out.push(...parseGrantedActivatedAbilities(lk.permanent.card));
+    // ABILITY LOSS (CR 613.1f, 613.7e — ABILITY-LOSS-PROGRAM.md §1.8): an attachment that lost its abilities grants nothing (its text
+    // through the view), and a host that lost its abilities keeps only an attachment's grant attached after the loss.
+    if (!lk?.permanent?.card || attachedGrantCutByLoss(state, hostPerm, lk.permanent)) continue;
+    out.push(...parseGrantedActivatedAbilities(withAbilityLoss(state, lk.permanent)));
   }
   return out;
 }
@@ -2628,7 +2644,7 @@ function actionsCrewVehicle(state, playerId) {
   for (const perm of player.battlefield) {
     if (!/\bVehicle\b/.test(String(perm.card?.type || ""))) continue;
     if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 lock, and AU-2: an ARRESTED Vehicle can't be crewed
-    const n = crewCostWithOverrides(state, perm.id, parseCrewCost(perm.card)); // S17 — Kotori's "Vehicles you control have crew 2"
+    const n = crewCostWithOverrides(state, perm.id, parseCrewCost(withAbilityLoss(state, perm))); // S17 — Kotori's "Vehicles you control have crew 2"
     if (n == null || permanentIsCreature(state, perm.id)) continue;
     // Its own crew ability already waiting on the stack (CR 702.122a — crew uses the stack): a second crew is legal but taps
     // more creatures for nothing the first doesn't give, so it isn't offered (an under-offer, never an illegal one).
@@ -2647,7 +2663,7 @@ function actionsCrewVehicle(state, playerId) {
     for (const c of crewPool) {
       if (power >= n) break;
       tapIds.push(c.id);
-      power += Math.max(0, creaturePower(c, state) + crewPowerBonus(c.card)); // CR 107.1b — negative power contributes 0; S8 — "crews as though its power were N greater"
+      power += Math.max(0, creaturePower(c, state) + crewPowerBonus(withAbilityLoss(state, c))); // CR 107.1b — negative power contributes 0; S8 — "crews as though its power were N greater"
       if (!c.summoningSick || permanentHasKeyword(state, c.id, "Haste")) allSick = false;
     }
     if (power < n) continue; // can't meet the crew total
@@ -2712,12 +2728,13 @@ function actionsActivateAbility(state, playerId) {
   // carry statics that shave the generic mana of "activated abilities of creatures you control". Collected once
   // per player (invariant across the perm/ability loops); applied ONLY to abilities of a CREATURE the player
   // controls (the modeled subject), floored at one mana by activatedCostReductionForCost.
-  const activatedReducers = collectActivatedCostReducers(player.battlefield || []);
+  const activatedReducers = collectActivatedCostReducers(abilityViewPermanents(state, player.battlefield || []));
   // EQUIP-COST OVERRIDE (SHELF CAP12 — Puresteel Paladin / Astor): the cost-SET sibling of the reducers
   // above. Collected once per enumeration like they are; each entry's condition is evaluated LIVE at the
   // equip branch below (an unconditional entry has condition === null).
-  const equipOverrides = collectEquipCostOverrides(player.battlefield || []);
+  const equipOverrides = collectEquipCostOverrides(abilityViewPermanents(state, player.battlefield || []));
   const artLocked = artifactActivationsLocked(state); // NR-1: covers printed + granted + equip abilities of artifacts (CR 602.1/702.6a)
+  const lossy = boardHasAbilityLoss(state); // the ability-loss board test, once for the whole enumeration
   for (const perm of player.battlefield) {
     // NR-1 — the WHOLE activated surface of an artifact permanent is off under the lock: printed abilities,
     // aura/equipment-granted and group-granted abilities (the granted ability belongs to the HOST — an
@@ -2726,7 +2743,7 @@ function actionsActivateAbility(state, playerId) {
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
     // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
-    const printed = parseActivatedAbilities(perm.card);
+    const printed = parseActivatedAbilities((lossy ? withAbilityLoss(state, perm) : perm.card));
     // GRANTED-ACTIVATED — abilities conferred on this permanent by (a) an Aura/Equipment ATTACHED to it
     // ("Enchanted creature has \"…\""), and (b) a GROUP static ("All Slivers have \"{2}: Regenerate this
     // permanent.\"" — Clot Sliver). The group grants come from layers.grantedActivatedQuotedFor (selector-
@@ -2973,7 +2990,7 @@ function actionsActivateAbility(state, playerId) {
         sacCountPool = player.battlefield.filter((v) =>
           sacTypeMatchesNow(state, v, ab.sacCount.type, ab.sacCount.subtype || null) && // the type it has NOW (the type-line audit)
           !(ab.sacCount.other && v.id === perm.id) && // SAC-N-CLASS (P·17): "two OTHER creatures" never takes the source
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+          !sacrificeDropsTrigger(ownOracleOf(state, v)),
         );
         if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
         // SAC-N-CLASS (P·17): a distinguishable class (no fungible subtype) gives up its least valuable members first —
@@ -3004,7 +3021,7 @@ function actionsActivateAbility(state, playerId) {
       if (ab.sacX) {
         sacXPool = player.battlefield.filter((v) =>
           sacTypeMatchesNow(state, v, ab.sacX.type, ab.sacX.subtype || null) && // the type it has NOW (the type-line audit)
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+          !sacrificeDropsTrigger(ownOracleOf(state, v)),
         );
         if (sacXPool.length < 1) continue; // can't sacrifice even one → X≥1 impossible → not offered
       }
@@ -3114,7 +3131,7 @@ function actionsActivateAbility(state, playerId) {
           (!ab.sacOther.nontoken || !v.card?.token) &&
           // COLOUR (Ayara — "Sacrifice another black creature"): the victim's colours now, through the layers (CR 105.2).
           (!ab.sacOther.color || permanentColors(state, v.id).some((col) => String(col).toUpperCase() === ab.sacOther.color)) &&
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+          !sacrificeDropsTrigger(ownOracleOf(state, v)),
         );
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid
       }
@@ -3182,7 +3199,7 @@ function actionsActivateAbility(state, playerId) {
           // stage ③ · 31 — "Return a Forest you control" (Quirion Ranger): the subtype, word-bounded on the type line.
           (!ab.returnLand.subtype || new RegExp(`\\b${ab.returnLand.subtype}\\b`, "i").test(typeLineOf(v.card))) &&
           !(selfExcluded && v.id === perm.id) &&
-          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+          !sacrificeDropsTrigger(ownOracleOf(state, v)),
         );
         if (returnLandVictims.length === 0) continue; // no returnable land → the cost can't be paid
       }
@@ -3440,9 +3457,10 @@ function actionsDoubleManaPool(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
   const artLocked = artifactActivationsLocked(state); // NR-1: Doubling Cube is an artifact mana ability (CR 605.1a)
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of player.battlefield) {
     if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
-    for (const ab of parseActivatedAbilities(perm.card)) {
+    for (const ab of parseActivatedAbilities((lossy ? withAbilityLoss(state, perm) : perm.card))) {
       if (!ab.doubleManaPool) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
@@ -3678,7 +3696,7 @@ function actionsPlotFromHand(state, playerId) {
     if (cost.hasX) continue; // an X plot cost would need the X-choice expansion (none in the corpus)
     // PLOT-COST REDUCER (K9 — Doc Aurlock "Plotting cards from your hand costs {2} less"): generic only, floored at 0, read
     // off the controller's own board; the dispatcher pays the action's carried cost, so the reduction is honoured there too.
-    const plotReduction = collectCostReducers(player.battlefield || []).filter((r) => r.plot).reduce((sum, r) => sum + (r.amount || 0), 0);
+    const plotReduction = collectCostReducers(abilityViewPermanents(state, player.battlefield || [])).filter((r) => r.plot).reduce((sum, r) => sum + (r.amount || 0), 0);
     if (plotReduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - plotReduction) };
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
     actions.push({ kind: "plot", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
@@ -4090,8 +4108,9 @@ function actionsCastSelfFromGraveyard(state, playerId) {
 function actionsCastMilledFromGraveyard(state, playerId) {
   const player = state.players[playerId];
   if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
+  const lossy = boardHasAbilityLoss(state);
   const source = (player.battlefield || []).find((p) =>
-    parseStaticAbilities(p.card).some((d) => d.castMilledGraveyardPermission)
+    parseStaticAbilities((lossy ? withAbilityLoss(state, p) : p.card)).some((d) => d.castMilledGraveyardPermission)
     && !state.onceTriggersFiredThisTurn?.[`${p.id}_milledGyCast`]);
   if (!source) return [];
   const eligible = (player.graveyard || []).filter((c) => c && !isLand(c) && state.milledThisTurn?.[c.id] === state.turn);
@@ -4113,8 +4132,9 @@ function actionsCastMilledFromGraveyard(state, playerId) {
 function actionsCastDragonCreatureFromGraveyard(state, playerId) {
   const player = state.players[playerId];
   if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
+  const lossy = boardHasAbilityLoss(state);
   const source = (player.battlefield || []).find((p) =>
-    parseStaticAbilities(p.card).some((d) => d.castDragonCreatureGraveyardPermission)
+    parseStaticAbilities((lossy ? withAbilityLoss(state, p) : p.card)).some((d) => d.castDragonCreatureGraveyardPermission)
     && !state.onceTriggersFiredThisTurn?.[`${p.id}_dragonGyCast`]);
   if (!source) return [];
   // P·39b — a creature card that is every creature type (a changeling, or one under its owner's Maskwood Nexus) is a Dragon card.
@@ -4153,8 +4173,9 @@ function freeCastFilterAllows(filter, card, every = false) {
 function actionsCastFreeByPermission(state, playerId) {
   const player = state.players[playerId];
   const grants = [];
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of player.battlefield || []) {
-    for (const d of parseStaticAbilities(perm.card)) {
+    for (const d of parseStaticAbilities((lossy ? withAbilityLoss(state, perm) : perm.card))) {
       const fp = d.freeCastPermission;
       if (!fp) continue;
       if (fp.oncePerYourTurn && (state.activePlayer !== playerId || state.onceTriggersFiredThisTurn?.[`${perm.id}_freeCastOnce`])) continue;
@@ -4440,7 +4461,7 @@ function actionsActivateLoyalty(state, playerId) {
     if (!planeswalkerPlayable(perm.card)) continue;
     if (perm.loyaltyActivatedThisTurn) continue; // CR 606.3 — at most one per turn per walker
     const loyalty = perm.counters.loyalty;
-    for (const ab of parseLoyaltyAbilities(perm.card)) {
+    for (const ab of parseLoyaltyAbilities(withAbilityLoss(state, perm))) {
       // CR 118.3: a player can't pay a cost without the resources to pay it fully — so a −N loyalty
       // cost can't be paid by a walker with fewer than N loyalty. (+N / 0 are always payable.) The
       // cost is known even when the EFFECT isn't, so this gates Arbiter-routed abilities too.
@@ -4542,7 +4563,7 @@ function actionsDeclareAttacker(state, playerId) {
     // creature never leads; the AI's per-tick re-offer sweeps it in on a later tick once a teammate is
     // declared). cantAttackAlone matches BOTH the bare "can't attack alone" and the combined "attack or block
     // alone" form — the block-only "can't block alone" (Craven Hulk) is NOT gated here (it may attack alone).
-    .filter(p => !cantAttackAlone(p.card) || declared.size > 0)
+    .filter(p => !cantAttackAlone(lossyOf(state) ? withAbilityLoss(state, p) : p.card) || declared.size > 0)
     // SELF CAN'T-ATTACK[-OR-BLOCK], optionally LAND-GATED (CR 508.1c — Topiary Stomper "can't attack or block
     // unless you control seven or more lands"; the ungated "This creature can't attack." too). Read LIVE each
     // enumeration, so playing the seventh land frees it mid-turn. The BLOCK half of the same printed clause is
@@ -4554,7 +4575,7 @@ function actionsDeclareAttacker(state, playerId) {
     // predicate. Read LIVE each enumeration (layer-aware types/subtypes/power), so casting the missing
     // artifact this main phase immediately unlocks the attack.
     .filter(p => {
-      const req = attackControllerRequirementOf(p.card);
+      const req = attackControllerRequirementOf(lossyOf(state) ? withAbilityLoss(state, p) : p.card);
       return !req || controllerMeetsBoardPredicate(state, playerId, p.id, req);
     });
 
@@ -4630,7 +4651,7 @@ function actionsDeclareAttacker(state, playerId) {
   // most of those requirements — a player other than X when one can be attacked without paying a cost, never a planeswalker
   // then — so no seat, a person's included, can declare it elsewhere.
   const allowedTargetsFor = (p) => {
-    const req = attackDefenderRequirementOf(p.card);
+    const req = attackDefenderRequirementOf(lossyOf(state) ? withAbilityLoss(state, p) : p.card);
     return obeyingAttackOptions(state, playerId, p.id, targets.filter((t) =>
       canPayAttackTax(p, t)
       && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))));
@@ -4726,7 +4747,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
     // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the
     // attack-only "can't attack alone" (Raging Kronch) is NOT gated here (it may block alone).
-    .filter(p => !cantBlockAlone(p.card) || assigned.size > 0)
+    .filter(p => !cantBlockAlone(lossyOf(state) ? withAbilityLoss(state, p) : p.card) || assigned.size > 0)
     // The BLOCK half of the land-gated self restriction (Topiary Stomper). The bare "can't block" is enforced
     // downstream in canBlockAttacker (isSelfCantBlock); this gate is what adds the LAND WINDOW, read live so
     // the seventh land frees it. Both halves of one printed clause, each enforced at the declaration site
@@ -4821,8 +4842,9 @@ function opponentsCantActAgainst(state, playerId) {
   // cant-cast cards have command-zone-functioning wording, so the command zone is never scanned here.
   let cantCast = false;
   let cantActivate = false;
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of (activePlayer.battlefield || [])) {
-    const d = cantCastDescriptorOf(perm.card);
+    const d = cantCastDescriptorOf((lossy ? withAbilityLoss(state, perm) : perm.card));
     if (!d) continue;
     if (d.attachedGated && !perm.attachedTo) continue; // an unattached Conqueror's Flail imposes nothing
     cantCast = true;
@@ -4922,8 +4944,9 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // battlefield carries the symmetric one-spell-per-turn static, a player who already cast this turn is
   // offered NO cast-family actions (spellsCastThisTurn is stamped at the cast chokepoint and reset at
   // untap). Lands / activations / special actions are untouched — casting alone is limited (CR 601).
+  const lossyCast = boardHasAbilityLoss(state); // the ability-loss board test for the cast limits below, once per call
   const castLimited = (state.players[playerId]?.spellsCastThisTurn || 0) >= 1
-    && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => castsPerTurnLimitOf(perm.card) != null));
+    && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => castsPerTurnLimitOf(lossyCast ? withAbilityLoss(state, perm) : perm.card) != null));
   // SPLIT SECOND (CR 702.61a) — suppresses casting for EVERY player while such a spell is on the stack.
   // Special actions are untouched (playing a land, plotting, the companion {3}): the rule names casting and
   // activating, and CR 116.2 special actions are neither.
@@ -4974,7 +4997,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // front face is a creature — CR 715.3), else the card resolved from the player's zones by id; an unresolvable card is
   // withheld (fail closed — a safe under-offer, never a second noncreature spell).
   if ((state.players[playerId]?.noncreatureSpellsCastThisTurn || 0) >= 1
-    && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => noncreatureCastsPerTurnLimitOf(perm.card) != null))) {
+    && Object.values(state.players).some((pl) => (pl.battlefield || []).some((perm) => noncreatureCastsPerTurnLimitOf(lossyCast ? withAbilityLoss(state, perm) : perm.card) != null))) {
     const zoneCards = Object.values(state.players[playerId] || {}).filter(Array.isArray).flat();
     const isCreatureSpell = (a) => {
       const face = a.faceCard || zoneCards.find((c) => c && c.id === a.cardId && !c.card);
@@ -4991,7 +5014,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // fromZone is not "hand" is withheld: flashback and other graveyard casts, exile casts (adventure step 2, plot, suspend,
   // impulse, discover), the COMMAND-zone commander cast, the library-top cast. Land plays are not casts and stay; the lock's
   // own controller is untouched. Always on — no turn window (unlike the Grand Abolisher family above).
-  if (Object.keys(state.players).some((pid) => pid !== playerId && opponentsOf(state, pid).includes(playerId) && (state.players[pid].battlefield || []).some((perm) => castFromHandOnlyLockOf(perm.card) != null))) {
+  if (Object.keys(state.players).some((pid) => pid !== playerId && opponentsOf(state, pid).includes(playerId) && (state.players[pid].battlefield || []).some((perm) => castFromHandOnlyLockOf(lossyCast ? withAbilityLoss(state, perm) : perm.card) != null))) {
     for (let i = actions.length - 1; i >= 0; i--) {
       if (actions[i].kind === "cast-spell" && actions[i].fromZone !== "hand") actions.splice(i, 1);
     }
@@ -5125,10 +5148,11 @@ function withPhyrexianPayment(state, playerId, actions) {
 // a pending free cast) run through here too; each keeps its decline. No taxed permanent → the list unchanged.
 function applyTargetTaxes(state, playerId, actions) {
   let lifeTaxed = null, manaTaxed = null;
+  const lossy = boardHasAbilityLoss(state);
   for (const [pid, pl] of Object.entries(state.players || {})) {
     if (pid === playerId) continue; // the taxer's controller is not their own opponent
     for (const perm of pl?.battlefield || []) {
-      for (const d of parseStaticAbilities(perm.card)) {
+      for (const d of parseStaticAbilities((lossy ? withAbilityLoss(state, perm) : perm.card))) {
         if (d.targetLifeTax) (lifeTaxed ||= new Map()).set(perm.id, (lifeTaxed.get(perm.id) || 0) + d.targetLifeTax.amount);
         if (d.targetManaTax) (manaTaxed ||= new Map()).set(perm.id, (manaTaxed.get(perm.id) || 0) + d.targetManaTax.amount);
       }

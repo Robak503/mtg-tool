@@ -55,7 +55,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
@@ -268,7 +268,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   /** Decide the counter-shield for one hit. Returns true when the damage is PREVENTED. */
   const counterShieldPrevents = (targetId, amount) => {
     const lk = findPermanent(state, targetId);
-    const mode = lk && counterShieldPrevention(lk.permanent.card);
+    const mode = lk && counterShieldPrevention(withAbilityLoss(state, lk.permanent));
     if (!mode) return false;
     const have = csCountersLeft(targetId);
     if (mode === "phantom") {
@@ -321,7 +321,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // by definition combat, so the remaining printed restriction to enforce is the source being a creature
     // — checked live off the dealer's type line. A sourceless hit can't satisfy "a creature would deal", so
     // it is NOT prevented (FN-safe: the Hydra takes it, never an invented wall).
-    if (selfPreventPutCounters(lk.permanent.card)) {
+    if (selfPreventPutCounters(withAbilityLoss(state, lk.permanent))) {
       const type = String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? "");
       if (!/\bcreature\b/i.test(type)) return false;
       pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + 1);
@@ -361,7 +361,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // SOURCE carries the clause are recorded, so a board without Wolverine collects nothing → byte-identical.
   const armPairs = [];
   const recordArm = (sourcePerm, targetCreatureId) => {
-    if (sourcePerm?.card && marksDamageToCreature(sourcePerm.card)) armPairs.push({ source: sourcePerm, targetId: targetCreatureId });
+    if (sourcePerm?.card && marksDamageToCreature(withAbilityLoss(state, sourcePerm))) armPairs.push({ source: sourcePerm, targetId: targetCreatureId });
   };
   // GLOBAL SUBTYPE combat-damage-to-a-creature (Toxin Sliver) — record (dealing creature → damaged creature)
   // pairs so checkCombatDamageToCreatureTriggers can fire "Whenever a <Subtype> deals combat damage to a
@@ -456,7 +456,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // the dealer block below is inert while combat damage can't be prevented.
     if (amt > 0 && !unpreventable && targetKind === "creature") {
       const lk = findPermanent(state, targetId);
-      if (lk && selfDamagePrevention(lk.permanent.card)) return 0;
+      if (lk && selfDamagePrevention(withAbilityLoss(state, lk.permanent))) return 0;
       // COUNTER-SHIELD: prevents like the flat walls above, but bills itself in +1/+1 counters (recorded
       // here, applied after the loops). Sits AFTER the flat walls so a creature carrying both is prevented
       // by the free one and never charged a counter it did not need to spend.
@@ -477,7 +477,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // combat damage, so a Fog Bank blocking a 6/6 takes none (TO wall, line above) AND marks none on it.
     if (amt > 0 && !unpreventable && sourcePerm?.id) {
       if (attachedDamagePrevention(state, sourcePerm.id).by) return 0;
-      if (selfDamagePreventionBy(sourcePerm.card)) return 0;
+      if (selfDamagePreventionBy(withAbilityLoss(state, sourcePerm))) return 0;
     }
     if (hasReplacement && amt > 0) {
       amt = consultDamageAmount(state, {
@@ -506,14 +506,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (mazePrevents(lk.permanent)) return true;
     if (unpreventable) return false;
     if (shieldPrevents(targetId)) return true;
-    const card = lk.permanent.card;
+    const card = withAbilityLoss(state, lk.permanent);
     if (selfDamagePrevention(card)) return true;
     const cs = counterShieldPrevention(card);
     if (cs === "phantom" || (cs === "bloatfly" && csCountersLeft(targetId) > 0)) return true;
     if (attachedPreventPutCounters(state, targetId) || groupPreventPutCounters(state, targetId)) return true;
     if (selfPreventPutCounters(card) && /\bcreature\b/i.test(String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? ""))) return true;
     if (attachedDamagePrevention(state, targetId).to) return true;
-    return !!(sourcePerm?.id && (attachedDamagePrevention(state, sourcePerm.id).by || selfDamagePreventionBy(sourcePerm.card)));
+    return !!(sourcePerm?.id && (attachedDamagePrevention(state, sourcePerm.id).by || selfDamagePreventionBy(withAbilityLoss(state, sourcePerm))));
   };
 
   // Attackers deal.
@@ -530,7 +530,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // to poison (replacement); toxic N adds N poison ON TOP of normal player damage.
     const attackerMinus = permanentHasKeyword(state, attackerId, "Infect") || permanentHasKeyword(state, attackerId, "Wither");
     const attackerInfect = permanentHasKeyword(state, attackerId, "Infect");
-    const attackerToxicN = toxicValue(lookup.permanent.card);
+    const attackerToxicN = toxicValue(withAbilityLoss(state, lookup.permanent)); // toxic is a static ability (CR 702.164a) — none after a loss
     const attackerColors = permanentColors(state, attackerId); // KW-PROTECTION: a blocker protected from these takes 0
 
     // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.
@@ -616,7 +616,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     // power straight to the defending player (the deterministic take of the printed MAY — always legal,
     // and the entire point of the card). Its blockers still deal back normally in the blocker loop below;
     // trample is irrelevant on this path (nothing is assigned to blockers, so nothing "spills").
-    if ((liveBlockers.length > 0 || wasBlocked) && (mayAssignAsUnblocked(lookup.permanent.card) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
+    if ((liveBlockers.length > 0 || wasBlocked) && (mayAssignAsUnblocked(withAbilityLoss(state, lookup.permanent)) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
       dealt += spillToDefender(power, false);
     } else if (liveBlockers.length > 0) {
       // ASSIGNMENT (CR 510.1c — a blocked creature assigns ALL its combat damage to the creatures blocking it: all of it to a lone

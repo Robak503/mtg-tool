@@ -51,7 +51,7 @@ import { castTriggerRemovesOwn } from "./gameEngine.js";
 import { manaValueOf } from "./manaUntapLine.js";
 import { manaSources } from "./manaModel.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
-import { playerCantWinGame, playerEmptyDrawWins } from "./layers.js";
+import { playerCantWinGame, playerEmptyDrawWins, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f)
 
 /** How much more of each colour a building step makes the demand read pretends the seat holds: above every fixed cost printed. */
 export const LOOP_MANA_PLENTY = 20;
@@ -233,8 +233,11 @@ function loopStepsPossible(state, seat) {
   if (!player) return false;
   if ((player.library || []).length === 0) return true;
   if (castThisTurn(state, seat).size > 0) return true;
-  return (player.battlefield || []).some((p) => /untap/i.test(String(p.card?.oracle || p.card?.oracle_text || ""))
-    && parseActivatedAbilities(p.card).some(untapSelfAbility));
+  const lossy = boardHasAbilityLoss(state);
+  return (player.battlefield || []).some((p) => {
+    const card = lossy ? withAbilityLoss(state, p) : p.card; // a permanent that lost its abilities has no untap activation (CR 613.1f)
+    return /untap/i.test(String(card?.oracle || card?.oracle_text || "")) && parseActivatedAbilities(card).some(untapSelfAbility);
+  });
 }
 
 /**

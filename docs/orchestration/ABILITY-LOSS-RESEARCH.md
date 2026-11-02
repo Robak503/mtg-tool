@@ -39,6 +39,64 @@ grant cutoff: the stored fixed-ids grants (3207–3213) are matched by id alone,
 `effectAffects` on the departed look-back, where `abilityLossOf` answers null because the id is gone. A Feign Death grant made before
 a Turn to Frog would still fire as the creature dies. Route them with the look-back (§1.9 — the death look-back stamps the view).
 
+## 0b. The S0b hand-off, ROUTED (day/abloss-s0b on 24f69959, 2026-11-01 — every line re-grepped on that tree)
+Every item of the hand-off above now reads a permanent that lost its abilities through the ability view. Four mechanisms (ENGINE-SCAFFOLD
+§4.6 "The routed readers"): **the view** — `layers.withAbilityLoss(state, perm, base?)` over each reader's existing base (the stripped
+view after a loss, the base itself on every other board), and `abilityView.abilityViewOf` (the same function, registered by layers.js)
+for the modules layers.js imports; **the look-back stamp** — `layers.abilityLossStamp` writes `lkiAbilityLoss` on a death or leave
+look-back, and withAbilityLoss reads it first (CR 603.10a); **the attachment cutoff** — `layers.attachedGrantCutByLoss(state, host,
+attachment)` (CR 613.7e); **the entering side** — `layers.entersWithoutAbilities` / `enteringAbilityCard` (CR 614.12). The board fast
+path asks no collection: `boardLossEffects` answers "none" off the stored effects' array (one memo per array) while no shape of the
+registry can emit (`abilityLossShapes.abilityLossShapesMayEmit`); and every scan over live battlefield permanents asks
+`boardHasAbilityLoss` once before its loop and reads `p.card` directly when it answers false (the list: ENGINE-SCAFFOLD §4.6 "one board
+test per scan").
+
+| Hand-off item | Where now | Routed how |
+|---|---|---|
+| triggers `triggersForEvent` + the 29 `classLiveCard(` scans | triggers 7628 (`liveTriggerCard`), 7684; 29 call sites | `liveTriggerCard`: the board test first, then `withAbilityLoss(state, perm, classLiveCard(perm))` (a look-back's stamp is read whatever the board) — the one trigger chokepoint |
+| triggers `grantedTriggersForHost` | triggers 7644 | the attachment's own text through the view; the host's cutoff (`attachedGrantCutByLoss`) |
+| triggers `deadLookBackSources` / `departedLeaveSources` (+ the self-dies, leave, orphaned-Aura, planeswalker look-backs) | triggers 8227 / 8423 (`lookBackLoss` 7635) | each look-back carries its record's `lkiAbilityLoss` |
+| gameState `deathLookback` / the leave-event constructor | gameState 3012 / 1672 | `...abilityLossStamp(state, perm)` (the leave event: off `before`, the board it left); the death look-back's Rivaz grant (`diesExileAfter`, a granted "When this creature dies, exile it" kept as a flag) is dropped under any loss — the grant is always the older (given to the spell, CR 400.7a) |
+| sacrifice and planeswalker look-backs | costSacrifice 53, 54, 82, 95; removal 350, 353; spellEffects 1434; gameState 359, 3263 (the legend rule) | `...abilityLossStamp(state, perm)` |
+| layers `grantedTriggeredQuotedFor` dead-look-back branches (review F5) | layers 3367, 3385 | `grantCutByLoss(lookBack.lkiAbilityLoss, e, "ability")` |
+| triggers Prowess | triggers 10755 | `hasKeyword(withAbilityLoss(state, perm), "Prowess")` |
+| triggers' block-trigger synthesizers (rampage, the per-blocker pump, contact damage, basilisk touch, the blocks-a-flyer pump) and the exalted / flanking printed counts | `checkBlockTriggers` 8764 (8860 …); 8680, 8897 | `ownText` 7637 — the creature's own text through the view (they read the oracle directly, so the call-pattern lint could not see them; the text rule now does) |
+| the AI's `detectTriggers(p.card)` | gameEngine 1983 (blink gain); opponentAI 1297 (re-buy), 301 (land drop) | the RETURNING object's abilities: `enteringAbilityCard` (it re-enters as a new object, CR 400.7) |
+| legalChoices `grantedActivatedForHost` | legalChoices 2575 | the attachment's text through the view; the host's cutoff |
+| legalChoices Crew, `actionsActivateAbility`, `actionsDoubleManaPool`, loyalty | legalChoices 2630, 2739, 3446, 4438; actionDispatcher 1459 | `parseCrewCost` / `crewPowerBonus` / `parseActivatedAbilities` / `parseLoyaltyAbilities` over the view |
+| legalChoices `parseStaticAbilities(perm.card)` + the cast locks | legalChoices 1220, 4104, 4127, 4167, 5141; 541, 571, 4835, 4936, 5004 | the view |
+| legalChoices cost reducers / taxers / equip overrides (list-taking scanners) | legalChoices 1288, 1292, 1298, 2725, 2729, 3691 | `abilityViewPermanents(state, list)` (the list itself on a loss-free board) |
+| legalChoices sacrifice / bounce victims' fail-safe | `ownOracleOf` 2532 (10 sites) | the victim's text through the view |
+| manaModel `manaCardOf` / `manaSources` / raw `extraManaLineProducts` / `manualManaTaps` | manaModel 3238, 3244 (`ownManaCardOf`), 3286, 3644; manualManaTaps 3927 reads manaSources | the copy-aware base through the view; the per-line reads over `ownManaCardOf` |
+| manaModel Aura land boost / tap augments / lands' could-produce | manaModel 2893, 2934, 3176 | the carrier's text through the view |
+| combatEvasion `canBlockAttacker` and its selfOracle readers | combatEvasion 1281 | `lossy` (one `boardHasAbilityLoss` per call), then both cards, the team gate and the group restrictions through the view |
+| combatEvasion `attackerMinBlockers` / `maxBlocksFor` / team block count / `selfCantAttackNow` / `selfCantBlockNow` | 347 / 763 / 759 / 993 / 1004 | the view |
+| combatEvasion `grantedAttackerExceptions` / attached prevention / prevent-and-put | 1263 / 695 / 663, 642 | the attachment's (or the group carrier's) text through the view — a restriction is a quality of the host (CR 113.12), so only the carrier's loss ends it |
+| combatEvasion `attackerHasMenace` | 1507 | `permanentHasKeyword` (S0a's seed) |
+| combatResolution `toxicValue`, the walls, Wolverine's arm, assign-as-unblocked | combatResolution 533; 271, 324, 364, 459, 480, 509, 516, 619; spellEffects 1592, 1602 | the view |
+| attackRequirements `selfMustAttack` / must-attack-unless | attackRequirements 63 (`mustAttackNow`) | the view |
+| ward `readPrintedWards` / the loose cost | ward 211 | the view (a later ward grant still counts) |
+| gameState `isIndestructible` fallback | gameState 233 | the view — a stamped look-back reads stripped |
+| staticAbilityParser board scanners (`castNoncreatureLockFor` … `defenderAttackCapFor`) | staticAbilityParser 6073–8549 (15 sites) | `abilityViewOf` |
+| textNormalize scanners, attack tax | textNormalize 426, 440, 454, 501, 510; attackTax 159, 180 | `abilityViewOf` |
+| replacementEffects `applyCounterDoubling` + multipliers, mana multiplier | replacementEffects 374 (`allDoublers`), 620 | the view |
+| damageReplacements `collectDamageReplacements` / `combatDamageUnpreventable` | damageReplacements 294 (`liveCard`), 336 | the view over the Class view |
+| gameState `untapAll`: `cardSelfPreventsUntap` / `groupPreventsUntap` / attached no-untap | gameState 2118, 2132, 2069; seedbornUntap 64, typeFilteredUntap 120 | the view |
+| gameState graveyard / death replacements (Rest in Peace, the leaving permanent's shuffle-instead, the exile-instead statics), totem armor, life floor, life-loss multiplier, Oath's loyalty | gameState 764, 896, 3043, 2838, 2849, 1902, 2615, 2600, 318 | the view |
+| gameEngine `lostManaTurnsColorless`; the cleanup's no-maximum-hand-size scan; gameState's radiation life-gain replacement | gameEngine 309, 968; gameState 2760 | the view |
+| the AI's crack-back estimate and punisher pick | opponentAI 3942; punisher 156 | the view |
+| enterReplacements `applyEnterReplacements` | enterReplacements 218 (`own` 231); others 132, riot 174; actionDispatcher 211 (the land drop) | its own text through `enteringAbilityCard`; the others' statics through the view; a granted riot dropped when a loss reaches it (the under-read) |
+| layers `permanentHasKeyword` seed (S0a found-not-fixed (2)) | layers 2799 | `copyBaseOf(state, perm).card` (the derive's seed), O(1) on a board with no copy effect (`boardCopyEffects` 1063) |
+| the remaining whole-card hooks | annihilator 99, resolvers 246 (soulbond), urDragonAttack 125, vihaanAnimate 90, wolverine 54, auraEntry 197 / 211, groupWard 76, fetchLand 54, tokenLoopLine 62, loopStepLine 237 (routed at integration), outletFinishLine 109, triggerTargetRestraint 70, removal 243, spellEffects 848 | the view |
+
+**Left on the printed card, by design** (the source lint's two allowlists, `abilityLossLint.test.js`): layers.js's two Changeling reads
+(a characteristic-defining ability applied in layer 4, before the layer-6 loss — CR 702.73a, 613.3); manaModel `tapCostPayerOrder` (a
+payer sort key with no state); triggers' `gyEnterSelf` (a card in a graveyard, not a permanent); boardEval `isUntappedManaSource` (the
+AI's stateless estimate); gameState `recordLeaveEvent`'s sourceLki test (it records data, applies no ability); sba.js's Aura Enchant
+legality (an Aura that lost its enchant restriction is S5's — the Enchant union, backlog E6). Outside the lint: the Saga's lore counter
+(a game rule, CR 714.3a); gameEngine `entersTriggerRemovesOwn`'s printed pre-filter (the decision is its simulated board's own trigger
+check, which reads the view).
+
 **What S0a consumed from this inventory:** §1a's layers.js seeds (`keywordSet`, `permanentHasKeyword`, `keywordInstanceCount`, the
 protection reads, granted ward), §1d's `staticEffectsOf` / `collectContinuousEffects` (the filter), §1e's 7a CDAs (dropped with the
 lost permanent's statics), the name tables of §1c (BASIC_LAND_MANA, KNOWN_ROCKS, `grantedBasicTypeColors`) and §1d (cardEffects'

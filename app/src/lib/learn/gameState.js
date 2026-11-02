@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow } from "./layers.js";
+import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -235,7 +235,9 @@ export function isIndestructible(permanent, state = null) {
   if (state && permanent.id != null && findPermanent(state, permanent.id)) {
     return permanentHasKeyword(state, permanent.id, "indestructible");
   }
-  return hasKeyword(permanent.card, "indestructible");
+  // The printed fallback reads a look-back as it last existed (CR 603.10a — layers.withAbilityLoss: a look-back stamped with its loss
+  // reads the stripped view, so a permanent that lost its abilities was not indestructible; every other snapshot reads its card).
+  return hasKeyword(withAbilityLoss(state, permanent), "indestructible");
 }
 
 // ===== PLANESWALKER / LOYALTY (PW-1) =====
@@ -318,8 +320,9 @@ export function planeswalkerEntryLoyalty(state, controller, card) {
   const loy = startingLoyalty(card);
   if (loy == null) return null;
   let extra = 0;
+  const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
   for (const p of state?.players?.[controller]?.battlefield || []) {
-    const d = p ? othersEnterWithCounters(p.card) : null;
+    const d = p ? othersEnterWithCounters(lossy ? withAbilityLoss(state, p) : p.card) : null;
     if (d && d.subject === "planeswalker") extra += Math.max(0, d.fixed);
   }
   // The planeswalker is not on the battlefield yet: a typed replacement (Lae'zel's "a creature or planeswalker you control") reads
@@ -361,7 +364,7 @@ export function destroyZeroLoyaltyPlaneswalkers(state) {
       if (!isPlaneswalker(perm.card)) continue;
       const loy = perm.counters?.loyalty;
       if (loy == null) continue; // entered without a finite loyalty counter → SBA doesn't apply
-      if (loy <= 0) dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card });
+      if (loy <= 0) dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card, ...abilityLossStamp(state, perm) });
     }
   }
   let next = state;
@@ -762,9 +765,10 @@ export function shufflesIntoLibraryInsteadOfGraveyard(card) {
 export function graveyardExileFor(state, card, ownerId) {
   if (!card || !ownerId) return null;
   let voided = null;
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of Object.keys(state.players || {})) {
     for (const p of state.players[pid].battlefield || []) {
-      const spec = p.card && graveyardExileSpecOf(p.card);
+      const spec = p.card && graveyardExileSpecOf(lossy ? withAbilityLoss(state, p) : p.card); // a Rest in Peace that lost its abilities replaces nothing (CR 613.1f)
       if (!spec || (card.token && !spec.tokens)) continue;
       if (!(spec.scope === "any" || (spec.scope === "yours" ? ownerId === pid : opponentsOf(state, pid).includes(ownerId)))) continue;
       // P·28 — CR 616.1: with several applying, the card's owner picks which. A plain exile (Rest in Peace) leaves no void
@@ -889,7 +893,10 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // ⛔ keyed by the CARD's id (what the graveyard entry carries), not the permanent's — the first witness run stamped
     // "d1" while the graveyard held "c-d1" and the gate never matched.
     if (fromZone === "battlefield") state = { ...state, fromBattlefieldThisTurn: { ...(state.fromBattlefieldThisTurn || {}), [moving?.id || cardId]: state.turn } };
-    if (moving && shufflesIntoLibraryInsteadOfGraveyard(moving)) {
+    // The leaving PERMANENT's own replacement is read as it is on the battlefield (CR 613.1f): a Progenitus that lost its abilities
+    // is put into the graveyard.
+    const movingOwn = fromZone === "battlefield" && moving ? withAbilityLoss(state, state.players[playerId]?.battlefield?.find((p) => p.id === cardId), moving) : moving;
+    if (moving && shufflesIntoLibraryInsteadOfGraveyard(movingOwn)) {
       // From a LIBRARY (Entomb's fetch, manifest dread's other card, a revealed top card) this is a same-zone move — the card is
       // already in its owner's library (CR 400.3) and stays in it as that library is shuffled (CR 701.24c). The same-zone
       // placement below keeps one copy; before 2026-10-26 it wrote the card back a second time (a duplicated card).
@@ -1678,6 +1685,10 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   // board it was still on (deathLookback's field, so lastKnownIsCreature answers every leave scope the same way): a God below its
   // devotion leaving is not a creature leaving (The Ozolith, Ninth Bridge Patrol); an animated land is one.
   if (before && findPermanent(before, permanent.id)) ev.lkiTypes = [...permanentTypes(before, permanent.id).types];
+  // `lkiAbilityLoss` — the abilities it had as it last existed (CR 603.10a, 613.1f): a permanent that had lost its abilities leaves
+  // with none, so its own leave triggers do not fire and a grant cut by the loss stays cut (layers.abilityLossStamp, read off `before`,
+  // the board it was still on). Written only when it had lost them, so every other leave event is unchanged.
+  if (before && findPermanent(before, permanent.id)) Object.assign(ev, abilityLossStamp(before, permanent));
   // `boardBeforeIds` — the permanents on the battlefield immediately before it left (CR 603.10a: a leaves-the-battlefield ability
   // looks back to the game as it stood just before the event). triggers.checkLeavesTriggers offers this leave only to the watchers
   // that were there: a watcher that left earlier, or entered later (a flickered permanent's new object, CR 400.7), never saw it.
@@ -1895,9 +1906,12 @@ export function totemArmorAuraFor(state, perm) {
   for (const attId of perm?.attachments || []) {
     const lk = findPermanent(state, attId);
     if (!lk) continue;
-    if (auraHasTotemArmor(lk.permanent.card)) return attId;
-    if (!isAuraCard(lk.permanent.card)) continue;
-    if (granted === null) granted = state.players[findPermanent(state, perm.id).controller].battlefield.some((p) => grantsUmbraArmorToAuras(p.card));
+    // ABILITY LOSS (CR 613.1f): an Aura that lost its abilities has no umbra armor — neither its own nor a granted one (the grant's
+    // timestamp against the loss is not read: dropping it is the under-read), and a granter that lost its abilities grants none.
+    const att = withAbilityLoss(state, lk.permanent);
+    if (auraHasTotemArmor(att)) return attId;
+    if (!isAuraCard(lk.permanent.card) || att?.abilitiesLost) continue;
+    if (granted === null) { const lossy = boardHasAbilityLoss(state); granted = state.players[findPermanent(state, perm.id).controller].battlefield.some((p) => grantsUmbraArmorToAuras(lossy ? withAbilityLoss(state, p) : p.card)); }
     if (granted) return attId;
   }
   return null;
@@ -2058,7 +2072,8 @@ function attachmentPreventsUntap(state, perm) {
   if (!perm?.attachments?.length) return false;
   for (const attId of perm.attachments) {
     const lk = findPermanent(state, attId);
-    if (lk?.permanent?.card && RE_ATTACHED_NO_UNTAP.test(String(lk.permanent.card.oracle || lk.permanent.card.oracle_text || ""))) return true;
+    const att = lk?.permanent?.card ? withAbilityLoss(state, lk.permanent) : null; // an Aura that lost its abilities locks nothing (CR 613.1f)
+    if (att && RE_ATTACHED_NO_UNTAP.test(String(att.oracle || att.oracle_text || ""))) return true;
   }
   return false;
 }
@@ -2102,8 +2117,8 @@ export function cardSelfPreventsUntap(card) {
   return false;
 }
 
-function selfPreventsUntap(perm) {
-  return cardSelfPreventsUntap(perm?.card);
+function selfPreventsUntap(state, perm, lossy = true) {
+  return cardSelfPreventsUntap(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null); // a permanent that lost its abilities untaps (CR 613.1f)
 }
 
 // GROUP NO-UNTAP LOCKDOWN (BLITZ UT-1, CR 302.6 — Winter-Orb / Meekstone / Choke / Back to Basics / Marble
@@ -2119,10 +2134,11 @@ function selfPreventsUntap(perm) {
 function groupNoUntapActiveFilters(state) {
   const filters = [];
   const players = state?.players || {};
+  const lossy = boardHasAbilityLoss(state);
   for (const key of Object.keys(players)) {
     const bf = players[key]?.battlefield || [];
     for (const perm of bf) {
-      const fs = groupNoUntapFiltersOf(perm?.card);
+      const fs = groupNoUntapFiltersOf(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null); // a Winter Orb that lost its abilities locks nothing
       for (const f of fs) filters.push(f);
     }
   }
@@ -2147,13 +2163,14 @@ export function untapAll(state, { playerId }) {
   assertPlayer(playerId);
   // GROUP NO-UNTAP (UT-1): the continuous "<filter> don't untap" statics active on ANY battlefield this step.
   const groupFilters = groupNoUntapActiveFilters(state);
+  const lossy = boardHasAbilityLoss(state); // the self no-untap lock's board test, once for the step
   // BECAME-UNTAPPED events (Mesmeric Orb — a look-back list, CR 603.2e): record every permanent that
   // actually TRANSITIONS tapped→untapped this step (the doesNotUntapNext / stun / attached-lock skips below
   // stay tapped and must NOT fire; an already-untapped permanent doesn't "become" untapped). gameState can't
   // import triggers.js (cycle), so this only records; triggers.checkUntapTriggers drains the queue (the
   // pendingLeaveEvents pattern exactly). Computed BEFORE the map so the skip conditions are read unmutated.
   const becameUntapped = (state.players[playerId]?.battlefield || [])
-    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(p) && !groupPreventsUntap(state, p, groupFilters))
+    .filter((p) => p.tapped && !p.doesNotUntapNext && !((p.counters?.stun || 0) > 0) && !attachmentPreventsUntap(state, p) && !selfPreventsUntap(state, p, lossy) && !groupPreventsUntap(state, p, groupFilters))
     .map((p) => ({ id: p.id, controller: playerId }));
   const untapped = withPlayer(state, playerId, player => ({
     ...player,
@@ -2166,7 +2183,7 @@ export function untapAll(state, { playerId }) {
       // UP-1 (Brass Man / Mana Vault class): a SELF "This <permanent> doesn't untap during your untap step."
       // lock — stays tapped this untap step (its pay-to-untap upkeep trigger is the only escape); non-tap flags
       // reset like every skip branch here. Read off the permanent's OWN oracle (a continuous static, not a flag).
-      if (p.tapped && selfPreventsUntap(p)) {
+      if (p.tapped && selfPreventsUntap(state, p, lossy)) {
         return { ...p, summoningSick: false, loyaltyActivatedThisTurn: false };
       }
       // UT-1 (Meekstone / Choke / Back to Basics / Marble Titan / Juntu Stakes class): a GROUP "<filter> don't
@@ -2588,8 +2605,9 @@ function opponentLifeLossMultiplierFor(state, playerId) {
   const active = state.activePlayer;
   if (!active || active === playerId || !state.players?.[active]) return 1;
   let factor = 1;
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state.players[active].battlefield || []) {
-    const m = opponentLifeLossMultiplierOf(perm.card);
+    const m = opponentLifeLossMultiplierOf(lossy ? withAbilityLoss(state, perm) : perm.card);
     if (m) factor *= m;
   }
   return factor;
@@ -2602,8 +2620,9 @@ function opponentLifeLossMultiplierFor(state, playerId) {
 function lifeFloorFor(state, playerId) {
   const bf = state.players?.[playerId]?.battlefield || [];
   let floor = null;
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of bf) {
-    const f = lifeFloorOf(perm.card);
+    const f = lifeFloorOf(lossy ? withAbilityLoss(state, perm) : perm.card);
     if (!f) continue;
     if (f.ifControlCreature && !bf.some((p) => permanentIsCreature(state, p.id))) continue;
     floor = floor == null ? f.lifeFloor : Math.max(floor, f.lifeFloor);
@@ -2743,8 +2762,9 @@ export function applyRadiation(state, { playerId }) {
     // from radiation.", SHELF S7 / CR 614): checked by the EXACT printed phrase on the radiated player's own
     // battlefield (gameState is a leaf — no parser import; the phrase appears on no other effect). The rad
     // counters are still removed either way (the replacement rewrites only the life event).
+    const lossy = boardHasAbilityLoss(state);
     const gains = (player.battlefield || []).some((p) =>
-      /you gain life rather than lose life from radiation/i.test(String(p?.card?.oracle || "")));
+      /you gain life rather than lose life from radiation/i.test(String((lossy && p?.card ? withAbilityLoss(state, p) : p?.card)?.oracle || ""))); // the ability view (CR 613.1f)
     next = gains ? gainLife(next, { playerId, amount: nonland }) : loseLife(next, { playerId, amount: nonland });
     next = removeRadCounters(next, { playerId, amount: nonland });
   }
@@ -2825,7 +2845,7 @@ export function markExileIfDies(state, { permanentId, turn }) {
 function damagedByExilingSource(state, perm) {
   for (const srcId of perm.damagedBy || []) {
     const lk = findPermanent(state, srcId);
-    if (lk?.permanent?.card && exilesCreaturesItDamaged(lk.permanent.card)) return true;
+    if (lk?.permanent?.card && exilesCreaturesItDamaged(withAbilityLoss(state, lk.permanent))) return true;
   }
   return false;
 }
@@ -2834,9 +2854,10 @@ function damagedByExilingSource(state, perm) {
 // creature an opponent controls would die, exile it instead." controlled by an OPPONENT of the dying creature's controller?
 // Battlefields are keyed by controller, so each seat's array is what that seat controls.
 function opponentCreatureExiler(state, perm) {
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of Object.keys(state.players || {})) {
     if (!opponentsOf(state, pid).includes(perm.controller)) continue;
-    if ((state.players[pid].battlefield || []).some((p) => p.card && exilesOpponentCreaturesOnDeath(p.card))) return true;
+    if ((state.players[pid].battlefield || []).some((p) => p.card && exilesOpponentCreaturesOnDeath(lossy ? withAbilityLoss(state, p) : p.card))) return true;
   }
   return false;
 }
@@ -3002,6 +3023,7 @@ export function deathLookback(state, perm, controller) {
   // (an unsized "*") → null, so a payoff no-ops rather than inventing a count.
   const pw = creaturePower(perm, state);
   const bpw = creatureBasePower(perm, state);
+  const lossStamp = abilityLossStamp(state, perm);
   return {
     controller,
     id: perm.id,
@@ -3027,8 +3049,14 @@ export function deathLookback(state, perm, controller) {
     exileTo: deathExiledInstead(state, perm), // P·28 — where it goes; a graveyard replacement redirects inside moveCardToZone
     // The shuffle-instead is a replacement at the zone move, but the dead list is built before the move — without the flag every
     // dies trigger and the deaths-this-turn tally would see a death that never happened.
-    shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(cardLeavingBattlefield(perm)),
-    diesExileAfter: !!perm.grantDiesExile, // RIVAZ — the death really happens (triggers, tally), then checkDiesTriggers exiles the card
+    shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(withAbilityLoss(state, perm, cardLeavingBattlefield(perm))),
+    // A loss removes Rivaz's granted "When this creature dies, exile it": the grant is always the older — it was given to the spell, and
+    // carries over to the permanent the spell became (CR 400.7a), so any loss on the permanent is later (CR 613.7).
+    diesExileAfter: !!perm.grantDiesExile && !lossStamp.lkiAbilityLoss, // RIVAZ — the death really happens (triggers, tally), then checkDiesTriggers exiles the card
+    // ITS ABILITIES AS IT LAST EXISTED (CR 603.10a, 613.1f — the ability-loss program §1.9): a creature that had lost its abilities
+    // dies with none, so its own dies triggers do not fire and a grant the loss cut stays cut (layers.abilityLossStamp). Written only
+    // when it had lost them; `card` stays the printed card (a copy of it, or the card in the graveyard, is the original — CR 707.2).
+    ...lossStamp,
   };
 }
 
@@ -3071,7 +3099,7 @@ export function lastKnownIsCreature(lookback, state = null) {
  * already left. The order among the rest is unchanged. `items` carry the permanent `id`; `state` is the board as the event began.
  */
 export function graveyardReplacementCarriersLast(state, items) {
-  const carries = (item) => !!graveyardExileSpecOf(findPermanent(state, item.id).permanent.card);
+  const carries = (item) => !!graveyardExileSpecOf(withAbilityLoss(state, findPermanent(state, item.id).permanent));
   return [...items.filter((item) => !carries(item)), ...items.filter(carries)];
 }
 
@@ -3243,7 +3271,7 @@ export function applyLegendRule(state) {
           dead.push(deathLookback(state, perm, pid));
         } else {
           moves.push({ controller: pid, id: perm.id });
-          if (permanentTypes(state, perm.id).types.includes("Planeswalker")) deadPw.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card });
+          if (permanentTypes(state, perm.id).types.includes("Planeswalker")) deadPw.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card, ...abilityLossStamp(state, perm) });
         }
       }
     }

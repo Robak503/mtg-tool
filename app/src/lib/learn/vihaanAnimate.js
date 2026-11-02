@@ -29,7 +29,7 @@
  * alongside the combatBegin step trigger (gameEngine). ADDITIVE only — no core surgery; isolated to this module
  * + one wiring line in gameEngine + one additive coverage classifier.
  */
-import { addContinuousEffect } from "./layers.js";
+import { addContinuousEffect, withAbilityLoss, boardHasAbilityLoss } from "./layers.js";
 import { logEvent, findPermanent } from "./gameState.js";
 
 // Anchored to the WHOLE Vihaan templating so no other card false-matches. Captures P/T (N/N) and the descriptor
@@ -87,11 +87,12 @@ export function applyVihaanCombatAnimate(state) {
   const pid = state?.activePlayer;
   const player = state?.players?.[pid];
   if (!player) return state;
-  const watchers = (player.battlefield || []).filter((perm) => parseVihaanCombatAnimate(perm.card));
+  const lossy = boardHasAbilityLoss(state);
+  const watchers = (player.battlefield || []).filter((perm) => parseVihaanCombatAnimate(lossy ? withAbilityLoss(state, perm) : perm.card));
   if (!watchers.length) return state;
   let next = state;
   for (const watcher of watchers) {
-    const spec = parseVihaanCombatAnimate(watcher.card);
+    const spec = parseVihaanCombatAnimate(withAbilityLoss(state, watcher));
     const src = { kind: "resolution", permanentId: watcher.id, cardName: watcher.card?.name || null };
     // Layer-4 types: Creature plus any named card type (additive — the Artifact/other types are kept, "in
     // addition to their other types"). Re-read the player's Treasures fresh inside the loop is unnecessary (a

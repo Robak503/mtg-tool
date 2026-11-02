@@ -33,7 +33,7 @@
 import { MANA_COLORS, addMana, addCounter, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, gainLife, logEvent, removeCounter, setDoesNotUntapNext, opponentsOf, playerLifeLocked } from "./gameState.js"; // + gainLife (2026-10-17, the land lines): a mana ability that makes each opponent gain life (Grove of the Burnwillows); + addCounter — 2026-10-17: Wall of Roots' -0/-1 counter cost // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkTapForManaTriggers, checkLifegainTriggers } from "./triggers.js"; // + checkLifegainTriggers (2026-10-17, the land lines): Grove of the Burnwillows' opponents gain life as its tap resolves; + ④-D: "tapped for mana" watchers fire at the one tap commit
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // SG-3 / SAC-TREASURE: a permanent sacrificed to a mana cost leaves through THE cost sacrifice (dies, sacrifice watchers, the leave drain — CR 603.3b), the one the activated-ability and additional costs use
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, abilityLossOf } from "./layers.js"; // + abilityLossOf: a land that lost its abilities has no intrinsic basic-land-type mana ability (grantedBasicTypeColors, CR 305.6, 613.1f) // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
+import { permanentHasKeyword, withAbilityLoss, boardHasAbilityLoss, grantedManaSpecsFor, permanentTypes, permanentHasCardType, summoningSickNow, deriveCharacteristics, permIsEveryCreatureType, permanentColors, faceUpTypeLine, permanentSubtypes, abilityLossOf } from "./layers.js"; // + abilityLossOf: a land that lost its abilities has no intrinsic basic-land-type mana ability (grantedBasicTypeColors, CR 305.6, 613.1f) // + faceUpTypeLine: the face that is up of a combined "Front // Back" card — the derive's own read, shared by manaModel's face-up mana read; + permanentSubtypes: the land types an "instead" condition names (Urza's Tower)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // QUARTET Phase 4 step 3 (2026-09-06): the closed CR creature-type vocabulary for spend restrictions ("only to cast a Ninja or Turtle spell") — a zero-import leaf
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { COUNT_SUBTYPE } from "./effects/parseHelpers.js"; // #766 — the curated subtype allowlist for "for each <Subtype> on the battlefield" (parseHelpers imports only keywords.js; staticAbilityParser, imported below, already loads it)
@@ -2895,7 +2895,7 @@ export function landAuraManaBonus(state, landPerm) {
   for (const attId of landPerm?.attachments || []) {
     const lk = findPermanent(state, attId);
     if (!lk) continue;
-    const bonus = parseAuraLandManaBonus(lk.permanent?.card);
+    const bonus = parseAuraLandManaBonus(lk.permanent?.card ? withAbilityLoss(state, lk.permanent) : null); // an Aura that lost its abilities boosts nothing
     if (!bonus) continue;
     // CHOSEN-COLOR (Utopia Sprawl): the boost adds one mana of the color CHOSEN AS THE AURA ENTERED
     // (CR 614.12b), stamped durably on the Aura permanent as `chosenColor` (resolvers.enterPermanent).
@@ -2948,6 +2948,7 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   // land tap). A creature-LAND (Dryad Arbor) is still a Land → excluded, exactly as "nonland permanent" reads.
   const srcIsNonland = !srcIsLand;
   const out = [];
+  const lossy = boardHasAbilityLoss(state); // once per call, before the scan of every battlefield
   // MANA FLARE (BLITZ MF-1): an allPlayers augment ("Whenever a PLAYER taps a land for mana, THAT PLAYER
   // adds …") benefits the TAPPING player (`playerId`) no matter who controls the carrier — so the scan
   // covers EVERY battlefield, with the controller gate applied only to the controller-scoped ("Whenever
@@ -2955,7 +2956,7 @@ export function globalTapManaAugment(state, playerId, sourcePerm) {
   // exactly as the user's do (each seat's manaSources/actionsTapForMana calls in with its own playerId).
   for (const pid of Object.keys(state.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
-      const aug = parseGlobalTapManaAugment(perm.card);
+      const aug = parseGlobalTapManaAugment(lossy ? withAbilityLoss(state, perm) : perm.card); // a carrier that lost its abilities augments nothing
       if (!aug) continue;
       if (!aug.allPlayers && pid !== playerId) continue; // controller-scoped: only the tapper's own carriers
       // MONARCH GATE (Regal Behemoth, CR 725) — a condition:"monarch" augment adds the extra mana ONLY while
@@ -3175,6 +3176,7 @@ function grantedBasicTypeColors(state, perm) {
  */
 function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = false, subtype = null } = {}) {
   const types = new Set();
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of playerIds) {
     for (const p of state?.players?.[pid]?.battlefield || []) {
       const face = String(p.card?.type || p.card?.type_line || "").split(" // ")[0];
@@ -3183,7 +3185,7 @@ function landsCouldProduce(state, playerIds, { basicOnly = false, colorsOnly = f
       // `subtype` (Plaza of Harmony, 2026-10-17): only the lands of that land type, as they are now.
       if (subtype && !permanentSubtypes(state, p.id).some((st) => String(st).toLowerCase() === subtype.toLowerCase())) continue;
       // Its "instead" rider applied (2026-10-17 evening): a River of Tears after its controller's land drop could produce {B}, not {U}.
-      const lp = withInsteadUpgrade(state, pid, p, manaProduction(p.card));
+      const lp = withInsteadUpgrade(state, pid, p, manaProduction(lossy ? withAbilityLoss(state, p) : p.card));
       if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) types.add(c);
       else if (lp?.colorsAmongSpec?.kind === "commanderColorIdentity") for (const c of commanderColorIdentityOf(state, pid) || []) types.add(c);
       for (const c of grantedBasicTypeColors(state, p)) types.add(c);
@@ -3233,8 +3235,18 @@ function colorsAmongFor(state, playerId, spec) {
 // LAYER-1 COPY (the play-weighted program, P·26 — Shifting Woodland; Thespian's Stage, Mizzium Transreliquat): a permanent that
 // BECAME a copy (CR 707.2, 613.1a) has the copied card's mana abilities and never its printed ones — a Stage that became a Forest
 // taps for {G} only, and one that became a Bear taps for nothing. layers.deriveCharacteristics owns which copy wins (CR 613.7b).
-function manaCardOf(state, perm) {
-  return deriveCharacteristics(state, perm.id)?.copiableValues || perm.card;
+// ABILITY LOSS (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b): then the stripped view when the permanent lost its abilities (layers.
+// withAbilityLoss over the copy-aware base) — no mana line at all, or only its mana abilities under an exceptMana loss.
+// `lossy` — the caller's one board test (boardHasAbilityLoss), asked once per scan: false reads the base with no per-permanent work.
+function manaCardOf(state, perm, lossy = true) {
+  const base = deriveCharacteristics(state, perm.id)?.copiableValues || perm.card;
+  return lossy ? withAbilityLoss(state, perm, base) : base;
+}
+
+/** The permanent's PRINTED card as its ability readers see it — the base the raw per-line readers below parse (the extra lines, the
+ *  activation cost, the self no-untap lock): the stripped view after a loss, else the printed card itself. */
+function ownManaCardOf(state, perm, lossy = true) {
+  return lossy ? withAbilityLoss(state, perm) : perm.card;
 }
 
 /**
@@ -3295,6 +3307,7 @@ export function manaSources(state, playerId) {
   // untouched: an Eldrazi Spawn's sac (creature), a land's tap, a triggered tap-augment bonus riding a
   // nonartifact land (CR 603.2 — triggered abilities are not locked).
   const artLocked = artifactActivationsLocked(state);
+  const lossy = boardHasAbilityLoss(state); // the ability-loss board test, once for the whole scan (no per-permanent work without a loss)
   const sources = [];
   for (const perm of player.battlefield) {
     // A TAPPED permanent is still a source when its mana ability has no {T} to pay (CR 107.5 — only the tap symbol needs it
@@ -3303,12 +3316,13 @@ export function manaSources(state, playerId) {
     // with no ability of its own is decided once its granted ability is read (below). manaProduction is memoized per card.
     // One whose own ability taps but that prints an EXTRA line with no {T} (Relic of Legends' tap-a-legend line, 2026-10-17)
     // still offers that line: its own record is skipped, the extra lines are read (extraLineSources), after the locks below.
-    const card = manaCardOf(state, perm); // P·26 — a permanent that BECAME a copy taps for the copy's mana, not its printed mana
+    const card = manaCardOf(state, perm, lossy); // P·26 — a permanent that BECAME a copy taps for the copy's mana, not its printed mana
     let ownLineTapped = false;
     if (perm.tapped) {
       const own = manaProduction(card);
       if (own && own.requiresTap !== false) {
-        if (!extraManaLineProducts(perm.card, manaProduction(perm.card)).some((e) => e.requiresTap === false)) continue;
+        const ownCard = ownManaCardOf(state, perm, lossy);
+        if (!extraManaLineProducts(ownCard, manaProduction(ownCard)).some((e) => e.requiresTap === false)) continue;
         ownLineTapped = true;
       }
     }
@@ -3318,7 +3332,7 @@ export function manaSources(state, playerId) {
     // this is a no-op for the common case; mirrors the NR-1 artifact-lock skip just below.
     if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
-    if (ownLineTapped) { sources.push(...extraLineSources(state, playerId, player, perm, manaMult)); continue; }
+    if (ownLineTapped) { sources.push(...extraLineSources(state, playerId, player, perm, manaMult, lossy)); continue; }
     let prod = manaProduction(card);
     // REMOVE-A-COUNTER, NO {T} (stage ③ · 37): one one-mana record per counter on it right now. `repeatable` lets the planner
     // spend several (a permanent's OTHER lines are one {T} and exclude each other; these are separate activations), `noTap`
@@ -3534,7 +3548,7 @@ export function manaSources(state, playerId) {
       && !(prod.painCondition && evaluateInterveningIf(state, prod.painCondition, playerId, { sourcePermanentId: perm.id }) === false);
     // THE FREE-ACTIVATION FIX: the main record carries the mana cost of the line it comes from (null for a plain {T} line);
     // the planner funds it before the source produces. A cost the reader can't price drops the main record (FN-safe).
-    const mainActivationCost = manaActivationCost(perm.card);
+    const mainActivationCost = manaActivationCost(ownManaCardOf(state, perm, lossy));
     if (mainActivationCost?.unpayable) dropMain = true;
     const fixed = dynFixed || (prod.fixed ? Object.fromEntries(Object.entries(prod.fixed).map(([c, n]) => [c, n * scale])) : null);
     // A bundle's TOTAL is its own tally — for the printed karoo family this equals `amount` exactly (two
@@ -3546,7 +3560,7 @@ export function manaSources(state, playerId) {
     // STAYS TAPPED (CR 502.3): a permanent whose own text keeps it from untapping in its untap step (Mana Vault, Basalt
     // and Grim Monolith) — the untap step's own read, so the two cannot drift. Its tap costs the mana of the turns it
     // stays tapped; the generic tap order (planPaymentCore's tapAny) never promotes it ahead of a source that untaps.
-    const staysTapped = cardSelfPreventsUntap(perm.card);
+    const staysTapped = cardSelfPreventsUntap(ownManaCardOf(state, perm, lossy));
     // THE COST RIDERS OF THE LINE ITSELF (2026-10-17), carried to the tap record (tapRecordFor) and paid by commitManaTap:
     //   · noTap — the line has no {T}: the commit never taps the source, and it is not tapped for mana (CR 107.5, 106.12);
     //   · putsCounter — Wall of Roots' -0/-1 counter, put on as the cost;
@@ -3589,7 +3603,7 @@ export function manaSources(state, playerId) {
     const mainBonus = bonusFor(fixed ? Object.keys(fixed) : prod.colors, fixed && Object.keys(fixed).length > 1 ? fixed : null);
     if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(mainActivationCost ? { activationCost: mainActivationCost } : {}), ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true, gyExileIds } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(prod.sacrificesFood ? { sacrificesFood: true } : {}), ...(prod.sacrificesKind ? { sacrificesKind: prod.sacrificesKind } : {}), ...(sacVictimIds ? { sacVictimIds } : {}), ...(fixed ? { fixed } : {}), ...(painOn ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(mainBonus.length ? { bonus: mainBonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife, lifeAvail: player.life ?? 0 } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}), ...(staysTapped ? { staysTapped: true } : {}), ...lineRiders });
     // STAGE ④-3 — EXTRA MANA LINES (extraLineSources): each its own record on the SAME permanent.
-    sources.push(...extraLineSources(state, playerId, player, perm, manaMult));
+    sources.push(...extraLineSources(state, playerId, player, perm, manaMult, lossy));
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
   // as a one-shot source keyed by the card's id (the committer exiles it); never a tap, never repeatable.
@@ -3632,10 +3646,11 @@ function stampCreatureTaps(state, player, sources) {
  * reaches — and for a TAPPED one whose own line needs {T} when one of these lines has none (CR 107.5): Relic of Legends'
  * tap-a-legend line after its {T} line was used.
  */
-function extraLineSources(state, playerId, player, perm, manaMult) {
+function extraLineSources(state, playerId, player, perm, manaMult, lossy = true) {
   const out = [];
-  const staysTapped = cardSelfPreventsUntap(perm.card);
-  for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
+  const ownCard = ownManaCardOf(state, perm, lossy);
+  const staysTapped = cardSelfPreventsUntap(ownCard);
+  for (const extra of extraManaLineProducts(ownCard, manaProduction(ownCard))) {
     if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
     if (perm.tapped && extra.requiresTap !== false) continue; // CR 107.5 — a tapped permanent offers only a line with no {T}
     if (extra.activationLimit && !manaLimitAllows(state, playerId, perm.id, extra.activationLimit)) continue;

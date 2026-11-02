@@ -55,7 +55,7 @@
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentHasKeyword, permanentGrantedWardCosts, permanentPower } from "./layers.js";
+import { permanentHasKeyword, permanentGrantedWardCosts, permanentPower, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f, 702.21a — ward is a triggered ability: none after a loss)
 import { faceUpView } from "./faceUp.js";
 import { groupWardInstancesFor } from "./groupWard.js"; // Diffusion Sliver's tax joins the wards' one question (imports gameState + layers: no cycle)
 import { canAfford, manaSources } from "./manaModel.js"; // canPayWardCost — manaModel's closure never reaches ward.js or any module that imports it
@@ -212,10 +212,11 @@ function wardInstancesOn(state, permanentId) {
   const lk = findPermanent(state, permanentId);
   if (!lk?.permanent) return [];
   const perm = lk.permanent;
+  const own = withAbilityLoss(state, perm); // its printed wards as it is now: none once it lost its abilities (a later grant still counts)
   const hasKeyword = permanentHasKeyword(state, permanentId, "Ward");
   const out = [];
   let printedKeyword = 0;
-  for (const inst of readPrintedWards(perm.card)) {
+  for (const inst of readPrintedWards(own)) {
     if (inst.form === "keyword") {
       printedKeyword++;
       if (!hasKeyword) continue;
@@ -230,7 +231,7 @@ function wardInstancesOn(state, permanentId) {
     } else out.push(inst.cost);
   }
   const granted = permanentGrantedWardCosts(state, permanentId).map(grantedCost);
-  if (hasKeyword && printedKeyword === 0 && out.length === 0 && granted.length === 0) out.push(looseWardCost(perm.card));
+  if (hasKeyword && printedKeyword === 0 && out.length === 0 && granted.length === 0) out.push(looseWardCost(own));
   return [...out, ...granted];
 }
 

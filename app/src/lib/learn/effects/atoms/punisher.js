@@ -32,7 +32,7 @@
 
 import { logEvent, findPermanent } from "../../gameState.js";
 import { applyDamageEffect, applyDrawEffect } from "../../spellEffects.js"; // the shared deal path and the trigger-threading draw — call-time binding, cycle-safe (the combat.js / removal.js precedent)
-import { permanentIsCreature, permanentHasKeyword } from "../../layers.js";
+import { permanentIsCreature, permanentHasKeyword, withAbilityLoss } from "../../layers.js"; // + the ability view (CR 613.1f)
 import { damageSourceFor } from "./shared.js";
 import { millOnePlayer } from "./library.js";
 import { applyTapEffect } from "./combat.js";
@@ -153,7 +153,8 @@ export function punisherAutoTake(state, decider, caster, atom, ctx = {}) {
     const hit = id ? findPermanent(state, id) : null;
     if (!hit || hit.permanent.tapped) return false;
     if (permanentIsCreature(state, id)) return state.activePlayer === decider && !!hit.permanent.summoningSick && !permanentHasKeyword(state, id, "Haste");
-    return !/\{T\}/.test(String(hit.permanent.card?.oracle ?? hit.permanent.card?.oracle_text ?? ""));
+    const own = withAbilityLoss(state, hit.permanent); // its own {T} abilities, as it is now
+    return !/\{T\}/.test(String(own?.oracle ?? own?.oracle_text ?? ""));
   }
   return true;
 }

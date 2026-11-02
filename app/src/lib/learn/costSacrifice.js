@@ -23,7 +23,7 @@
  * Imports only gameState, layers and triggers — the modules manaModel already imports — so hosting the helper here adds no cycle.
  */
 import { moveCardToZone, logEvent, deathLookback, deathEventKind, findPermanent, graveyardReplacementCarriersLast, groupLeaveEvents } from "./gameState.js";
-import { permanentTypes, permanentIsCreature, permanentHasCardType } from "./layers.js";
+import { permanentTypes, permanentIsCreature, permanentHasCardType, abilityLossStamp } from "./layers.js"; // + abilityLossStamp: a look-back carries the abilities it had as it left (CR 603.10a)
 import { checkDiesTriggers, checkLeavesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 
 /**
@@ -50,8 +50,8 @@ export function sacrificePermanentForCost(state, playerId, perm) {
   const deathKind = death ? deathEventKind(death) : null;
   if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: perm.card?.name, controller: playerId, via: "sacrifice" });
   next = death ? checkDiesTriggers(next, [death]) : checkLeavesTriggers(next);
-  if (!death && lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: perm.id, controller: playerId, name: perm.card?.name, card: perm.card }]);
-  return checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes });
+  if (!death && lkiTypes.includes("Planeswalker")) next = checkPlaneswalkerDiesTriggers(next, [{ id: perm.id, controller: playerId, name: perm.card?.name, card: perm.card, ...abilityLossStamp(state, perm) }]);
+  return checkSacrificeTriggers(next, playerId, { id: perm.id, controller: playerId, card: perm.card, lkiTypes, ...abilityLossStamp(state, perm) });
 }
 
 /**
@@ -79,7 +79,7 @@ export function sacrificePermanentsTogether(state, victims) {
   // A planeswalker in the batch that is no creature goes to the planeswalker dies dispatch (#639); one that is also a creature
   // already rides the creature dispatch, so it never dies twice.
   const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
-    .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card }));
+    .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card, ...abilityLossStamp(state, v.lk.permanent) }));
   let next = state;
   for (const { playerId, permId, lk } of graveyardReplacementCarriersLast(state, batch.map((v) => ({ ...v, id: v.permId })))) {
     const death = deathOf.get(permId);
@@ -92,7 +92,7 @@ export function sacrificePermanentsTogether(state, victims) {
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
   // The sacrifice look-backs carry the types each had as it left (sacrificePermanentForCost's shape), for the creature scope.
-  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...permanentTypes(state, permId).types] });
+  for (const { playerId, permId, lk } of batch) next = checkSacrificeTriggers(next, playerId, { id: permId, controller: playerId, card: lk.permanent.card, lkiTypes: [...permanentTypes(state, permId).types], ...abilityLossStamp(state, lk.permanent) });
   return next;
 }
 

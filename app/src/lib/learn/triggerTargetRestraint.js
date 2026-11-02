@@ -36,7 +36,7 @@
  * Pure reads of `state`: the copy the fight resolves on is discarded, nothing is written or logged.
  */
 import { findPermanent, isIndestructible } from "./gameState.js";
-import { permanentToughness } from "./layers.js";
+import { permanentToughness, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no enrage)
 import { detectTriggers } from "./triggers.js";
 import { triggerRoutesNatively } from "./triggerRouting.js";
 import { parseEffectClause } from "./effects/parser.js";
@@ -68,9 +68,9 @@ function toughnessLeft(state, id) {
 
 /** Does this creature's own "whenever this creature is dealt damage" trigger fight (and route natively)? Apex Altisaur's enrage. */
 function fightsWhenDealtDamage(state, id) {
-  const card = findPermanent(state, id)?.permanent?.card;
-  if (!card) return false;
-  return detectTriggers(card).some((d) => d.event === "dealtDamage" && d.scope === "self" && triggerRoutesNatively(d)
+  const perm = findPermanent(state, id)?.permanent;
+  if (!perm?.card) return false;
+  return detectTriggers(withAbilityLoss(state, perm)).some((d) => d.event === "dealtDamage" && d.scope === "self" && triggerRoutesNatively(d)
     && (parseEffectClause(d.effectClause, "Instant", { hasX: !!d.effectHasX, sourceScoped: true })?.atoms || []).some((a) => a.op === "fight" && !a.fighterReferent));
 }
 

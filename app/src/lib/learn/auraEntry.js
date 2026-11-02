@@ -35,7 +35,7 @@
  */
 import { findPermanent } from "./gameState.js";
 import { abilityClauses, auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
-import { permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes } from "./layers.js";
+import { permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no protection and no "can't be enchanted" of its own)
 import { characteristicColors } from "./faceUp.js"; // the Aura card's colours — a double-faced Aura is its front face's (CR 712.8a, 712.8c)
 import { protectionApplies } from "./protection.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
@@ -194,9 +194,9 @@ const PROTECTION_GRANTED_ELSEWHERE_RE = /((?:\b(?:another )?target [a-z ]+?|(?:^
 const CANT_BE_ENCHANTED_RE = /can['’]t be enchanted/i;
 
 /** Does `perm`'s own printed text give it a protection that would keep `auraCard` out (CR 702.16b, 702.16c)? Fails closed. */
-function printedProtectionKeepsOut(perm, auraCard) {
+function printedProtectionKeepsOut(state, perm, auraCard) {
   const n = characteristicColors(auraCard).length; // Journey to Eternity is a black and green Aura (its combined card's colours are empty)
-  return abilityClauses(oracleOf(perm.card)).some((clause) => {
+  return abilityClauses(oracleOf(withAbilityLoss(state, perm))).some((clause) => {
     const own = clause.replace(PROTECTION_GRANTED_ELSEWHERE_RE, "$1shielding from");
     return UNREAD_PROTECTION_RE.test(own) || COLOUR_COUNT_PROTECTION.some(([re, applies]) => re.test(own) && applies(n));
   });
@@ -209,11 +209,13 @@ function printedProtectionKeepsOut(perm, auraCard) {
  * keeps out wrongly is a missed host, never an illegal attachment.
  */
 function cantBeEnchanted(state, perm, controller) {
-  if (CANT_BE_ENCHANTED_RE.test(oracleOf(perm.card))) return true;
+  if (CANT_BE_ENCHANTED_RE.test(oracleOf(withAbilityLoss(state, perm)))) return true;
   for (const id of perm.attachments || []) {
-    if (CANT_BE_ENCHANTED_RE.test(oracleOf(findPermanent(state, id)?.permanent?.card))) return true;
+    const att = findPermanent(state, id)?.permanent;
+    if (att && CANT_BE_ENCHANTED_RE.test(oracleOf(withAbilityLoss(state, att)))) return true;
   }
-  return (state.players?.[controller]?.battlefield || []).some((p) => /you control can['’]t be enchanted/i.test(oracleOf(p.card)));
+  const lossy = boardHasAbilityLoss(state); // once per scan
+  return (state.players?.[controller]?.battlefield || []).some((p) => /you control can['’]t be enchanted/i.test(oracleOf(lossy ? withAbilityLoss(state, p) : p.card)));
 }
 
 /**
@@ -228,7 +230,7 @@ function cantBeEnchanted(state, perm, controller) {
  */
 export function mayBeEnchantedBy(state, perm, pid, auraCard) {
   if (protectionApplies(permanentProtectionColors(state, perm.id), characteristicColors(auraCard))) return false; // CR 702.16c
-  if (printedProtectionKeepsOut(perm, auraCard)) return false;
+  if (printedProtectionKeepsOut(state, perm, auraCard)) return false;
   return !cantBeEnchanted(state, perm, pid);
 }
 

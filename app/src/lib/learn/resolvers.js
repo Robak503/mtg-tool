@@ -33,7 +33,7 @@ import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check f
 import { characteristicColors } from "./faceUp.js"; // the resolving Aura spell's colours — a double-faced spell is its front face's (CR 712.8c) (a leaf)
 import { auraEntryHasHost, enteringAuraHost, mayBeEnchantedBy } from "./auraEntry.js"; // mayBeEnchantedBy: AURA_ETB's re-check (CR 608.2b, 702.16c). A clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
 import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
-import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect } from "./layers.js"; // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
+import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a soulbond creature that lost its abilities pairs with nothing) // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -243,8 +243,8 @@ export function enterPermanent(state, card, controller, opts = {}) {
 function isCreaturePerm(p) {
   return /\bCreature\b/.test(String(p?.card?.type || p?.card?.type_line || ""));
 }
-function modelableSoulbondPerm(p) {
-  return isCreaturePerm(p) && !!parseSoulbondBond(p?.card);
+function modelableSoulbondPerm(state, p) {
+  return isCreaturePerm(p) && !!parseSoulbondBond(p ? withAbilityLoss(state, p) : null);
 }
 function maybeAutoPairSoulbond(state, enteredPermId) {
   const lk = findPermanent(state, enteredPermId);
@@ -253,13 +253,13 @@ function maybeAutoPairSoulbond(state, enteredPermId) {
   if (entered.soulbondPartner || !isCreaturePerm(entered)) return state; // already paired (CR 702.95d) or not a creature
   const bf = state.players[entered.controller]?.battlefield || [];
   let partnerId = null;
-  if (modelableSoulbondPerm(entered)) {
+  if (modelableSoulbondPerm(state, entered)) {
     // The entrant is a modelable soulbond creature → pair it with the first unpaired creature it controls.
     const cand = bf.find((p) => p.id !== entered.id && isCreaturePerm(p) && !p.soulbondPartner);
     if (cand) partnerId = cand.id;
   } else {
     // The entrant is a plain creature → pair it with the controller's first unpaired MODELABLE soulbond creature.
-    const cand = bf.find((p) => p.id !== entered.id && !p.soulbondPartner && modelableSoulbondPerm(p));
+    const cand = bf.find((p) => p.id !== entered.id && !p.soulbondPartner && modelableSoulbondPerm(state, p));
     if (cand) partnerId = cand.id;
   }
   if (!partnerId) return state;

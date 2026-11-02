@@ -63,7 +63,7 @@ import { combatCapFor } from "./staticAbilityParser.js"; // "no more than N crea
 import { boardHasDamageReplacement } from "./damageReplacements.js"; // a damage replacement anywhere (doublers, reducers)
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // damage to the seat dealt to a creature instead (CR 614.9)
 import { selfDamagePreventionBy, attachedDamagePrevention, cantAttackAlone, attackControllerRequirementOf, attackDefenderRequirementOf } from "./combatEvasion.js";
-import { attackOtherThanRequirementsOf, assignsCombatDamageWithToughness } from "./layers.js";
+import { attackOtherThanRequirementsOf, assignsCombatDamageWithToughness, withAbilityLoss, enteringAbilityCard, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has none to plan around) and the entering side's (CR 614.12)
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities, parseDiscardCostAbility } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent; + the discard abilities' combat window (inDefaultAIActivationWindow)
@@ -299,8 +299,9 @@ function landFetchesTappedBasicOnEnter(card) {
  * none does), for the cast-now reading.
  */
 const NOTHING_YIELDED = { untapped: false, colours: [], makesMana: false, manaCard: null };
-function landDropYield(state, aiPlayerId, card) {
-  if (!card) return NOTHING_YIELDED;
+function landDropYield(state, aiPlayerId, cardIn) {
+  if (!cardIn) return NOTHING_YIELDED;
+  const card = enteringAbilityCard(state, aiPlayerId, cardIn); // the land as it would enter (CR 614.12 — Blood Sun's mana-only loss)
   const own = manaProduction(card);
   const ownColours = own?.colors || [];
   const fetch = fetchLandAbility(card);
@@ -1295,7 +1296,9 @@ const REBUY_ENEMY_OPS = new Set(["deal-damage", "destroy", "exile", "lose-life",
  * the AI's own permanent (gameEngine.entersTriggerRemovesOwn — the cast-time hold's preview).
  */
 function entersTriggerWorthRebuy(state, aiPlayerId, perm) {
-  const card = perm.card;
+  // It returns as a NEW object (CR 400.7): the abilities it would enter with (layers.enteringAbilityCard, CR 614.12) — a loss that
+  // named the old object ends; one over every creature (a static over a dynamic selector) reaches the new one too.
+  const card = enteringAbilityCard(state, perm.owner || perm.controller, perm.card);
   const etbs = detectTriggers(card).filter((d) => d.event === "etb" && d.scope === "self");
   if (etbs.length === 0 || etbs.some((d) => d.interveningIf || !d.effectClause || d.effectHasX)) return false;
   const life = state.players?.[aiPlayerId]?.life ?? 0;
@@ -1854,7 +1857,7 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
     const luredAttackers = [...byAttacker.keys()].map((attId) => {
       if ((state.lureThisTurn || {})[attId] === state.turn) return { attId, filter: null };
       const lk = findPermanent(state, attId);
-      const lu = lk ? lureFilterOf(lk.permanent.card) : null;
+      const lu = lk ? lureFilterOf(withAbilityLoss(state, lk.permanent)) : null;
       return lu ? { attId, filter: lu.filter } : null;
     }).filter(Boolean).sort((a, b) => byId(a.attId, b.attId));
     for (const { attId, filter } of luredAttackers) {
@@ -1920,7 +1923,7 @@ function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
     const mustIds = [...byAttacker.keys()].filter((attId) => {
       if (blockedAttackers.has(attId) || declaredEarlier.has(attId)) return false;
       const lk = findPermanent(state, attId);
-      return !!lk && mustBeBlockedIfAble(lk.permanent.card);
+      return !!lk && mustBeBlockedIfAble(withAbilityLoss(state, lk.permanent));
     }).sort(byId);
     for (const attId of mustIds) {
       const need = minBlockersFor(state, attId);
@@ -2284,7 +2287,8 @@ function pickFetchCrack(state, aiPlayerId, actions, { sourceMakesMana }) {
   for (const a of actions) {
     const atom = fetchCrackAtom(state, a);
     if (!atom) continue;
-    const source = findPermanent(state, a.permanentId)?.permanent?.card;
+    const srcPerm = findPermanent(state, a.permanentId)?.permanent;
+    const source = srcPerm ? withAbilityLoss(state, srcPerm) : undefined;
     if ((manaProduction(source) != null) !== sourceMakesMana) continue;
     if ((a.payLife || 0) > 0 && !(Number.isFinite(life) && life - a.payLife >= LIFE_PRUDENCE_FLOOR)) continue;
     const finds = fetchableLands(state, aiPlayerId, atom);
@@ -2384,7 +2388,7 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
       return left > 0 && Math.max(0, Number(source.damageMarked) || 0) < left;
     };
     // A sacrificed source is paid only when it is a noncreature token whose one activated ability is this one (a Mutagen).
-    const spentToken = () => !!source.card?.token && !permanentIsCreature(state, source.id) && parseActivatedAbilities(source.card).length === 1;
+    const spentToken = () => !!source.card?.token && !permanentIsCreature(state, source.id) && parseActivatedAbilities(withAbilityLoss(state, source)).length === 1;
     // The source's tap must not cost a better attacker than the creature a grant serves.
     const tapCostsAttacker = (targetPower) => a.tapSelf && attackers.has(source.id) && powerOf(source.id) >= targetPower;
     // A shot that kills nothing taps a creature source through the opponents' turns (no block until its untap step): held while
@@ -3886,13 +3890,15 @@ function crackBackReader(state, aiPlayerId, pol = {}) {
  * block — gangs, any declaration order — is within those caps (CR 509.1a), so the damage is never below the floor.
  */
 function crackBackFloor(next, aiPlayerId, opponentId, blockers) {
+  const lossy = boardHasAbilityLoss(next); // once per scan (no per-permanent work without a loss)
+  const own = (p) => (lossy ? withAbilityLoss(next, p) : p.card);
   const attackers = (next.players?.[opponentId]?.battlefield || []).filter((p) => !p.tapped
     && permanentIsCreature(next, p.id) && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || ""))
     && (!permanentHasKeyword(next, p.id, "Defender") || permanentHasKeyword(next, p.id, "attacksIgnoringDefender"))
-    && !permanentHasKeyword(next, p.id, "cantAttack") && !selfCantAttackNow(next, p) && !cantAttackAlone(p.card)
-    && !attackControllerRequirementOf(p.card) && !attackDefenderRequirementOf(p.card)
+    && !permanentHasKeyword(next, p.id, "cantAttack") && !selfCantAttackNow(next, p) && !cantAttackAlone(own(p))
+    && !attackControllerRequirementOf(own(p)) && !attackDefenderRequirementOf(own(p))
     && attackOtherThanRequirementsOf(next, p.id).length === 0
-    && !permanentHasKeyword(next, p.id, "Infect") && !selfDamagePreventionBy(p.card) && !attachedDamagePrevention(next, p.id).by);
+    && !permanentHasKeyword(next, p.id, "Infect") && !selfDamagePreventionBy(own(p)) && !attachedDamagePrevention(next, p.id).by);
   const slotStop = new Map(); // blocker id → the most it stops of one attacker
   let total = 0;
   let blockable = 0;
@@ -3948,7 +3954,8 @@ function seatDoomedAnyway(state, aiPlayerId) {
   const seat = next.players?.[aiPlayerId];
   if (!seat || seat.teferiShield || playerDamageRedirectTarget(next, aiPlayerId)) return false;
   const own = seat.battlefield || [];
-  const textOf = (p) => String(p.card?.oracle || p.card?.oracle_text || "");
+  const lossy = boardHasAbilityLoss(next);
+  const textOf = (p) => { const c = lossy ? withAbilityLoss(next, p) : p.card; return String(c?.oracle || c?.oracle_text || ""); }; // the ability view (CR 613.1f)
   if (own.some((p) => /during each other player'?s untap step/i.test(textOf(p)))) return false;
   if (own.some((p) => !p.tapped && !permanentIsCreature(next, p.id) && /\bCrew \d|\bbecomes? an? [^.]*\bcreature\b/i.test(textOf(p)))) return false;
   const blockers = own.filter((p) => !p.tapped && permanentIsCreature(next, p.id)).map((p) => combatStatsOf(next, p.id));
@@ -4189,7 +4196,7 @@ function walkerThreat(state, perm) {
   const loyalty = Number(perm?.counters?.loyalty) || 0;
   const start = startingLoyalty(perm?.card);
   let ultimate = null;
-  for (const ability of parseLoyaltyAbilities(perm?.card)) {
+  for (const ability of parseLoyaltyAbilities(perm ? withAbilityLoss(state, perm) : null)) {
     const cost = -ability.costDelta;
     if (start != null && cost > start && (ultimate == null || cost > ultimate)) ultimate = cost;
   }

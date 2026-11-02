@@ -35,6 +35,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed cr
 // a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
 // the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
 import { COUNT_SUBTYPE, TARGET_SUBTYPES, parseCountSource } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word; parseCountSource: the cast-cost lane's board counts (costScale)
+import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // the board scanners read a battlefield permanent through the ability view (CR 613.1f — layers.js registers it; a zero-import leaf)
 import { abilityLossShape } from "./abilityLossShapes.js"; // the ability-loss shape registry's one predicate (a zero-import leaf; every stage off answers null — ABILITY-LOSS-PROGRAM.md §2)
 import { chosenCardTypeReducer, spellHasChosenCardType } from "./chosenCardType.js"; // CLOUD KEY — the chosen-card-type reducer's reader + spell match (a leaf over the zero-import choicePolicy)
 
@@ -6069,7 +6070,8 @@ export function castNoncreatureLockLine(card) {
 }
 /** NONCREATURE CAST LOCK (④-E): does `controller` control a permanent printing it? */
 export function castNoncreatureLockFor(state, controller) {
-  return (state?.players?.[controller]?.battlefield || []).some((perm) => castNoncreatureLockLine(perm.card));
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
+  return (state?.players?.[controller]?.battlefield || []).some((perm) => castNoncreatureLockLine((lossy ? abilityViewOf(state, perm) : perm.card)));
 }
 
 /** HASTE FOR ABILITIES (SG-18): does this card print the sentence? The same read every activation gate consults. */
@@ -6079,7 +6081,8 @@ export function abilitiesAsThoughHasteLock(card) {
 }
 /** HASTE FOR ABILITIES (SG-18): does `controller` control a permanent printing it? (Shang-Chi covers himself too.) */
 export function abilitiesAsThoughHasteFor(state, controller) {
-  return (state?.players?.[controller]?.battlefield || []).some((perm) => abilitiesAsThoughHasteLock(perm.card));
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
+  return (state?.players?.[controller]?.battlefield || []).some((perm) => abilitiesAsThoughHasteLock((lossy ? abilityViewOf(state, perm) : perm.card)));
 }
 
 export function extraLandDropsOf(card) {
@@ -6109,10 +6112,11 @@ function everyPlayerExtraLandDropsOf(card) {
  * call this, so they can't drift (the CREED two-sites invariant). Pure; ≥ 1 always.
  */
 export function landDropAllowance(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   const player = state.players[playerId];
   if (!player) return 1;
   let extra = 0;
-  for (const perm of player.battlefield || []) extra += extraLandDropsOf(perm.card);
+  for (const perm of player.battlefield || []) extra += extraLandDropsOf((lossy ? abilityViewOf(state, perm) : perm.card));
   // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
   // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
   for (const card of player.command || []) extra += extraLandDropsOf(card);
@@ -6120,7 +6124,7 @@ export function landDropAllowance(state, playerId) {
   // already in the battlefield sum above.
   for (const [pid, other] of Object.entries(state.players)) {
     if (pid === playerId) continue;
-    for (const perm of other?.battlefield || []) extra += everyPlayerExtraLandDropsOf(perm.card);
+    for (const perm of other?.battlefield || []) extra += everyPlayerExtraLandDropsOf((lossy ? abilityViewOf(state, perm) : perm.card));
   }
   // ONE-SHOT-EXTRA-LAND (CR 505.6b): a resolving "you may play [N] additional land[s] this turn" effect
   // (Explore → +1, Summer Bloom → +3) bumps the player's per-turn budget (play-extra-land-this-turn atom →
@@ -6218,6 +6222,7 @@ export function uncounterableSubtypesOnBattlefield(permanentCards) {
  * 701.6a). Empty when no such static is in play → zero behavior change. Pure; hoisted once per enumeration.
  */
 export function uncounterablePlayersOnBattlefield(state) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // A MAP now, not a Set: the controller-scoped static comes in two breadths and they must not collapse.
   // playerId → Set of card-type filters, where `null` means EVERY spell that player casts (Chimil) and a
   // type string means only that type (Prowling Serpopard's creatures). A player controlling both keeps both
@@ -6226,7 +6231,7 @@ export function uncounterablePlayersOnBattlefield(state) {
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid]?.battlefield || []) {
       if (!perm?.card) continue;
-      for (const d of parseStaticAbilities(perm.card)) {
+      for (const d of parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card))) {
         if (d.cantBeCountered?.scope !== "youControl") continue;
         if (!players.has(pid)) players.set(pid, new Set());
         // A COLOUR filter (SG-14, Allosaurus Shepherd) rides as an object entry beside the type strings.
@@ -6269,6 +6274,7 @@ export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLin
  * ability" — atoms/stack.js), so the two paths cannot drift. Pure.
  */
 export function stackSpellIsUncounterable(state, obj, pre = null) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // 1 and 3–4 read the face being cast (faceUpView / spellTypeLine — CR 712.8c): a back face's text is not the spell's (Malevolent
   // Hermit's back face, Benevolent Geist, prints "Noncreature spells you control can't be countered"), nor are its types.
   const face = faceUpView(obj?.source);
@@ -6277,7 +6283,7 @@ export function stackSpellIsUncounterable(state, obj, pre = null) {
   // VEIL OF SUMMER (shelf D18): "Spells you control can't be countered this turn" — the controller's turn stamp.
   if (state?.players?.[obj?.controller]?.spellsUncounterableTurn != null && state.players[obj.controller].spellsUncounterableTurn === state.turn) return true;
   const subs = pre?.uncounterableSubs ?? uncounterableSubtypesOnBattlefield(
-    Object.values(state?.players || {}).flatMap((p) => (p?.battlefield || []).map((perm) => perm?.card).filter(Boolean)),
+    Object.values(state?.players || {}).flatMap((p) => (p?.battlefield || []).map((perm) => (perm?.card ? (lossy ? abilityViewOf(state, perm) : perm.card) : null)).filter(Boolean)),
   );
   if (subs.size) {
     const typeLine = spellTypeLine(obj?.source).toLowerCase();
@@ -6334,6 +6340,7 @@ export function castFromTopFilterAllows(spellFilter, card, every = false) { // `
 }
 
 export function playFromTopPermission(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // MERGED across every granting permanent, not first-wins. Two permissions of DIFFERENT breadth can be on
   // the battlefield at once (Courser of Kruphix grants lands only, Future Sight grants lands and spells),
   // and returning whichever the scan happened to reach first would silently drop the broader one.
@@ -6342,7 +6349,7 @@ export function playFromTopPermission(state, playerId) {
     if (!perm?.card) continue;
     // CLASS (CR 716.2a): a permission printed under a class level bar (Ranger Class's level 3) exists only from that
     // level on — read the permanent's live view, never the raw card.
-    const statics = parseStaticAbilities(classLiveCard(perm));
+    const statics = parseStaticAbilities((lossy ? abilityViewOf(state, perm, classLiveCard(perm)) : classLiveCard(perm))); // + the ability view (CR 613.1f)
     // BOLAS'S CITADEL (P·17): a card that also prints "pay life equal to its mana value rather than pay its mana cost" grants
     // its spells as LIFE-COST casts only (`lifeSpellFilter`), never mana ones; its land permission is unchanged.
     const paysLife = statics.some((d) => d.playFromTopPaysLife);
@@ -6373,9 +6380,10 @@ export function playFromTopPermission(state, playerId) {
  * be plotted from the top). Read live off the battlefield, so the permission ends the moment the source leaves.
  */
 export function plotFromLibraryTopGranted(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     if (!perm?.card) continue;
-    const ds = parseStaticAbilities(perm.card);
+    const ds = parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card));
     if (ds.some((d) => d.topCardHasPlot) && ds.some((d) => d.plotCostIsManaCost) && ds.some((d) => d.plotNonlandFromTop)) return true;
   }
   return false;
@@ -6387,9 +6395,10 @@ export function plotFromLibraryTopGranted(state, playerId) {
  * like playFromTopPermission above, so the permission ends the moment the source leaves.
  */
 export function playLandFromGraveyardPermission(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
     if (!perm?.card) continue;
-    for (const d of parseStaticAbilities(perm.card)) if (d.playLandFromGraveyard) return true;
+    for (const d of parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card))) if (d.playLandFromGraveyard) return true;
   }
   return false;
 }
@@ -7487,16 +7496,18 @@ export function graveyardExileSpecOf(card) {
 
 /** P·37 — does `playerId` control a permanent letting their creatures boast twice each of their turns (Birgi)? */
 export function boastTwiceFor(state, playerId) {
-  return state.players[playerId].battlefield.some((perm) => parseStaticAbilities(perm.card).some((d) => d.boastTwice));
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
+  return state.players[playerId].battlefield.some((perm) => parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card)).some((d) => d.boastTwice));
 }
 
 /** P·29 — the escape grants `playerId` controls (Underworld Breach: "Each nonland card in your graveyard has escape. The escape
  *  cost is equal to the card's mana cost plus exile three other cards from your graveyard."): one `{ filter, exileCount }` per
  *  permanent printing BOTH sentences (the grant alone grants nothing). legalChoices offers the escape casts from it. */
 export function escapeGrantsFor(state, playerId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   const grants = [];
   for (const perm of state.players[playerId].battlefield) {
-    const statics = parseStaticAbilities(perm.card);
+    const statics = parseStaticAbilities((lossy ? abilityViewOf(state, perm) : perm.card));
     const cost = statics.find((d) => d.grantEscapeCost)?.grantEscapeCost;
     if (!cost) continue;
     for (const d of statics) if (d.grantEscape) grants.push({ filter: d.grantEscape.filter, exileCount: cost.exileCount });
@@ -7644,9 +7655,10 @@ export function artifactActivationLockOf(card) {
  * is still an artifact); this query only answers "is a carrier on the battlefield".
  */
 export function artifactActivationsLocked(state) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   for (const pl of Object.values(state?.players || {})) {
     for (const perm of (pl.battlefield || [])) {
-      if (artifactActivationLockOf(perm.card)) return true;
+      if (artifactActivationLockOf((lossy ? abilityViewOf(state, perm) : perm.card))) return true;
     }
   }
   return false;
@@ -7696,6 +7708,7 @@ export function opponentsEnterTappedOf(card) {
  * imposition can't be dodged through a side door.
  */
 export function impositionEntersTapped(state, card, controller) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // The entering permanent's types are its FRONT face's (characteristicTypeLine — a double-faced card enters front face up, CR 712.14,
   // 712.8d): Kismet does not tap Growing Rites of Itlimoc, whose back face is the land, nor Imposing Sovereign Westvale Abbey.
   const tl = characteristicTypeLine(card);
@@ -7707,7 +7720,7 @@ export function impositionEntersTapped(state, card, controller) {
       // imposition tapped anything artifact/creature/land, which was correct only because the sole
       // recognized printing happened to cover all three; a creature-only Imposing Sovereign must NOT
       // tap an entering land.
-      const types = opponentsEnterTappedTypesOf(perm.card);
+      const types = opponentsEnterTappedTypesOf((lossy ? abilityViewOf(state, perm) : perm.card));
       if (!types) continue;
       for (const t of types) {
         // NONBASIC LANDS (Thalia, Heretic Cathar; Archon of Emeria): a land without the basic supertype (CR 205.4c), read off
@@ -8527,10 +8540,11 @@ export function isNativeManaGrantAura(card) {
  * is "attack" or "block". Null when no cap is out (the overwhelmingly common case).
  */
 export function combatCapFor(state, kind) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   let cap = null;
   for (const pl of Object.values(state?.players || {})) {
     for (const perm of pl?.battlefield || []) {
-      for (const d of parseStaticAbilities(perm?.card)) {
+      for (const d of parseStaticAbilities(perm ? (lossy ? abilityViewOf(state, perm) : perm.card) : null)) {
         if (d?.combatCap?.kind === kind && (cap == null || d.combatCap.max < cap)) cap = d.combatCap.max;
       }
     }
@@ -8543,9 +8557,10 @@ export function combatCapFor(state, kind) {
  * permanents `defenderId` controls — "you" is the source's controller — or null when they control none.
  */
 export function defenderAttackCapFor(state, defenderId) {
+  const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   let cap = null;
   for (const perm of state?.players?.[defenderId]?.battlefield || []) {
-    for (const d of parseStaticAbilities(perm?.card)) {
+    for (const d of parseStaticAbilities(perm ? (lossy ? abilityViewOf(state, perm) : perm.card) : null)) {
       if (d?.defenderAttackCap && (cap == null || d.defenderAttackCap.max < cap)) cap = d.defenderAttackCap.max;
     }
   }

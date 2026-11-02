@@ -35,7 +35,7 @@
 
 import { castsAsPlaneswalker, planeswalkerEntryLoyalty, opponentsOf, loseLife, logEvent } from "./gameState.js";
 import { othersEnterWithCounters, choosesCreatureTypeAsEnters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithCountersPerKick, entersWithCastFromHandCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, auraChoosesColorOnEnter, riotKeywordCount } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
-import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCreatureType, entersAsCreature, enteringTypeWords } from "./layers.js"; // + enteringTypeWords: the entering object's types for the typed counter replacements (CR 614.12, 122.6) // + entersAsCreature (the type-line audit — is it a creature AS IT ENTERS, CR 614.12) // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); layers imports no atoms and not resolvers
+import { addContinuousEffect, permanentPower, permanentToughness, permIsEveryCreatureType, entersAsCreature, enteringTypeWords, enteringAbilityCard, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the entering side of ability loss (CR 614.12 — enteringAbilityCard) and the battlefield readers' view (withAbilityLoss, CR 613.1f) // + enteringTypeWords: the entering object's types for the typed counter replacements (CR 614.12, 122.6) // + entersAsCreature (the type-line audit — is it a creature AS IT ENTERS, CR 614.12) // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); layers imports no atoms and not resolvers
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — the entering creature is every creature type (Changeling, its controller's Maskwood Nexus) for "each other Elf enters with a counter"; a leaf over keywords.js
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms. One copy, so an ETB choice and an activated choice can never diverge on the same board.
@@ -139,9 +139,10 @@ function othersEnterWithCountersFor(state, controller, card, bestowed = false) {
   // its controller's Maskwood Nexus already applies to the creatures they control. The subtype is a creature type (TARGET_SUBTYPES).
   const entersEvery = cardIsEveryCreatureType(state, card, controller);
   let n = 0;
+  const lossy = boardHasAbilityLoss(state); // once per scan (no per-permanent work without a loss)
   for (const p of state?.players?.[controller]?.battlefield || []) {
     if (!p) continue;
-    const d = othersEnterWithCounters(p.card);
+    const d = othersEnterWithCounters(lossy ? withAbilityLoss(state, p) : p.card); // a Renata that lost its abilities adds nothing (CR 613.1f)
     if (!d) continue;
     if (d.subject === "planeswalker") continue; // Oath of Gideon's loyalty shape — a creature never reads it (othersEnterWithLoyaltyFor)
     if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl) && !entersEvery) continue;
@@ -177,8 +178,10 @@ function grantedRiotCount(state, controller, card, bestowed = false) {
   // devotion or to a card entering bestowed.
   if (!entersAsCreature(state, controller, card, bestowed)) return 0;
   let n = 0;
+  const lossy = boardHasAbilityLoss(state);
   for (const p of state?.players?.[controller]?.battlefield || []) {
-    const oracle = String(p?.card?.oracle || p?.card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+    const src = p?.card ? (lossy ? withAbilityLoss(state, p) : p.card) : null; // a Rhythm of the Wild that lost its abilities grants no riot (CR 613.1f)
+    const oracle = String(src?.oracle || src?.oracle_text || "").replace(/\([^)]*\)/g, " ");
     for (const line of oracle.split("\n")) {
       if (/^\s*nontoken creatures you control have riot\s*\.?\s*$/i.test(line)) n++;
     }
@@ -222,6 +225,12 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // a counter put on it (CR 122.6), so a typed counter replacement (Hardened Scales' "a creature you control", Ozolith's and
   // Winding Constrictor's "an artifact or creature you control") reads them — the permanent is not on the battlefield to look up.
   const enteringTypes = enteringTypeWords(state, controller, card, !!base.bestowed);
+  // ITS OWN REPLACEMENT ABILITIES AS IT WOULD ENTER (CR 614.12; CR 603.6b's example — under "All creatures lose all abilities" an
+  // entering creature has none of them): `own` is the stripped view when a loss that already exists would apply to it as it enters
+  // (layers.entersWithoutAbilities), else `card` itself. Every reader of ITS OWN text below reads `own` — enters tapped, the counters
+  // it enters with, its as-enters choices, riot, fabricate, tribute. Its characteristics (types, loyalty) and the other permanents'
+  // replacements read `card` as before; a Saga's lore counter is a game rule (CR 714.3a), so the Saga read stays printed.
+  const own = enteringAbilityCard(state, controller, card, !!base.bestowed);
   // THE SHOCKLAND CLAUSE (LANDS-TIER slice 2): decided BEFORE the tapped flag so the tapped flag and the life payment are one
   // decision — the policy pays only when it can (life ≥ N and the written ≥10 floor), and a decision to pay is CHARGED by
   // settleEnterReplacements right after the land joins the battlefield, never left as a free untapped dual. An entry the
@@ -230,14 +239,14 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // every seat (autoPickOptionalLifePayment: pay iff life ≥ 10) and the outcome is logged as an auto-decision. The play-land
   // path (the 95% case) gives a human the real choice. A documented limit, not a hidden one: see
   // landEntersTapped.paysLifeOrEntersTapped.
-  const shock = paysLifeOrEntersTapped(card);
+  const shock = paysLifeOrEntersTapped(own);
   const shockPay = !!(shock && !base.tapped && autoPickOptionalLifePayment(state, controller, shock.life));
   const perm = {
     ...base,
     // TRUNK-ENTERSTAPPED (CR 614.1d — "[This permanent] enters tapped") + KM-1 (an opposing Kismet forces the entry tapped,
     // CR 614.1d) + LANDS-TIER (the CONDITIONAL "enters tapped unless <condition>", read with the entering permanent's own id
     // so an "other lands" count excludes it) + the shockland decided above + the reveal-lands (CR 614.1c).
-    tapped: base.tapped || entersTapped(card) || impositionEntersTapped(state, card, controller) || conditionalEntersTapped(state, card, controller, permId) || (shock ? !shockPay : false) || revealLandEntersTapped(state, card, controller),
+    tapped: base.tapped || entersTapped(own) || impositionEntersTapped(state, card, controller) || conditionalEntersTapped(state, own, controller, permId) || (shock ? !shockPay : false) || revealLandEntersTapped(state, own, controller),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -270,7 +279,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // CR 614.1c + 122.6a: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
   // permanent enters, so its P/T is correct from turn 1 (Kavu Primarch, Avatar of the Resolute…). Only the
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
-  const plusCounters = entersWithPlusCounters(card);
+  const plusCounters = entersWithPlusCounters(own);
   if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", plusCounters, null, enteringTypes) };
   // ⭐ THE −1/−1 TWIN (CR 614.1c) — Shrewd Hatchling, Bloodied Ghost, Carnifex Demon, Grim Poppet and
   // ~30 more. Same replacement, opposite sign, and the runtime was ALREADY finished: ptPrimitive's
@@ -282,7 +291,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // would make these creatures WORSE than printed. A doubler that genuinely doubles −1/−1 counters is a
   // separate, measurable question; silently inheriting the plus twin's call would have answered it by
   // accident. Fail-closed: the printed number, exactly.
-  const minusCounters = entersWithMinusCounters(card);
+  const minusCounters = entersWithMinusCounters(own);
   if (minusCounters > 0) perm.counters = { ...perm.counters, "-1/-1": (perm.counters["-1/-1"] || 0) + minusCounters };
   // MODULAR (BLITZ MOD-1, CR 702.43a) — "Modular N" is (in part) an enters-with-N-+1/+1-counters replacement,
   // but that sentence lives ONLY in the keyword's REMINDER parens (entersWithPlusCounters strips parens →
@@ -291,7 +300,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // "Modular—Sunburst" (Arcbound Wanderer) adds nothing here (its per-color count is unmodeled → the card parks).
   // Summed across instances (CR 702.43b — each works separately), through applyCounterDoubling (Doubling Season
   // doubles them too, CR 616), exactly like the unconditional enters-with-counters write above.
-  const modularN = modularKeywordValues(card?.oracle || card?.oracle_text || "").reduce((a, b) => a + b, 0);
+  const modularN = modularKeywordValues(own?.oracle || own?.oracle_text || "").reduce((a, b) => a + b, 0);
   if (modularN > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", modularN, null, enteringTypes) };
   // KICKER (CR 702.33e + 614.1c + 122.6a): "If this creature was kicked, it enters with N +1/+1 counters on
   // it" — a replacement GATED on the was-kicked flag (opts.kicked, threaded from the kicked cast). Added AS
@@ -301,7 +310,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // undefined) adds nothing → the base body enters as printed. entersWithKickedCounters returns null for any
   // non-counter kicked payoff, so this never fabricates a counter for a card whose kicked effect we don't model.
   if (opts.kicked) {
-    const kickedCtr = entersWithKickedCounters(card);
+    const kickedCtr = entersWithKickedCounters(own);
     if (kickedCtr && kickedCtr.n > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", kickedCtr.n, null, enteringTypes) };
     // KICKER keyword grant (CR 702.33e + 614.12): "…and with <keyword>" rides the same kicked enters-with
     // replacement (Benalish Lancer = first strike, Kavu Titan = trample, Duskwalker = fear …). Stamp the
@@ -317,7 +326,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // cost (threaded as opts.xValue from the cast). A hydra cast for X=5 enters as a real 5/5+, not a 0/0
   // that dies to the lethal-toughness SBA. Guarded by entersWithXCounters so only the literal-X form gets it.
   // A permanent that wasn't cast has no opts.xValue: its X is 0 (CR 107.3g, 107.3m), so it enters with none.
-  if (opts.xValue > 0 && entersWithXCounters(card)) {
+  if (opts.xValue > 0 && entersWithXCounters(own)) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", opts.xValue, null, enteringTypes) };
   }
   // ⭐ SUNBURST (CR 702.44a) — a counter for each COLOUR of mana spent to cast it. The count is threaded
@@ -329,7 +338,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // counters, which is what the card says. Guarded by `> 0` so no empty counter key is minted. A permanent that
   // wasn't cast spent no mana at all (CR 702.44b — only an object entering from the stack as a resolving spell).
   {
-    const sbKind = sunburstCounterKind(card);
+    const sbKind = sunburstCounterKind(own);
     if (sbKind && opts.colorsSpent > 0) {
       perm.counters = { ...perm.counters, [sbKind]: (perm.counters[sbKind] || 0) + applyCounterDoubling(state, controller, sbKind, opts.colorsSpent, null, enteringTypes) };
     }
@@ -338,7 +347,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
     // refuses any other wording rather than guessing a kind.
     // ⛔ MUTUALLY EXCLUSIVE WITH SUNBURST BY CONSTRUCTION — no corpus card prints both, and the two readers
     // anchor on disjoint text (a bare keyword vs a "Converge —" sentence), so neither can double-count.
-    const conv = convergeEntersCounters(card);
+    const conv = convergeEntersCounters(own);
     if (conv && opts.colorsSpent > 0) {
       const n = conv.per * opts.colorsSpent;
       perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", n, null, enteringTypes) };
@@ -356,15 +365,15 @@ export function applyEnterReplacements(state, base, opts = {}) {
   }
   // KW-FADING (CR 702.32a) / KW-VANISHING (CR 702.63a): enters with N fade / time counters; the upkeep
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
-  const fade = entersWithFadeCounters(card);
+  const fade = entersWithFadeCounters(own);
   if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + applyCounterDoubling(state, controller, fade.type, fade.n, null, enteringTypes) };
   // KW-FABRICATE (CR 702.123a): "When this creature enters, put N +1/+1 counters on it OR create N 1/1 Servo
   // tokens." A modal ETB choice (decideFabricate — deterministic, defaults to counters). The COUNTERS branch is
   // applied here AS the creature enters (before the lethal SBA + before ETB watchers), so its P/T is right from
   // turn 1 — exactly like the enters-with-+1/+1 replacement above — routed through applyCounterDoubling (CR 616).
   // The SERVO branch mints its tokens AFTER the source is on the battlefield (settleEnterReplacements), so their ETB watchers fire.
-  const fabricate = parseFabricate(card);
-  const fabricateChoice = fabricate && fabricate.n > 0 ? decideFabricate(state, controller, card) : null;
+  const fabricate = parseFabricate(own);
+  const fabricateChoice = fabricate && fabricate.n > 0 ? decideFabricate(state, controller, own) : null;
   if (fabricateChoice === "counters") perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", fabricate.n, null, enteringTypes) };
   // ENTERS-WITH-NAMED-COUNTERS (CR 614.1c + 122.6a): "~ enters with N <name> counters on it" for a card-specific
   // NAMED counter (slumber — Arixmethes enters with five slumber counters and is a land until they're removed).
@@ -373,12 +382,12 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // — exactly like the fade/plus writes above. Bypasses gameState.addCounter (not on the battlefield yet), so it
   // routes through applyCounterDoubling (a +1/+1-only doubler correctly skips a slumber counter; Doubling Season
   // would double it, CR 616). No lethal-SBA concern — a named non-P/T counter never changes toughness.
-  const namedCtr = entersWithNamedCounters(card);
+  const namedCtr = entersWithNamedCounters(own);
   if (namedCtr && namedCtr.n > 0) perm.counters = { ...perm.counters, [namedCtr.type]: (perm.counters[namedCtr.type] || 0) + applyCounterDoubling(state, controller, namedCtr.type, namedCtr.n, null, enteringTypes) };
   // ENTERS WITH A NAMED COUNTER PER KICK (P·15 — Everflowing Chalice: "This artifact enters with a charge counter on it for each
   // time it was kicked"; CR 614.1c + 122.6a + 702.33c): per × the kicks this cast paid (opts.timesKicked, threaded from the
   // cast — 0 for a permanent that wasn't cast kicked). The same doubling route as the fixed-N write above.
-  const perKickCtr = entersWithCountersPerKick(card);
+  const perKickCtr = entersWithCountersPerKick(own);
   const kicks = Math.max(0, Number(opts.timesKicked) || 0);
   if (perKickCtr && kicks > 0) perm.counters = { ...perm.counters, [perKickCtr.type]: (perm.counters[perKickCtr.type] || 0) + applyCounterDoubling(state, controller, perKickCtr.type, perKickCtr.per * kicks, null, enteringTypes) };
   // ENTERS-WITH-CONDITIONAL-COUNTERS (BLITZ EW-1; CR 614.1c + 122.6a) — "~ enters with N +1/+1 counters on it
@@ -391,7 +400,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // applyCounterDoubling (CR 616 — Doubling Season doubles a Morbid entry counter too). FALSE **or NULL**
   // (condition outside the vocabulary — e.g. Patient Turtle's "you didn't go first this game") → NO counters,
   // the printed body enters unchanged — the FN-safe direction, and exactly the pre-EW-1 behavior.
-  const condCtr = entersWithConditionalCounters(card);
+  const condCtr = entersWithConditionalCounters(own);
   if (condCtr && condCtr.n > 0 && evaluateInterveningIf(state, condCtr.condition, controller, {}) === true) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", condCtr.n, null, enteringTypes) };
   }
@@ -399,7 +408,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // cast from its owner's hand brings it. `opts.castFromZone` is stamped by the cast resolvers only, so a reanimated,
   // blinked or put-in permanent — or one cast from the command zone — enters bare (CR 614.1c). Placed as it enters,
   // through applyCounterDoubling like the named-counter write above.
-  const handCtr = opts.castFromZone === "hand" ? entersWithCastFromHandCounters(card) : null;
+  const handCtr = opts.castFromZone === "hand" ? entersWithCastFromHandCounters(own) : null;
   if (handCtr) perm.counters = { ...perm.counters, [handCtr.type]: (perm.counters[handCtr.type] || 0) + applyCounterDoubling(state, controller, handCtr.type, handCtr.n, null, enteringTypes) };
   // ENTERS-WITH-CHOICE-COUNTERS (BLITZ EW-1; CR 614.1c + 122.1b + 122.6a) — the Ikoria keyword-counter choice
   // ("~ enters with your choice of a deathtouch counter or a lifelink counter on it" — Boot Nipper; "two
@@ -410,7 +419,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // enters, through applyCounterDoubling (CR 616 — Doubling Season doubles a keyword counter too; two flying
   // counters are legal + redundant per CR 122.1b, and permanentHasKeyword reads ≥1). The parser fails closed
   // (every option must be an enforced 122.1b kind), so an option the runtime wouldn't honor never gets here.
-  const choiceCtr = entersWithChoiceCounters(card);
+  const choiceCtr = entersWithChoiceCounters(own);
   if (choiceCtr) {
     for (const kind of choiceCtr.options.slice(0, choiceCtr.pick)) {
       const cn = applyCounterDoubling(state, controller, kind, 1, null, enteringTypes);
@@ -424,7 +433,7 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // threaded for CR 113.7 correctness regardless). Like the fixed-N / enters-with-X writes above, this bypasses
   // gameState.addCounter, so it routes the result through applyCounterDoubling (the Wave-3 doubler) explicitly.
   // A 0-metric leaves a 0/0 that correctly dies to the lethal-toughness SBA (no fabricated floor).
-  const metricCtr = entersWithMetricCounters(card);
+  const metricCtr = entersWithMetricCounters(own);
   if (metricCtr) {
     // timesKicked: THIS cast's kick count (P·15) — never the state-wide stamp a spell cast in response would have overwritten.
     const ctx = { controller, sourceId: permId, timesKicked: Math.max(0, Number(opts.timesKicked) || 0) };
@@ -443,7 +452,9 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // enters. Read from the controller's battlefield through the same reader coverage credits; the source never counts itself.
   const othersExtra = othersEnterWithCountersFor(state, controller, card, !!base.bestowed);
   if (othersExtra > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", othersExtra, null, enteringTypes) };
-  const riotCount = riotKeywordCount(card) + grantedRiotCount(state, controller, card, !!base.bestowed);
+  // A GRANTED riot reaches an object entering without its abilities only if the grant is newer than the loss; that order is not read
+  // here, so it is dropped (the under-read) — `own !== card` means a loss applies to it as it enters.
+  const riotCount = riotKeywordCount(own) + (own === card ? grantedRiotCount(state, controller, card, !!base.bestowed) : 0);
   const riotHaste = riotCount > 0 && riotPicksHaste(state, controller);
   if (riotCount > 0 && !riotHaste) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", riotCount, null, enteringTypes) };
@@ -454,18 +465,18 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // serializes with the trivial JSON pass-through (serialization.js) and PERSISTS — set ONCE here at ETB, never
   // re-picked. Read by the chosenTypeYouControl trigger scope (triggers.js). An interactive picker is a future
   // refinement; the deterministic auto-pick is correct + sufficient for self-play.
-  if (choosesCreatureTypeOnEnter(card)) perm.chosenType = autoPickCreatureType(state, controller);
+  if (choosesCreatureTypeOnEnter(own)) perm.chosenType = autoPickCreatureType(state, controller);
   // CHOSEN-COLOR state primitive (CR 614.12b — Utopia Sprawl) — "As this Aura enters, choose a color": the
   // self-play engine auto-picks the controller's most-needed casting color (autoPickManaColor reads the
   // PRE-entry `state`) and stores it DURABLY on the Aura permanent as `chosenColor` (a single WUBRG letter).
   // Plain string → serializes via the trivial JSON pass-through, set ONCE here at ETB, never re-picked. Read
   // back by manaModel.landAuraManaBonus to resolve the "additional one mana of the chosen color" boost when
   // the enchanted Forest taps. Mirrors chosenType. A non-choosing Aura leaves chosenColor undefined.
-  if (auraChoosesColorOnEnter(card)) perm.chosenColor = autoPickManaColor(state, controller);
+  if (auraChoosesColorOnEnter(own)) perm.chosenColor = autoPickManaColor(state, controller);
   // LANDS-12 — a LAND that chooses a color as it enters (the Thriving lands, the Gates, Night Market …): the
   // same durable `chosenColor` stamp, honouring a printed "other than <color>" exclusion. Read back by the mana
   // model's "one mana of the chosen color" leg (manaSources resolves it against THIS permanent).
-  const landCC = choosesColorOnEnter(card);
+  const landCC = choosesColorOnEnter(own);
   if (landCC) perm.chosenColor = autoPickManaColor(state, controller, landCC.exclude);
   // CHOSEN CARD TYPE (Cloud Key — CR 614.1c + 614.12a): "As this artifact enters, choose artifact, creature, enchantment,
   // instant, or sorcery." Stored in its OWN field, `chosenCardType`, never in `chosenType` (whose readers take it for a
@@ -473,14 +484,14 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // chosenCardTypeOnEnter leaves it out of its own count). Read by the cast lane's chosen-card-type reducer
   // (staticAbilityParser.collectCostReducers). A card without the chooser gets nothing. Token copies make their own choice
   // in tokens.js.
-  Object.assign(perm, chosenCardTypeOnEnter(state, card, controller));
+  Object.assign(perm, chosenCardTypeOnEnter(state, own, controller));
   // CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship enters with a <name> counter for each
   // creature the controller controls of the chosen type. Runs AFTER the chosenType auto-pick above so the
   // metric uses the just-picked type; `state` is pre-entry (the artifact isn't a creature, so it's never
   // self-counted regardless). Like the other enters-with-counter writes, the permanent isn't on the
   // battlefield yet, so this bypasses gameState.addCounter and routes the count through applyCounterDoubling
   // (a non-"+1/+1" counter is skipped by a +1/+1-only doubler; Doubling Season would double it, CR 616).
-  const chosenCtr = entersWithChosenTypeCounter(card);
+  const chosenCtr = entersWithChosenTypeCounter(own);
   if (chosenCtr && perm.chosenType) {
     const n = (state.players[controller]?.battlefield || []).filter((p) => cardHasChosenType(p.card, perm.chosenType) || permIsEveryCreatureType(state, p.id)).length; // P·39 — every creature type counts
     if (n > 0) perm.counters = { ...perm.counters, [chosenCtr.counterType]: (perm.counters[chosenCtr.counterType] || 0) + applyCounterDoubling(state, controller, chosenCtr.counterType, n, null, enteringTypes) };
@@ -498,10 +509,10 @@ export function applyEnterReplacements(state, base, opts = {}) {
   // counter write (Doubling Season doubles the tribute counters too, CR 616). With NO opponent to decide (a
   // solitaire/test board), tribute can't be paid → declined (CR 702.104a — "choose an opponent"; none
   // exists → the if-not effect runs), the safe default. A non-tribute permanent leaves tributePaid undefined.
-  const trib = parseTribute(card);
+  const trib = parseTribute(own);
   if (trib) {
     const hasOpponent = opponentsOf(state, controller).some((oid) => state.players?.[oid]);
-    const paid = hasOpponent ? decideTribute(tributeIfNotClause(card)) : false;
+    const paid = hasOpponent ? decideTribute(tributeIfNotClause(own)) : false;
     perm.tributePaid = paid;
     if (paid && trib.n > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", trib.n, null, enteringTypes) };
   }
