@@ -3114,6 +3114,41 @@ export function applySetBasePtTarget(state, atom, ctx) {
 }
 
 /**
+ * ===== LOSE-ALL-ABILITIES (the ability-loss program's S1 — docs/orchestration/ABILITY-LOSS-PROGRAM.md §3) ===== the resolved form of
+ * "Until end of turn, target creature loses all abilities and has base power and toughness 0/1." (Humble, Ovinize), "… and becomes a
+ * blue Frog with base power and toughness 1/1." (Turn to Frog, Snakeform, Gift of Tusks, Turn // Burn's Turn), Warkite Marauder's
+ * attack trigger and Merfolk Trickster's "It loses all abilities until end of turn." — the atom abilityLossShapes.js emits at the
+ * spell clause parser. ONE continuous effect of a resolving spell or ability: its set of objects is the chosen creature, fixed as it
+ * begins (CR 611.2c), and its parts apply in their own layers (CR 613.6) at ONE timestamp (CR 613.7b) — the creature-type replace in
+ * layer 4 (`subtypes`, CR 205.1a: every other subtype and every card type stays), the colour set in layer 5 (`colors`, CR 105.3 — an
+ * empty list is colorless), the loss in layer 6 (CR 613.1f — the abilities it has then, granted ones included; a grant made later still
+ * applies, CR 613.7) and the base P/T set in 7b (`basePt`, CR 613.4b — counters and pumps still apply on top, in 7c). Until end of turn
+ * (CR 514.2 — cleanup ends every part). A target that left the battlefield, or is no creature now, gets nothing (CR 608.2b); damage
+ * already marked can be lethal against the new base (CR 704.5g), checked at once like the base-P/T set above.
+ */
+export function applyLoseAllAbilities(state, atom, ctx) {
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const applied = [];
+  for (const target of atomTargets(next, atom, ctx)) {
+    if (!findPermanent(next, target.id) || !permanentIsCreature(next, target.id)) continue; // CR 608.2b — no longer a legal creature target
+    const timestamp = next.timestampCounter || 0; // one effect, one timestamp (CR 613.7b) — each part below is stamped with it
+    const part = (descriptor) => {
+      next = addContinuousEffect(next, { ...descriptor, affects: { mode: "fixed", permanentIds: [target.id] }, duration: { kind: "endOfTurn", turn: next.turn }, source: src, timestamp }).state;
+    };
+    if (atom.subtypes?.length) part({ layer: 4, op: { layerOp: "replaceCreatureTypes", subtypes: [...atom.subtypes] } });
+    if (Array.isArray(atom.colors)) part({ layer: 5, op: { layerOp: "setColor", colors: [...atom.colors] } });
+    part({ layer: 6, op: { layerOp: "loseAllAbilities" } });
+    if (atom.basePt) part({ layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: atom.basePt.power, toughness: atom.basePt.toughness } });
+    applied.push(target.id);
+  }
+  const lethal = destroyLethalCreaturesAfterEffect(next); // marked damage ≥ the new toughness is lethal (CR 704.5g)
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "lose-all-abilities", targets: applied,
+    ...(atom.basePt ? { power: atom.basePt.power, toughness: atom.basePt.toughness } : {}), ...(atom.subtypes ? { subtypes: atom.subtypes } : {}), ...(atom.colors ? { colors: atom.colors } : {}) });
+}
+
+/**
  * SET-BASE-PT-TARGET clause parser — the literal-N/N single-target form ONLY ("Target creature has base
  * power and toughness 1/1 until end of turn"). A scope variant ("…you don't control"), a rider ("…and
  * loses all abilities" — Turn to Frog class), or a missing duration fails the `$`/exact anchor → null →
@@ -3370,6 +3405,7 @@ export const combatResolvers = {
   "prevent-next-damage": applyPreventNextDamage, // PV-1 (CR 615) — floating this-turn prevent-the-next-N shield
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
   "set-base-pt-target": applySetBasePtTarget, // SET-BASE-PT-TARGET (BLITZ SU-1 — Diminish / Square Up) — chosen-target layer-7b base-P/T set to N/N until end of turn
+  "lose-all-abilities": applyLoseAllAbilities, // the ability-loss program's S1 (Turn to Frog, Humble, Warkite Marauder, Merfolk Trickster) — the chosen creature loses all abilities until end of turn, with its type / colour / base P/T parts at one timestamp
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters

@@ -43,6 +43,23 @@ the fast path then takes the full collection on every board (`abilityLossShapesM
 the big board and, if needed, adds a per-card "may emit" pre-check; the entering side reads only a STATIC loss over a dynamic selector
 (an Aura's fixed loss never meets an entering object); the attachment readers cut a grant from the very Aura that removes the abilities
 (the under-read S4's `grantedWith` siblings lift).
+**S1 (built, 2026-11-02 — day/abloss-s1 on 35127e7d; its blind review FIX-BEFORE-LAND, the fixes amended into the one commit; awaiting the recheck):** `ABILITY_LOSS_STAGES.S1` is ON — the first stage.
+Credited (+17): the §3 row's fourteen — Lignify, Kasmina's Transmutation, Ichthyomorphosis, Noggle the Mind, Retro-Mutation, Fresh
+Start, Mystic Subdual, Turn to Frog, Humble, Ovinize, Snakeform, Gift of Tusks, Merfolk Trickster, Warkite Marauder — and three twins
+whose only unread line was an S1 shape: Utter Insignificance, Duskmourn's Domination, Turn // Burn. The shapes (abilityLossShapes.js,
+each printed form its own anchored pattern) emit the existing ops: the Aura forms at "attached" / "side" (replaceCreatureTypes,
+setColor, the loss, the 7b set, 7c, Retro-Mutation's "can't attack"), the until-end-of-turn spell and ability forms at "spell" (one
+atom, `lose-all-abilities` — effects/atoms/combat.js); the spell splitter keeps a claimed sentence whole; Retro-Mutation's "It …"
+sentence and Merfolk Trickster's "It loses all abilities …" read their pronoun only through the registry (ENGINE-SCAFFOLD §4.6 "S1").
+Held back with their stage: Quantum Reduction (its teamwork flash line — its Aura bonus applies at runtime by the §2 coupling),
+Obscura Confluence (its other modes), Spider-Man No More (S4), and the §3 rows S2–S5. The S0b review's notes carried: R2 (the
+reconfigure read of CR 301.5c through the view), the group sacrifice of an Aura with its host, R1 (the lint hardened — its limits in the
+lint's header). One pre-existing misread the program fingerprint surfaced is closed: "Draw a card from …" is no plain draw (CR 121.1). The fast path's static half is off with the stage on (no per-card pre-check: the big board did not rise — the RUN-LEDGER
+entry). The review's fixes: a "*" stat the lost characteristic-defining ability defined reads 0 with its printed number kept and
+is a known number (F1 — CR 208.2a, 604.3, 613.4a, 704.5f, 704.5g: a Crusader of Odric under Mystic Subdual is a -2/0 and dies, a
+Tarmogoyf under Merfolk Trickster a 0/1; Primal Clay's CR 208.2b choice stays unread); "*" carriers in the census and a four-seat
+Warkite Marauder row (F3); five more shapes in the source lint (F4); a duplicate Aura in a group sacrifice throws. The AI's Aura and
+trigger targets (F2) are left for an AI slice. Evidence: its RUN-LEDGER entry. S2 may start when S1's review passes.
 
 ## 0. Why a program, not a slice
 ~150 engine sites read a permanent's abilities from its PRINTED card (`perm.card`, `classLiveCard(...)`, the face-up view),

@@ -15,6 +15,7 @@
  */
 import { stripReminder, stripCastKeywordLines } from "./textNormalize.js";
 import { spellConditionParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the board-readable shape gate for the intervening-if keep-whole guards
+import { abilityLossShape } from "../abilityLossShapes.js"; // the ability-loss shape registry: a sentence an enabled spell shape claims is kept whole (a leaf module)
 /**
  * Split an oracle into clauses on sentence boundaries (". "), semicolons, and
  * top-level " and ". Each modeled atom shape ("deals N damage to …", "destroy
@@ -838,6 +839,12 @@ export function splitClauses(oracle) {
     // "base power and toughness" is internal to the one set instruction. Anchored to the exact literal-N/N
     // form (a rider like Turn to Frog's "and loses all abilities" doesn't match → splits → low → Arbiter).
     if (/^target creature has base power and toughness \d+\/\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // THE ABILITY-LOSS SHAPES (abilityLossShapes.js — the program's S1: Turn to Frog, Humble, Warkite Marauder …) — "Until end of turn,
+    // target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1": every " and " in it joins a part of
+    // the ONE effect (the loss, the creature type, the colour, the base P/T — one timestamp, CR 613.7b), never a second instruction. A
+    // sentence an enabled spell shape claims is kept whole, so the clause parser hands the shape the sentence it reads; every other
+    // sentence splits as before (a stage that is off claims nothing).
+    if (abilityLossShape(sentence, "spell") != null) { clauses.push(sentence); continue; }
     // COMPOUND MANA+LIFE PAYMENT (Ripples of Undeath "you may pay {1} and 3 life", 2026-08-15): the
     // " and " joins the ONE cost, not two effects. Keep the sentence whole (the leading "Then " stripped
     // so the NEXT sentence's "If you do," fold — whose prev anchor is ^you may pay \{ — pairs onto it,

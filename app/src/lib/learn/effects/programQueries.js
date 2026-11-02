@@ -175,6 +175,7 @@ export function atomTargetIntent(atom) {
     case "exile":
     case "counter":
     case "detain": // DETAIN (CR 701.35, ④-AZ) — you detain an OPPONENT's permanent; enemy-side like goad
+    case "lose-all-abilities": // THE ABILITY-LOSS S1 ATOM (Turn to Frog, Humble, Warkite Marauder) — an OPPONENT's creature loses its abilities and shrinks
     case "goad": // GOAD (CR 701.15, ④-AI) — you goad an OPPONENT's creature; the flush chooser places it enemy-side
     case "fight":
       // ETB-FIGHT — the target is "target creature you DON'T control" (enemy-side). LOAD-BEARING for the

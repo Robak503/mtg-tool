@@ -1291,8 +1291,8 @@ leaver's extra-turn marks (a seat could then take two turns in a row), and a dep
 player.
 
 **"Loses all abilities" — the ability-loss core (S0a, 2026-11-01; the program: [ABILITY-LOSS-PROGRAM.md](ABILITY-LOSS-PROGRAM.md),
-the inventory: [ABILITY-LOSS-RESEARCH.md](ABILITY-LOSS-RESEARCH.md)).** Built inside the layer system; no parser emits it yet (every
-shape in `abilityLossShapes.js` is off), so no card is credited and no game creates it.
+the inventory: [ABILITY-LOSS-RESEARCH.md](ABILITY-LOSS-RESEARCH.md)).** Built inside the layer system. Until S1 (2026-11-02) no parser
+emitted it (every shape in `abilityLossShapes.js` was off); S1 turned the first stage on — its shapes and cards are the last bullet below.
 - **The op.** A layer-6 effect `{ layerOp: "loseAllAbilities", exceptMana? }` (CR 613.1f), any affects mode, injectable through
   `addContinuousEffect`. A grant made by the same effect is a sibling descriptor with `grantedWith`: the loss's id (a stored effect)
   or `true` (beside a loss from the same static source with the same timestamp — an Aura's).
@@ -1453,6 +1453,74 @@ shape in `abilityLossShapes.js` is off), so no card is credited and no game crea
     every F2 / F3 site. Its known limits: a card handed through a function parameter is caught where the caller hands it over, not inside;
     a destructured `{ card }` and an expression inside a template literal are not scanned. The triggers' own-text helper for the readers
     that read the oracle directly is `ownText(state, perm)`.
+    **Hardened by S1 (the S0b recheck's R1)**: `x.card ?? y` is a value; the routed form counts only with a BOARD TEST as its condition
+    (`lossy`, `lossyCast`, `boardHasAbilityLoss(…)`, `abilityViewLossy(…)`, `lossyOf(…)`); `{ ...p.card }` carries the card; an arrow
+    argument carries what its expression body returns (`bf.map((p) => p.card)` — not a truth-test callback of filter / some / every /
+    find / sort); a plain assignment and a default parameter make an alias, read from the end of its own statement; `reader?.(p.card)` is
+    a call; `p["card"]` is `.card`; `(p.card || {}).oracle` is a text read. Each shape is a sample in the lint's own self-test (red there).
+    **And by the S1 review's F4**: an alias of an alias (`const d = c` after `const c = p.card`), `p?.["card"]`, `p.card["oracle"]` and
+    `c["oracle"]`, `c ||= p.card` (and `&&=`, `??=`), a routed form whose board test reads another state than the view
+    (`boardHasAbilityLoss(other) ? withAbilityLoss(state, p) : p.card`).
+    Still not scanned: a destructured `{ card }`, an expression inside a template literal, an arrow with a block body, a card stored in an
+    object field and read back later.
+- **S1 — loss with existing ops (2026-11-02; the program's first stage ON, `ABILITY_LOSS_STAGES.S1`)** — the shapes in
+  `abilityLossShapes.js`, each printed form its own anchored pattern (no grammar that composes parts the corpus never prints):
+  - **the Aura forms** ("attached" — the lowercased clause, subject "enchanted", noun "creature" only, so an Equipment's or a soulbond's
+    "equipped creature" never matches; "side" — "enemy"): "loses all abilities and has base power and toughness N/N" (Kasmina's
+    Transmutation, Utter Insignificance), "loses all abilities and is a [colour] <creature type> with base power and toughness N/N"
+    (Ichthyomorphosis, Noggle the Mind), "is a <creature type> with base power and toughness N/N and loses all abilities" (Lignify),
+    "gets ±N/±N and loses all abilities" (Fresh Start, Mystic Subdual, Duskmourn's Domination; Quantum Reduction's bonus — it stays
+    parked on its teamwork flash line, the coupling below applies its bonus), Retro-Mutation's two sentences ("is a Turtle with base
+    power and toughness 0/1" and "It can't attack and loses all abilities"). The descriptors are the attached-bonus parser's own, so
+    `staticEffectsOf` fixes them to the host at the Aura's attach timestamp (CR 613.7e): `replaceCreatureTypes` (layer 4, CR 205.1a — the
+    other subtypes and every card type stay: a Lignified Lion Sash is an Equipment Treefolk), `setColor` (layer 5, CR 105.3 — "colorless"
+    is []), the loss (layer 6), `ptSet` 7b, `ptModify` 7c, the `cantAttack` restriction (a quality, never removed by the loss —
+    CR 113.12). The creature word must be a CR 205.3m creature type (`effects/creatureTypes.js` — the registry's one import, a leaf).
+  - **the pronoun sentence** — `staticAbilityParser.attachedPronounLoss`: an "It …" sentence right after an "Enchanted creature …"
+    sentence is read as "enchanted creature …" (CR 608.2c), ONLY through the registry, by both `parseAttachedBonus` and isNativeAura's
+    touch-clause gate; any other pronoun sentence still parks the whole bonus (Spider-Man No More, Heliod's Punishment).
+  - **the spell and ability forms** ("spell"): "[Until end of turn, ]target creature[ defending player controls] loses all abilities
+    and has base power and toughness N/N[ until end of turn]" (Humble, Ovinize, Warkite Marauder's attack trigger, Obscura Confluence's
+    mode) and "… and becomes a [colour] <creature type> with base power and toughness N/N" (Turn to Frog, Snakeform, Gift of Tusks,
+    Turn // Burn's Turn) — the duration printed exactly once; "It loses all abilities until end of turn" (Merfolk Trickster) as an atom
+    with `target: "self"` and `itReferent`, which the clause loop binds to the previous clause's target (bareItAfterTarget — the mark
+    stripped) and which `programConfidence` refuses unbound. The atom `lose-all-abilities` (`effects/atoms/combat.js`
+    applyLoseAllAbilities) resolves ONE effect on the chosen creature (CR 611.2c): its parts in their layers (CR 613.6) at one timestamp
+    (CR 613.7b), until end of turn (CR 514.2), the lethal check after it (CR 704.5g); `atomTargetIntent` "enemy". The spell clause
+    splitter keeps a sentence an enabled spell shape claims whole (its " and " joins parts of one effect).
+  - **not S1, by wording** (each with its stage in abilityLossS1.test.js's kept-parked row): "is a … CREATURE" sets the card types (S2 —
+    Kenrith's Transformation, Frogify, Trickster's Elk); a group or a global static (S3 — Humility, Sudden Spoiling, Polymorphist's Jest);
+    a grant from the same effect (S4 — Stasis Field, Spider-Man No More, Dragonshift); a noncreature result (S5); a loss with no
+    duration or "for as long as" (Abigale, The Wondrous Wasp); "that creature" (Barrow-Blade); a no-untap rider (Tamiyo's Compleation,
+    Frozen in Ice).
+  - **the fast path** — with S1 on `abilityLossShapesMayEmit` is true from the start, so `boardLossEffects` collects every board a
+    reader asks about (the static half of the no-collection fast path is off; the stored half is unchanged). The cost is measured in S1's
+    RUN-LEDGER entry.
+  - **the review notes carried** — R2: `equipmentBarredAsCreature` reads `hasReconfigure` through the view (CR 301.5c: whether an
+    Equipment creature HAS reconfigure is decided after layer 6 — a Lignified Lion Sash can't equip); `staticEffectsOf`'s reconfigure read
+    stays printed (CR 702.151b, the attached type change). The group sacrifice (`costSacrifice.sacrificePermanentsTogether`): an Aura
+    sacrificed with its host, host first, fell off as its host left (CR 704.5m) — that victim is skipped; any other victim missing in the
+    loop still throws in moveCardToZone.
+  - **the draw guard** (effects/parser.js, the legacy draw gate) — found by S1's program fingerprint: "Draw a card FROM <somewhere>"
+    ("from an opponent's library", "from the bottom of your library") is no draw of CR 121.1, and the legacy draw regex matched its
+    first words; it is unread now (LOW). One Very Cryptic Command variant (not Commander-legal; not the variant the card index serves
+    by name) would otherwise have read HIGH once its Turn to Frog mode was read.
+  - **the review's fixes** (the blind review of S1's first version, FIX-BEFORE-LAND): **a "*" stat under a loss** —
+    `applyLayer7` (`starStatUnderLoss`) reads a printed "*" stat of a creature that has lost all its abilities: when the card's text
+    defines that stat with a characteristic-defining ability worded as CR 208.2a words it ("… power / toughness is equal to …",
+    "… power and toughness are each equal to …"), that ability is gone with the rest (its 7a effect is already out of the collection —
+    `withoutLostStatics`), so "*" is 0 and the printed number around it stays ("1+*" 1, "7-*" 7 — the bundled rulings of Mystic Subdual
+    and Merfolk Trickster), and the stat is SIZED, so the toughness state-based actions read it (CR 704.5f, 704.5g). It matters only
+    where no base P/T is set (Fresh Start, Mystic Subdual, Duskmourn's Domination, Merfolk Trickster, Quantum Reduction's bonus at
+    runtime); a 7b set already sizes the stat. A "*" an "As this creature enters" choice sets (CR 208.2b — Primal Clay, unmodeled) stays
+    unsized, and with no loss an unmodeled CDA's "*" stays unsized as before. The sized flag's one reader is
+    `gameState.destroyLethalCreatures`; the other readers (blocker offers, the AI's evaluation) read the numbers, which now carry the
+    printed part. The twin tool (`scripts/ability-loss-twin-diff.mjs`) gives such a card's no-text twin the same number — without it the
+    class differs from its twin by construction (168 cards, 481 differences, measured in the RUN-LEDGER entry). The group sacrifice counts
+    a skipped Aura as moved, so the same Aura named twice throws like any duplicate victim.
+  - **known, not S1's**: a permanent that loses its abilities while it is the SOURCE of an S1 Aura's effects (an Aura that lost its
+    abilities) keeps its layer 1–5 parts and drops its layer 6–7 parts (`withoutLostStatics` — S0a's F6, an S3 prerequisite; no S1 effect
+    makes an Aura lose its abilities: every S1 spell and ability targets a creature).
 
 ### 4.7 Mana (`manaModel.js`)
 

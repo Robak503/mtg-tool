@@ -6900,6 +6900,18 @@ function touchesAttachedCreature(c, subject, noun = "creature") {
 }
 
 /**
+ * A PRONOUN SENTENCE OF AN ABILITY LOSS (the ability-loss program's S1 — Retro-Mutation: "Enchanted creature is a Turtle with base
+ * power and toughness 0/1. It can't attack and loses all abilities."). "It" right after a sentence whose subject is the attached
+ * creature is that creature (CR 608.2c — the text read by the rules of English), so the sentence is read as "<subject> <noun> …" — and
+ * ONLY through the ability-loss shape registry (abilityLossShapes.js): any other pronoun sentence still parks the whole bonus, as
+ * before. The descriptors the shape emits, or null.
+ */
+function attachedPronounLoss(c, prevClause, subject, noun = "creature") {
+  if (!/^it\b/.test(c) || !String(prevClause || "").toLowerCase().trim().startsWith(`${subject} ${noun}`)) return null;
+  return abilityLossShape(c.replace(/^it\b/, `${subject} ${noun}`), "attached", { subject, noun, pronoun: true });
+}
+
+/**
  * THE ATTACHED BODY NOUN (AN-1, CR 303.4) — the noun an attachment's body uses for its host.
  *
  * An Aura that may enchant a NON-creature can't say "enchanted creature" in its body, so it says
@@ -6946,7 +6958,8 @@ export function parseAttachedBonus(card, subjectOverride) {
   if (slot && slotKey in slot) return slot[slotKey];
   const out = [];
   let saw = false;
-  for (const clause of abilityClauses(oracle)) {
+  const clauses = abilityClauses(oracle);
+  for (const [ci, clause] of clauses.entries()) {
     const c = clause.toLowerCase();
     // A TRIGGER sentence about the equipped creature ("Whenever equipped creature attacks/deals combat
     // damage, …" — Argentum Armor, Goldvein Pick, the Swords) is NOT a static bonus clause: it touches the
@@ -7135,7 +7148,8 @@ export function parseAttachedBonus(card, subjectOverride) {
       saw = true;
       continue;
     }
-    const parsed = c.startsWith(`${subject} ${noun}`) ? parseAttachedClause(c, subject, noun) : null;
+    const parsed = c.startsWith(`${subject} ${noun}`) ? parseAttachedClause(c, subject, noun)
+      : attachedPronounLoss(c, ci > 0 ? clauses[ci - 1] : null, subject, noun);
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
     out.push(...parsed);
     saw = true;
@@ -7856,7 +7870,8 @@ const AURA_CONTROL_CLAUSE_RE = /^you control enchanted creature\.?$/i;
 
 function auraTouchClausesAllModeled(card) {
   const oracle = stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || "")); // ADDENDUM — the CR 207.2c label strip (Sentinel's Mark)
-  for (const clause of abilityClauses(oracle)) {
+  const clauses = abilityClauses(oracle);
+  for (const [ci, clause] of clauses.entries()) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;
     if (/^(?:when|whenever|at)\b/.test(c)) continue;          // trigger lines gate in auraResidueClauses
@@ -7877,7 +7892,10 @@ function auraTouchClausesAllModeled(card) {
     if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c) || /^as long as enchanted creature has (?:vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace|haste), it (?:has|assigns) /.test(c)
       || /^as long as enchanted creature is an? [a-z]+(?: or an? [a-z]+)?, it (?:gets|has) /.test(c))
       && parseAttachedBonus(card, "enchanted").length) continue;
-    if (!(c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))) return false;
+    // + the pronoun sentence of an ability loss (S1 — Retro-Mutation's "It can't attack and loses all abilities."), the same reading
+    // parseAttachedBonus gives it (attachedPronounLoss — through the shape registry only).
+    if (!((c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))
+      || attachedPronounLoss(c, ci > 0 ? clauses[ci - 1] : null, "enchanted", noun))) return false;
   }
   return true;
 }

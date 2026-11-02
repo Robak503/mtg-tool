@@ -10,9 +10,10 @@
  * the lethal SBA runs at resolution — already-marked damage can turn lethal against the new base
  * (a 5/5 carrying 3 damage dies the moment it becomes 1/1, CR 704.5g).
  *
- * CREED negatives: the ability-losing cousins (Turn to Frog / Ovinize class — "…and loses all
- * abilities") and scope variants ("target creature you control …") must NOT half-apply as a bare
- * P/T set — they fail the exact anchor and stay on the Arbiter.
+ * CREED negatives: the ability-losing cousins ("…and loses all abilities") and scope variants
+ * ("target creature you control …") must NOT half-apply as a bare P/T set — they fail this exact
+ * anchor. (The PRINTED Turn to Frog / Ovinize forms are the ability-loss program's S1 atom since
+ * 2026-11-02 — abilityLossS1.test.js; the reordered variants below are no printed form and stay low.)
  *
  * Real oracle fixtures (exact bundled Scryfall text, verified 2026-07-16).
  */

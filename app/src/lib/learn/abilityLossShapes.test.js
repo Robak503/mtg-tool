@@ -1,8 +1,8 @@
 /**
- * abilityLossShapes.test.js — the ability-loss shape registry (abilityLossShapes.js, ABILITY-LOSS-PROGRAM.md §2) with every stage
- * off (S0), and its four consult points.
- *   · OFF: no stage is on and no shape is registered, so the predicate answers null for every sentence of the family the program
- *     credits later (real bundled text) at every consult point — the cards stay parked, no parse and no game changes.
+ * abilityLossShapes.test.js — the ability-loss shape registry (abilityLossShapes.js, ABILITY-LOSS-PROGRAM.md §2) with S1 on and
+ * S2–S5 off, and its four consult points. (The S1 cards' play is abilityLossS1.test.js.)
+ *   · S1 ON, THE REST OFF: every registered shape is S1's; every sentence of the family S2–S5 credit (real bundled text) answers null
+ *     at every consult point — those cards stay parked; S1's members answer where they are read, and only in their printed forms.
  *   · THE HOOK: a well-formed shape registered for a test (fresh text: every consult point caches by card object or text) is
  *     answered by each consult point when its stage is on — the attached-clause parser (and through it the layer engine: a static
  *     loss from an attached Aura at the Aura's attach timestamp, its `grantedWith: true` sibling kept), the static clause reader, the
@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ABILITY_LOSS_STAGES, ABILITY_LOSS_CONTEXTS, abilityLossShape, abilityLossShapes, shapeIsWellFormed, _withAbilityLossShapesForTests } from "./abilityLossShapes.js";
 import { parseAttachedBonus, parseStaticAbilities } from "./staticAbilityParser.js";
 import { parseEffectProgram } from "./effects/parser.js";
+import { classifyCard } from "./coverage.js";
 import { printedAuraReading } from "./auraPrintedSide.js";
 import { permanentHasKeyword, abilityLossOf, collectContinuousEffects, addContinuousEffect } from "./layers.js";
 import { createGameState, createPermanent, attachPermanent, _resetIdsForTests } from "./gameState.js";
@@ -42,16 +43,21 @@ function boardOf(perms) {
   return { ...s0, timestampCounter: perms.length + 1, players: { ...s0.players, user: { ...s0.players.user, battlefield: bf } } };
 }
 
-describe("S0: every stage off, no shape registered", () => {
-  it("no stage is on and the registry is empty", () => {
-    expect(ABILITY_LOSS_STAGES).toEqual({ S1: false, S2: false, S3: false, S4: false, S5: false });
-    expect(abilityLossShapes()).toEqual([]);
+// The family's members S1 builds (Lignify, Turn to Frog); the rest are S2–S5's (ABILITY-LOSS-PROGRAM.md §3).
+const S1_MEMBERS = new Set(["Lignify", "Turn to Frog"]);
+
+describe("S1 on, S2–S5 off (the S1 slice turned the first stage on)", () => {
+  it("only S1 is on; every shape is well formed, has a unique id and is S1's", () => {
+    expect(ABILITY_LOSS_STAGES).toEqual({ S1: true, S2: false, S3: false, S4: false, S5: false });
+    expect(abilityLossShapes().length).toBeGreaterThan(0);
     expect(abilityLossShapes().every(shapeIsWellFormed)).toBe(true);
+    expect(new Set(abilityLossShapes().map((s) => s.id)).size).toBe(abilityLossShapes().length);
+    expect([...new Set(abilityLossShapes().map((s) => s.stage))]).toEqual(["S1"]);
   });
 
-  it("the predicate answers null for every sentence of the family, at every consult point, in any case", () => {
+  it("every sentence of the family S2–S5 build answers null at every consult point, in any case; S1's answer where they are read", () => {
     let n = 0;
-    for (const c of FAMILY) {
+    for (const c of FAMILY.filter((x) => !S1_MEMBERS.has(x.name))) {
       for (const s of sentencesOf(c.oracle)) {
         for (const ctx of ABILITY_LOSS_CONTEXTS) {
           expect([c.name, s, ctx, abilityLossShape(s, ctx)]).toEqual([c.name, s, ctx, null]);
@@ -60,16 +66,46 @@ describe("S0: every stage off, no shape registered", () => {
         }
       }
     }
-    expect(n).toBeGreaterThan(100);
+    expect(n).toBeGreaterThan(80);
+    const lig = "enchanted creature is a treefolk with base power and toughness 0/4 and loses all abilities";
+    expect((abilityLossShape(lig, "attached", { subject: "enchanted", noun: "creature" }) ?? []).map((d) => d.op.layerOp)).toEqual(["replaceCreatureTypes", "ptSet", "loseAllAbilities"]);
+    expect([abilityLossShape(lig, "side"), abilityLossShape(lig, "static"), abilityLossShape(lig, "spell")]).toEqual(["enemy", null, null]);
+    expect(abilityLossShape(lig, "attached", { subject: "equipped", noun: "creature" })).toBe(null); // an Equipment's "equipped creature" never
+    const frog = "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1";
+    expect(abilityLossShape(frog, "spell")).toEqual({ op: "lose-all-abilities", targetType: "creature", until: "endOfTurn", subtypes: ["Frog"], colors: ["U"], basePt: { power: 1, toughness: 1 } });
+    expect([abilityLossShape(frog, "attached", { subject: "enchanted", noun: "creature" }), abilityLossShape(frog, "static"), abilityLossShape(frog, "side")]).toEqual([null, null, null]);
   });
 
-  it("the family emits no loss op anywhere: no static, no attached bonus, no program atom", () => {
+  it("the family emits a loss op only through its S1 members: Lignify's attached bonus, Turn to Frog's program atom", () => {
     for (const c of FAMILY) {
       const statics = [...parseStaticAbilities(c), ...parseAttachedBonus(c)];
-      expect([c.name, statics.some((d) => d.op?.layerOp === "loseAllAbilities")]).toEqual([c.name, false]);
+      expect([c.name, statics.some((d) => d.op?.layerOp === "loseAllAbilities")]).toEqual([c.name, c.name === "Lignify"]);
       const prog = parseEffectProgram(c);
-      expect([c.name, JSON.stringify(prog ?? null).includes("loseAllAbilities")]).toEqual([c.name, false]);
+      expect([c.name, JSON.stringify(prog ?? null).includes("lose-all-abilities")]).toEqual([c.name, c.name === "Turn to Frog"]);
     }
+  });
+
+  it("Retro-Mutation's \"It …\" is read as the enchanted creature only right after an \"Enchanted creature …\" sentence; anywhere else the Aura parks", () => {
+    const retro = { name: "Shape Test Retro", type: "Enchantment — Aura", mana: "{2}{U}", oracle: "Enchant creature\nEnchanted creature is a Turtle with base power and toughness 0/1. It can't attack and loses all abilities." };
+    expect(parseAttachedBonus(retro).map((d) => d.op.layerOp)).toEqual(["replaceCreatureTypes", "ptSet", "addKeyword", "loseAllAbilities"]);
+    expect([classifyCard(retro), printedAuraReading(retro).side]).toEqual(["native-aura", "enemy"]);
+    const orphan = { name: "Shape Test Orphan", type: "Enchantment — Aura", mana: "{2}{U}", oracle: "Enchant creature\nFlash\nIt can't attack and loses all abilities." };
+    expect(parseAttachedBonus(orphan)).toEqual([]);
+    expect(classifyCard(orphan)).not.toMatch(/^native/);
+  });
+
+  it("the S1 shapes are anchored to their printed forms: a reordered, duration-less, doubled-duration or card-type form answers null", () => {
+    const at = (t) => abilityLossShape(t, "attached", { subject: "enchanted", noun: "creature" });
+    expect([
+      at("enchanted creature has base power and toughness 1/1 and loses all abilities"), // the reverse of Kasmina's order
+      at("enchanted creature loses all abilities and is a blue frog creature with base power and toughness 1/1"), // a card type: S2
+      at("enchanted creature loses all abilities and is a blue glorb with base power and toughness 1/1"), // no CR creature type
+      at("enchanted creature loses all abilities"), // a bare loss: no printed S1 form
+      abilityLossShape("Target creature loses all abilities and has base power and toughness 0/1", "spell"), // no duration: a loss for good
+      abilityLossShape("Until end of turn, target creature loses all abilities and has base power and toughness 0/1 until end of turn", "spell"),
+      abilityLossShape("Until end of turn, target creature you control loses all abilities and has base power and toughness 0/1", "spell"),
+      abilityLossShape("Until end of turn, target creature loses all abilities and becomes a blue Frog creature with base power and toughness 1/1", "spell"),
+    ]).toEqual([null, null, null, null, null, null, null, null]);
   });
 });
 

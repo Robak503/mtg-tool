@@ -2281,11 +2281,41 @@ function printedStatIsNumber(perm, stat) {
   const v = perm?.card?.[stat];
   return v != null && v !== "" && Number.isFinite(Number(v));
 }
+/**
+ * A STAR STAT UNDER A LOSS (the ability-loss S1 review's F1 — CR 208.2a, 604.3, 613.4a, 613.1f): a printed "*" stat is defined only by
+ * the creature's characteristic-defining ability, and a creature that lost all its abilities has lost that ability with the rest (its
+ * layer-7a effect is left out of the collection). Its "*" then stands for 0 and the printed number around it stays — "*" is 0, "1+*" and
+ * "*+1" are 1, "7-*" is 7 (the bundled rulings of Mystic Subdual and Merfolk Trickster: a star-star creature is 0/0, a "star / star+1"
+ * one 0/1) —
+ * and it is a known number, so the toughness state-based actions read it (CR 704.5f, 704.5g). Only a "*" the card defines with a CDA
+ * worded as CR 208.2a words it ("… power / toughness is equal to …", "… power and toughness are each equal to …"): a "*" set by an
+ * "As this creature enters" choice (CR 208.2b — Primal Clay, unmodeled) stays unread. Returns the number, or null.
+ */
+const STAR_TERMS_RE = /^[+-]?(?:\d+|\*)(?:[+-](?:\d+|\*))*$/;
+const _starCdaMemo = new WeakMap(); // printed card -> { power, toughness }: does its text define that stat with a CDA (CR 208.2a)?
+function starCdaStats(card) {
+  let hit = _starCdaMemo.get(card);
+  if (hit === undefined) {
+    const text = String(card?.oracle ?? card?.oracle_text ?? "");
+    hit = { power: /\bpower (?:and toughness )?(?:is|are)(?: each)? equal to\b/i.test(text), toughness: /\btoughness (?:is|are)(?: each)? equal to\b/i.test(text) };
+    _starCdaMemo.set(card, hit);
+  }
+  return hit;
+}
+function starStatUnderLoss(state, perm, stat) {
+  const v = String(perm?.card?.[stat] ?? "").replace(/\s+/g, "");
+  if (!v.includes("*") || !STAR_TERMS_RE.test(v)) return null;
+  if (!abilityLossOf(state, perm.id) || !starCdaStats(perm.card)[stat]) return null;
+  return [...v.matchAll(/([+-]?)(\d+|\*)/g)].reduce((n, m) => n + (m[2] === "*" ? 0 : (m[1] === "-" ? -1 : 1) * parseInt(m[2], 10)), 0);
+}
 function applyLayer7(state, perm, l7Effects) {
   let basePower = printedPower(perm);
   let baseToughness = printedToughness(perm);
   let powerSized = printedStatIsNumber(perm, "power");
   let toughnessSized = printedStatIsNumber(perm, "toughness");
+  // A STAR STAT UNDER A LOSS (F1 — starStatUnderLoss): the lost CDA's "*" reads 0, its printed number kept, and the stat is known.
+  if (!powerSized) { const n = starStatUnderLoss(state, perm, "power"); if (n != null) { basePower = n; powerSized = true; } }
+  if (!toughnessSized) { const n = starStatUnderLoss(state, perm, "toughness"); if (n != null) { baseToughness = n; toughnessSized = true; } }
 
   // 7a — characteristic-defining P/T (CR 613.4a; 604.3 — a CDA applies in layer 7a and is NEVER on the
   // stack). CDA-SELF-P/T-BY-COUNT: "[this creature]'s power [and toughness are each] equal to the number of
@@ -3131,7 +3161,11 @@ export function hasReconfigure(card) {
  */
 export function equipmentBarredAsCreature(state, permanentId) {
   const { types, subtypes } = permanentTypes(state, permanentId);
-  return subtypes.includes("Equipment") && types.includes("Creature") && !hasReconfigure(findPerm(state, permanentId)?.card);
+  if (!subtypes.includes("Equipment") || !types.includes("Creature")) return false;
+  // CR 301.5c: "An Equipment that's also a creature can't equip a creature unless that Equipment HAS reconfigure" — whether it has the
+  // ability is read after layer 6, so a Lion Sash that lost its abilities (Lignify) has none and is barred (the S0b review's R2).
+  const perm = findPerm(state, permanentId);
+  return !hasReconfigure(perm ? withAbilityLoss(state, perm) : null);
 }
 
 /**

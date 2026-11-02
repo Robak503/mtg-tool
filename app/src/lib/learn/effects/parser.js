@@ -1068,6 +1068,11 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
   // the draw clause must START with "draw" / "you draw" (CR 121 — "you" is the
   // controller). Otherwise the actor is unmodeled → Arbiter.
   if (atom.op === "draw" && !/^(?:then )?(?:you )?draw\b/i.test(s)) return null;
+  // "Draw a card FROM <somewhere>" (an opponent's library, the bottom of your library, outside the game) is no draw of CR 121.1 — a
+  // draw takes the top card of the drawing player's own library — and the legacy regex matched only its first words. Unread (LOW).
+  // Found by the ability-loss S1 fingerprint (2026-11-02): one Very Cryptic Command variant's first mode, "Draw a card from an
+  // opponent's library.", read as a plain draw once its Turn to Frog mode was read.
+  if (atom.op === "draw" && /\bcards?\s+from\b/i.test(s)) return null;
 
   // ⭐⭐ UP-1 (2026-08-06): the UNION targetType joins this fold. It used to be gated on "creature" alone,
   // so a union atom skipped the restriction parse entirely and fell through to `isCleanClause(s)` below —
@@ -4043,8 +4048,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // A BARE "IT" AFTER A TARGET names that target, not the source (see bareItAfterTarget).
     const itRead = bareItAfterTarget(atom, clause, atoms, ci > 0 ? clauses[ci - 1] : null);
     if (itRead === "refuse") { allParsed = false; break; }
+    // AN "IT" THAT NAMES ONLY A TARGET (`itReferent` — the ability-loss shape "It loses all abilities until end of turn", Merfolk
+    // Trickster): bound here to the creature the sentence before it targeted, the mark goes; an atom that keeps it (nothing to bind)
+    // makes the program LOW in programConfidence — never the source's own loss.
     if (itRead === "bind") {
-      const { target: _self, ...rest } = atom;
+      const { target: _self, itReferent: _it, ...rest } = atom;
       atom = { ...rest, bindPreviousTargets: true };
     }
     // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS
@@ -4213,6 +4221,11 @@ export function programConfidence(program) {
   // read HIGH). A kind enters SUPPORTED_ALT_COST_KINDS only once its strip is vetted. The all-or-nothing body
   // parse still bites regardless — Deflecting Swat's free-cost strips but its redirect body is unmodeled → LOW.
   if (program.altCost && !SUPPORTED_ALT_COST_KINDS.has(program.altCost.kind)) return "low";
+  // AN UNBOUND "IT" (`itReferent` — the ability-loss shape "It loses all abilities until end of turn"): the clause loop strips the mark
+  // when the pronoun binds to the creature the sentence before it targeted; an atom that still carries it names nothing it can resolve,
+  // so the program is never HIGH — the one refusal, here, for every path that assembles a program.
+  const everyAtom = program.structure === "modal" ? (program.modal?.modes || []).flatMap((m) => m?.atoms || []) : (program.atoms || []);
+  if (everyAtom.some((a) => a?.itReferent)) return "low";
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";

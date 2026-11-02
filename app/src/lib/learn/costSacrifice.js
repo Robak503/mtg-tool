@@ -81,9 +81,16 @@ export function sacrificePermanentsTogether(state, victims) {
   const deadPw = batch.filter((v) => !deathOf.has(v.permId) && permanentHasCardType(state, v.permId, "Planeswalker"))
     .map((v) => ({ id: v.permId, controller: v.playerId, name: v.lk.permanent.card?.name, card: v.lk.permanent.card, ...abilityLossStamp(state, v.lk.permanent) }));
   let next = state;
+  const moved = new Set();
   for (const { playerId, permId, lk } of graveyardReplacementCarriersLast(state, batch.map((v) => ({ ...v, id: v.permId })))) {
+    // AN AURA SACRIFICED WITH ITS HOST, the host moved first: the Aura went to the graveyard as its host left (CR 704.5m — the
+    // engine's detachPermanentFromAll moves it then), so it is gone before its own move. Skip exactly that victim; any other victim
+    // missing here is still moved, and moveCardToZone throws for it (no silent skip). A victim gone before the batch began is
+    // dropped above, as documented. The skipped Aura counts as moved, so the same Aura named twice throws like any duplicate victim.
+    if (!moved.has(permId) && !findPermanent(next, permId) && lk.permanent.attachedTo != null && moved.has(lk.permanent.attachedTo)) { moved.add(permId); continue; }
     const death = deathOf.get(permId);
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: death?.exileTo ? "exile" : "graveyard", cardId: permId });
+    moved.add(permId);
     const deathKind = death ? deathEventKind(death) : null;
     if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   }

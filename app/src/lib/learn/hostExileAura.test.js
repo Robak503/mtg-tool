@@ -48,9 +48,10 @@ describe("the parse + the tiers", () => {
     expect(parseEffectClause("return enchanted creature to its owner's hand", "Enchantment").atoms).toEqual([{ op: "bounce", target: "enchanted" }]);
     expect(parseEffectClause("exile enchanted creature unless its controller pays {2}", "Enchantment").confidence).not.toBe("high");
   });
-  it("⭐ the four flip native; Utter Insignificance stays parked on loses-all-abilities", () => {
+  it("⭐ the four flip native; Utter Insignificance too, since the ability-loss program's S1 reads its \"loses all abilities and has base power and toughness 1/1\" (abilityLossS1.test.js)", () => {
     for (const c of [COOPED_UP, DREADFUL_APATHY, REDEMPTION_ARC, SUN_CLASP]) expect(classifyCard(c)).toMatch(/^native/);
-    expect(classifyCard(UTTER_INSIGNIFICANCE)).not.toMatch(/^native/);
+    // parked on its loss line until S1 (2026-11-02); its exile ability was already read
+    expect(classifyCard(UTTER_INSIGNIFICANCE)).toBe("native-aura");
     // the activated line no longer poisons the static half — Sun Clasp's +1/+3 survives the bonus parse
     expect(parseAuraBonus(SUN_CLASP).map((d) => d.op)).toEqual([{ layerOp: "ptModify", power: 1, toughness: 3 }]);
   });

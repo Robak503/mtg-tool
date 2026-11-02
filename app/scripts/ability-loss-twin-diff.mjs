@@ -4,7 +4,8 @@
  *
  * Every bundled card that can be a permanent and has rules text is put on a board twice, each time having lost all its abilities (a
  * fixed-mode `loseAllAbilities` stored through layers.addContinuousEffect, CR 613.1f): once as the printed card, once as its no-text twin
- * (the same characteristics and faces, every rules text blanked, no keywords). Both are under one NEUTRAL name, so a name-keyed table
+ * (the same characteristics and faces, every rules text blanked, no keywords; a "*" stat the lost characteristic-defining ability
+ * defined carries the number it reads once lost — twinOf, the S1 review's F1). Both are under one NEUTRAL name, so a name-keyed table
  * cannot hide a leak. A permanent that lost all its abilities must play exactly like the twin, so every difference is a reader still
  * reading the printed card — or a by-design class (the summary names the known ones). Four scenarios:
  *   cycle   — the user's permanents tapped, then passed priority (gameEngine.passPriority; nextStep where no player has priority) through the opponent's turn and the user's next
@@ -41,14 +42,16 @@ if (argv.shard == null && WORKERS > 1) {
       resolve(r);
     });
   })));
-  const merged = { scenarios: {}, differences: [] };
+  const merged = { scenarios: {}, differences: [], starTwins: [] };
   for (const p of parts) {
     for (const [k, v] of Object.entries(p.scenarios)) {
       const m = (merged.scenarios[k] ??= { compared: 0, differ: 0, errors: 0 });
       m.compared += v.compared; m.differ += v.differ; m.errors += v.errors;
     }
     merged.differences.push(...p.differences);
+    merged.starTwins.push(...(p.starTwins || []));
   }
+  merged.starTwins.sort();
   merged.differences.sort((a, b) => a.scenario.localeCompare(b.scenario) || a.name.localeCompare(b.name));
   report(merged);
   if (argv.out) fs.writeFileSync(argv.out, JSON.stringify(merged, null, 1));
@@ -57,6 +60,7 @@ if (argv.shard == null && WORKERS > 1) {
 
 function report(r) {
   for (const [k, v] of Object.entries(r.scenarios)) console.log(`${k}: ${v.compared} compared, ${v.differ} differ, ${v.errors} errors`);
+  console.log(`twins carrying a lost "*" number (F1): ${(r.starTwins || []).length}`);
   for (const d of r.differences) console.log(`  ${d.scenario}  ${d.name}  [${d.keys.join(", ")}]${d.error ? `  ERROR ${d.error}` : ""}`);
 }
 
@@ -89,10 +93,28 @@ const frontType = (c) => String(c.type || c.type_line || "").split(" // ")[0];
 const isCreature = (c) => /\bCreature\b/.test(frontType(c));
 const isAttachment = (c) => /\b(Aura|Equipment)\b/.test(frontType(c));
 
-/** The no-text twin: the same characteristics and faces, every rules text blanked, no keywords, the neutral name. */
-function twinOf(c) {
-  return { ...c, name: NEUTRAL, oracle: "", oracle_text: "", keywords: [], ...(Array.isArray(c.card_faces) ? { card_faces: c.card_faces.map((f) => ({ ...f, oracle_text: "", oracle: "" })) } : {}) };
+/**
+ * A "*" STAT A LOST ABILITY DEFINED (the ability-loss S1 review's F1): a printed "*" that the card's characteristic-defining ability
+ * defines (CR 208.2a, 604.3) is gone with that ability once the card has lost all its abilities, and the engine reads it as 0 with the
+ * printed number kept ("*" 0, "1+*" 1 — layers.applyLayer7). The twin has no text to define it, so it carries that number; a "*" no such
+ * ability defines (an "As this creature enters" choice, CR 208.2b) stays "*" on both. Without this, every such card differs from its
+ * twin by construction (the twin's "*" is an unread stand-in the lost card no longer has) and its other readers go uncompared.
+ */
+const STAR_CDA_RE = { power: /\bpower (?:and toughness )?(?:is|are)(?: each)? equal to\b/i, toughness: /\btoughness (?:is|are)(?: each)? equal to\b/i };
+function lostStarStat(c, stat) {
+  const v = String(c[stat] ?? "").replace(/\s+/g, "");
+  if (!v.includes("*") || !/^[+-]?(?:\d+|\*)(?:[+-](?:\d+|\*))*$/.test(v) || !STAR_CDA_RE[stat].test(String(c.oracle ?? c.oracle_text ?? ""))) return c[stat];
+  return String([...v.matchAll(/([+-]?)(\d+|\*)/g)].reduce((n, m) => n + (m[2] === "*" ? 0 : (m[1] === "-" ? -1 : 1) * parseInt(m[2], 10)), 0));
 }
+
+/** The no-text twin: the same characteristics and faces, every rules text blanked, no keywords, the neutral name (a "*" its lost CDA defined: its number). */
+function twinOf(c) {
+  const lostStars = Object.fromEntries(["power", "toughness"].map((st) => [st, lostStarStat(c, st)]).filter(([st, v]) => v !== c[st]));
+  return { ...c, name: NEUTRAL, oracle: "", oracle_text: "", keywords: [], ...lostStars,
+    ...(Array.isArray(c.card_faces) ? { card_faces: c.card_faces.map((f) => ({ ...f, oracle_text: "", oracle: "" })) } : {}) };
+}
+/** A card whose twin carries a lost "*" number (the F1 class, counted in the summary). */
+const twinStarCarrier = (c) => ["power", "toughness"].some((st) => lostStarStat(c, st) !== c[st]);
 const renamed = (c) => ({ ...c, name: NEUTRAL });
 
 /** The board (the readers test's): the probe under the user (on its own Grizzly Bears when an Aura or Equipment), basic lands, a deep
@@ -199,10 +221,11 @@ let names = [...byName.keys()].filter((n) => {
 if (argv.limit) names = names.slice(0, Number(argv.limit));
 names = names.filter((_, i) => i % shardN === shardI);
 
-const result = { scenarios: {}, differences: [] };
+const result = { scenarios: {}, differences: [], starTwins: [] };
 for (const sc of SCENARIOS) result.scenarios[sc] = { compared: 0, differ: 0, errors: 0 };
 for (const n of names) {
   const c = card(n);
+  if (twinStarCarrier(c)) result.starTwins.push(n);
   for (const sc of SCENARIOS) {
     const r = result.scenarios[sc];
     let lost, twin, error = null;

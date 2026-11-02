@@ -31,8 +31,20 @@
  * file alone, so a new read in the same file is a new site. A new reader of a permanent's text needs no registration: it is flagged
  * until it routes through the view or earns an entry with its reason.
  *
+ * HARDENED BY S1 (the S0b review's recheck, R1 — each shape a sample in the scanner's self-test below, and red there): `x.card ?? y`
+ * is a value like `x.card || y`; the routed form counts only with a BOARD TEST as its condition (`lossy`, `lossyCast`,
+ * `boardHasAbilityLoss(…)`, `abilityViewLossy(…)`, `lossyOf(…)` — `p.tapped ? withAbilityLoss(…) : p.card` is no routing); an object
+ * literal spreading a printed card (`{ ...p.card }`) carries it; an arrow argument carries what its expression body returns
+ * (`bf.map((p) => p.card)` — not for a truth-test callback: filter / some / every / find …); a plain assignment (`card = p.card`) and
+ * a default parameter (`card = perm?.card`) make an alias, and an alias is read from the end of its own statement (the same line
+ * too); `reader?.(p.card)` is a call; `p["card"]` is `.card`; `(p.card || {}).oracle` is a text read.
+ * AND BY THE S1 REVIEW'S F4 (each a sample in the same self-test): an alias of an alias (`const d = c` after `const c = p.card`);
+ * `p?.["card"]`; `p.card["oracle"]` and `c["oracle"]`; `c ||= p.card` (and `&&=`, `??=`); a routed form whose board test reads a
+ * different state than the view (`boardHasAbilityLoss(other) ? withAbilityLoss(state, p) : p.card` — a per-scan flag's state is not
+ * visible at the site and is taken as the view's).
  * Known limits: a card that reaches a reader through a function parameter is caught where the caller hands it over (rule 1), not
- * inside; a destructured `{ card }` and an expression inside a template literal are not scanned.
+ * inside; a destructured `{ card }`, an expression inside a template literal, an arrow with a BLOCK body (`(p) => { return p.card; }`)
+ * and a card stored into an object field and read back later are not scanned.
  */
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
@@ -109,9 +121,11 @@ const SITE_ALLOWLIST = [
   { file: "layers.js", fn: "matchesSelector", call: "permHasChosenTypeLayer(candidate.card", reason: "a chosen creature type against the types, a Changeling's CDA included (CR 702.73a — layer 4, before the loss)" },
   { file: "layers.js", fn: "sourceMultiplierFilterMatches", call: "permHasChosenTypeLayer(subject.card", reason: "a chosen creature type against the types, a Changeling's CDA included (CR 702.73a — layer 4, before the loss)" },
   { file: "layers.js", fn: "permIsEveryCreatureType", call: "hasKeyword(chars.copiableValues || perm.card", reason: "Changeling over the copiable card (CR 702.73a, 707.2 — layer 4, before the loss)" },
-  { file: "layers.js", fn: "equipmentBarredAsCreature", call: "hasReconfigure(findPerm(state, permanentId)?.card", reason: `Reconfigure's "an attached Equipment isn't a creature" (CR 702.151b) — a type change ${LAYER4}` },
+  // (equipmentBarredAsCreature's reconfigure read — CR 301.5c's "unless that Equipment HAS reconfigure", decided after layer 6 — reads
+  // the view since S1: the S0b review's R2. Its old entry cited CR 702.151b's type change, which is staticEffectsOf's read below.)
   { file: "layers.js", fn: "keywordSet", call: "printedKeywords(loss ? strippedCardView(perm.card, loss.keep) : perm.card", reason: "the derive's keyword seed: the stripped view built from the loss decided one line above (layers.js's own reading)" },
   { file: "layers.js", fn: "keywordSet", call: "strippedCardView(perm.card", reason: "the view builder itself, over the printed card (the same line)" },
+  { file: "layers.js", fn: "starStatUnderLoss", call: "starCdaStats(perm.card", reason: "the LOST characteristic-defining ability's own printed wording (CR 208.2a), asked only once the loss is decided on the same line: it says that the printed \"*\" stood for that CDA and is 0 now (the S1 review's F1)" },
   // layer 2 and layer 4 effects of a permanent's own static abilities
   { file: "controlAura.js", fn: "isControlAuraPermanent", call: "isControlAura(perm.card", reason: `a control-changing Aura's effect (CR 613.1b, layer 2) — ${LAYER4}` },
   { file: "controlAura.js", fn: "isControlAuraPermanent", call: "grantsControlWhenAttached(perm.card", reason: "the bestowed form of the same layer-2 control effect (CR 613.1b)" },
@@ -131,6 +145,9 @@ const SITE_ALLOWLIST = [
   { file: "triggers.js", fn: "checkLeavesTriggers", call: "detainReturnIsTriggered(e.card", count: 2, requires: "\\be\\.lkiAbilityLoss\\b", reason: "which PRINTING the departed detainer has (the old two-trigger printing returns the card with its own leaves ability; the \"until\" printing with a duration, CR 610.3) — read beside the look-back's stamp (`e.lkiAbilityLoss`), which decides whether that ability was still there (the S0b review's F2g)" },
   { file: "effects/atoms/tokens.js", fn: "fireTokenEnterTriggers", call: "checkTokenCreatedTriggers(found.permanent.card", reason: "the created token's card as the event's data (its Creature type); the watchers are read through liveTriggerCard" },
   { file: "playerLeavesGame.js", fn: "commanderIdsOwnedBy", call: "add(perm.card", reason: "collecting the cards a leaving player owns (CR 800.4a — data)" },
+  // (visible since S1 — the R1 hardening: an arrow handing each printed card on, a spread copy of one)
+  { file: "actionDispatcher.js", fn: "applyCastSpell", call: "map((p) => p.card", reason: "the caster's battlefield commanders' cards, read only for their printed creature types (subtypesOf — a characteristic, CR 205.3m) by a land's spent-mana rider (CR 903.3)" },
+  { file: "layers.js", fn: "partyCount", call: "permHasChosenTypeLayer({ ...perm.card, type: front }", reason: `a party role (CR 700.8) by its front face's creature types, a Changeling's CDA included (CR 702.73a) — ${LAYER4}` },
   { file: "breakageReport.js", fn: "formatBreakageTxt", call: "col(c.card", reason: "a report row's card NAME (a string), formatted into a column" },
   { file: "effects/atoms/shared.js", fn: "massPermanentTargets", call: "matches(perm.card", reason: "a mass effect's card-type predicate (permanentTypeWordNow — the types it has now)" },
   { file: "trapDetector.js", fn: "untappedPermanentsOfType", call: "predicate(p.card", reason: "a card-type predicate (isLand)" },
@@ -167,6 +184,7 @@ const ALIAS_ALLOWLIST = [
   { file: "effects/atoms/stack.js", fn: "counterSpellById", alias: "card", use: "shufflesIntoLibraryInsteadOfGraveyard", reason: SPELL },
   { file: "effects/atoms/stack.js", fn: "counterSpellById", alias: "card", use: "shuffleIntoLibraryInstead", reason: SPELL },
   { file: "effects/atoms/stack.js", fn: "counterSpellById", alias: "card", use: "graveyardExileFor", reason: SPELL },
+  { file: "effects/atoms/stack.js", fn: "counterSpellById", alias: "placedCard", use: "placeCounteredCard", reason: `${SPELL} — an alias of that card (visible since the S1 review's F4: an alias of an alias)` },
   { file: "effects/runProgram.js", fn: "finishSpellResolution", alias: "card", use: "shufflesIntoLibraryInsteadOfGraveyard", reason: SPELL },
   { file: "effects/runProgram.js", fn: "finishSpellResolution", alias: "card", use: "shuffleIntoLibraryInstead", reason: SPELL },
   { file: "effects/runProgram.js", fn: "finishSpellResolution", alias: "card", use: "graveyardExileFor", reason: SPELL },
@@ -178,10 +196,14 @@ const ALIAS_ALLOWLIST = [
   { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "parseAttachedBonus", reason: COLLECTION },
   { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "isGraveyardReanimateAura", reason: COLLECTION },
   { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "animateDeadBonusView", reason: COLLECTION },
-  { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "hasReconfigure", reason: COLLECTION },
+  { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "hasReconfigure", reason: `reconfigure's attached Equipment "isn't a creature" (CR 702.151b — the effect of attaching it with reconfigure, lasting until it is unattached) — a type change ${LAYER4}; whether an Equipment creature HAS reconfigure to equip (CR 301.5c) is equipmentBarredAsCreature's read, through the view` },
   { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "parseAuraGrantedManaAbility", reason: COLLECTION },
   { file: "layers.js", fn: "staticEffectsOf", alias: "card", use: "parseSoulbondBond", reason: COLLECTION },
   { file: "layers.js", fn: "permanentHasKeyword", alias: "base", use: "hasKeyword", reason: "the keyword seed: the stripped view built from the loss on the same line (layers.js's own reading)" },
+  // (visible since S1 — the R1 hardening reads a default parameter and a spread copy as aliases)
+  { file: "layers.js", fn: "withAbilityLoss", alias: "card", use: "strippedCardView", reason: "the ability view's own default base (`card = perm?.card` — the printed card), stripped under a loss: the view builder itself" },
+  { file: "abilityView.js", fn: "abilityViewOf", alias: "card", use: "_withAbilityLoss", reason: "the ability view's own default base (`card = perm?.card`), handed to the registered layers.withAbilityLoss — the view itself" },
+  { file: "cloneCopy.js", fn: "snapshotCopiedCard", alias: "card", use: ".oracle", count: 5, reason: "the copy path: the copiable card being built from the printed card (CR 707.2, 707.9b — a copy copies the printed card, never a lost state), its text extended by the copy effect's riders" },
   { file: "layers.js", fn: "permanentHasKeyword", alias: "base", use: "strippedCardView", reason: "the view builder itself, over the copy-aware base (the same line)" },
   { file: "sba.js", fn: "grantSparesAttachment", alias: "card", use: ".oracle", reason: "the rider of a protection grant the layer system already applies (\"This effect doesn't remove this Aura\" — a lost source's grant is filtered out of the collection, so its rider is never asked)" },
   { file: "staticAbilityParser.js", fn: "collectCostTaxers", alias: "card", use: "parseStaticAbilities", reason: LISTED },
@@ -256,6 +278,11 @@ function blank(src) {
     const c = src[i], d = src[i + 1];
     if (c === "/" && d === "/") { while (i < src.length && src[i] !== "\n") put(src[i++]); continue; }
     if (c === "/" && d === "*") { put(c); put(d); i += 2; while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) put(src[i++]); if (i < src.length) { put("*"); put("/"); i += 2; } continue; }
+    // A COMPUTED READ of `card`, `oracle` or `oracle_text` (`p["card"]` — the S0b review's R1; `p?.["card"]`, `p.card["oracle"]`,
+    // `c["oracle"]` — the S1 review's F4; the string would be blanked away): kept as the member it is (`.card`, `?.card`, `.oracle`),
+    // padded to its length, so every rule reads it.
+    const computed = c === "[" || (c === "?" && d === ".") ? /^(\?\.)?\[\s*(["'`])(card|oracle_text|oracle)\2\s*\]/.exec(src.slice(i, i + 24)) : null;
+    if (computed) { const m = `${computed[1] ? "?" : ""}.${computed[3]}`; out.push(m + " ".repeat(computed[0].length - m.length)); i += computed[0].length; prev = "a"; word = ""; continue; }
     if (c === "\"" || c === "'" || c === "`") {
       out.push(c); i++;
       while (i < src.length && src[i] !== c) {
@@ -306,10 +333,29 @@ function argsAt(t, open) {
   }
   return args;
 }
+// THE BOARD TEST a routed form's condition must be (the S0b review's R1 — any condition was accepted): the per-scan flag (`lossy`,
+// `lossyCast`) or the call itself (boardHasAbilityLoss / abilityViewLossy / lossyOf), optionally `&& <a guard>` after it. A call's state
+// argument is captured (group 1): it must be the state the view reads (the S1 review's F4 — `boardHasAbilityLoss(other) ? withAbilityLoss
+// (state, p) : p.card` tests one board and reads another). A flag's state is not visible at the site (it is computed above the loop).
+const BOARD_TEST = String.raw`(?<![\w$.])(?:lossy|lossyCast|(?:boardHasAbilityLoss|abilityViewLossy|lossyOf)\s*\(\s*([\w$.]+)\s*\))(?:\s*&&\s*[\w$.?]+)?\s*`;
+const VIEW_CALL = String.raw`\?\s*\(?\s*(?:withAbilityLoss|abilityViewOf)\s*\(\s*([\w$.]+)\s*,`;
 /** The routed form `<board test> ? withAbilityLoss|abilityViewOf(<state>, X…) : X.card` — the fallback is the loss-free branch. */
 function unrouted(arg) {
-  return norm(arg).replace(/\?\s*\(?\s*(?:withAbilityLoss|abilityViewOf)\s*\(\s*[\w$.]+\s*,\s*([\w$]+(?:\??\.[\w$]+)*)\s*(?:,[^()]*)?\)\s*\)?\s*:\s*([\w$]+(?:\??\.[\w$]+)*)\??\.card\b(?!\s*\??\.)/g,
-    (m, x, y) => (x === y ? "? VIEW : ROUTED" : m));
+  return norm(arg).replace(new RegExp(`${BOARD_TEST}${VIEW_CALL}\\s*([\\w$]+(?:\\??\\.[\\w$]+)*)\\s*(?:,[^()]*)?\\)\\s*\\)?\\s*:\\s*([\\w$]+(?:\\??\\.[\\w$]+)*)\\??\\.card\\b(?!\\s*\\??\\.)`, "g"),
+    (m, testState, viewState, x, y) => (x === y && (testState == null || testState === viewState) ? "BOARD ? VIEW : ROUTED" : m));
+}
+/** An object literal whose TOP-LEVEL spread is a printed card (`{ ...p.card }`, `{ ...perm.card, type: front }` — a copy of it). */
+function spreadsCard(a) {
+  const t = a.trim();
+  if (!t.startsWith("{")) return false;
+  let depth = 0;
+  for (let j = 0; j < t.length; j++) {
+    const c = t[j];
+    if ("([{".includes(c)) { depth++; continue; }
+    if (")]}".includes(c)) { depth--; continue; }
+    if (depth === 1 && t.startsWith("...", j) && /^\.\.\.\s*[\w$]+(?:\??\.[\w$]+)*\??\.card\b\s*(?:,|\})/.test(t.slice(j))) return true;
+  }
+  return false;
 }
 /** Collapse arrow parameters, inner calls' argument lists, object literals and parenthesized groups read by a member. */
 function collapse(a) {
@@ -322,16 +368,24 @@ function collapse(a) {
  *  comparison, outside an inner call and an object literal? `name` (an alias) is tested the same way in place of `.card`. */
 function carries(expr, name = null) {
   // an alias's routed form: `<board test> ? withAbilityLoss(<state>, <perm>, ALIAS) : ALIAS` (the view over the alias as its base)
-  const routedAlias = (s) => s.replace(new RegExp(`\\?\\s*\\(?\\s*(?:withAbilityLoss|abilityViewOf)\\s*\\([^()]*,\\s*${String(name).replace(/\$/g, "\\$")}\\s*\\)\\s*\\)?\\s*:\\s*${String(name).replace(/\$/g, "\\$")}\\b(?!\\s*\\??\\.)`, "g"), "? VIEW : ROUTED");
-  const a = collapse(name ? routedAlias(norm(expr)) : unrouted(expr));
-  if (/^\(?\s*(?:async\s*)?(?:ARGS|[\w$]+)\s*=>/.test(a) || /^function\b/.test(a)) return false; // an arrow / a function argument
+  const esc = String(name).replace(/\$/g, "\\$");
+  const routedAlias = (s) => s.replace(new RegExp(`${BOARD_TEST}${VIEW_CALL}(?:[^()]*,)?\\s*${esc}\\s*\\)\\s*\\)?\\s*:\\s*${esc}\\b(?!\\s*\\??\\.)`, "g"),
+    (m, testState, viewState) => (testState == null || testState === viewState ? "BOARD ? VIEW : ROUTED" : m));
+  const n = norm(expr);
+  // an arrow argument: what its expression body evaluates to (`(p) => p.card` hands each printed card on — the R1 review's
+  // `bf.map((p) => p.card)`); a block body, or a function, is not an argument value
+  const arrow = /^(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>\s*([\s\S]*)$/.exec(n);
+  if (arrow) return !/^\{/.test(arrow[1].trim()) && carries(arrow[1], name);
+  if (/^function\b/.test(n)) return false;
+  if (!name && spreadsCard(unrouted(n))) return true; // `{ ...p.card }` — a copy of the printed card (R1)
+  const a = collapse(name ? routedAlias(n) : unrouted(n));
   if (/^OBJ$/.test(a)) return false; // a record (a look-back, an event — its `card` is the printed card by design, CR 707.2)
-  const re = name ? new RegExp(`(!?)\\s*(?<![\\w$.])${name.replace(/\$/g, "\\$")}\\b`, "g") : /(!?)\s*[\w$)\]]\??\.card\b/g;
+  const re = name ? new RegExp(`(!?)\\s*(?<![\\w$.])${esc}\\b`, "g") : /(!?)\s*[\w$)\]]\??\.card\b/g;
   for (const m of a.matchAll(re)) {
     if (m[1] === "!") continue;
     const after = a.slice(m.index + m[0].length);
     if (/^\s*(?:\??\.|\[|\(|[\w$])/.test(after)) continue; // a member read or a call
-    if (/^\s*(?:\?(?!\.)|&&|===|!==|==|!=)/.test(after)) continue; // a condition or a comparison
+    if (/^\s*(?:\?(?![.?])|&&|===|!==|==|!=)/.test(after)) continue; // a condition or a comparison (`??` is a fallback VALUE — R1)
     return true;
   }
   return false;
@@ -340,11 +394,21 @@ const KW = new Set(["if", "for", "while", "switch", "return", "function", "catch
 
 let _scan = null;
 function scanAll() {
-  if (_scan) return _scan;
+  if (!_scan) _scan = scanSources(sources().map((f) => ({ file: rel(f), src: fs.readFileSync(f, "utf8") })));
+  return _scan;
+}
+// The array methods whose callback's return is a TRUTH TEST (or a sort key), never a value handed on — `filter((e) => e?.card)` keeps
+// the elements, not their cards; `map((p) => p.card)` hands each card on (R1).
+const PREDICATE_CALLEES = new Set(["filter", "some", "every", "find", "findIndex", "findLast", "findLastIndex", "sort", "toSorted"]);
+// A call: `name(` or `name?.(` (the R1 review's optional call).
+const CALL_RE = /\b([A-Za-z_$][\w$]*)\s*(?:\?\.\s*)?\(/g;
+// A plain assignment `x = <expr>` (not a declaration, a comparison, an arrow or a compound assignment; not a member — the R1
+// review's `card = p.card`).
+const ASSIGN_RE = /(?<![\w$.])([A-Za-z_$][\w$]*)\s*(?:\|\||&&|\?\?)?=(?![=>])\s*([^;\n]*)/g; // + `c ||= p.card` (the S1 review's F4)
+/** Scan `entries` ([{ file, src }]) for every rule's hits (the engine's sources, or a sample's — the self-test below). */
+function scanSources(entries) {
   const calls = [], aliasUses = [], texts = [], grants = [], classViews = [], defs = new Map(), bodies = new Map(), declared = new Set();
-  for (const f of sources()) {
-    const file = rel(f);
-    const src = fs.readFileSync(f, "utf8");
+  for (const { file, src } of entries) {
     const t = blank(src);
     const starts = lineStarts(t);
     const fns = enclosing(t);
@@ -366,40 +430,61 @@ function scanAll() {
       defs.get(name).push({ file, body, blankBody: blank(body) });
     }
     // calls
-    for (const m of t.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+    for (const m of t.matchAll(CALL_RE)) {
       const callee = m[1];
       if (KW.has(callee) || /function\*?\s*$/.test(t.slice(Math.max(0, m.index - 12), m.index))) continue;
       const args = argsAt(t, m.index + m[0].length - 1);
       const line = lineAt(starts, m.index);
       const fn = fns[line - 1];
-      for (const a of args) if (carries(a.text)) calls.push({ file, fn, line, callee, call: `${callee}(${norm(src.slice(a.start, a.start + a.text.length))}` });
+      for (const a of args) {
+        if (PREDICATE_CALLEES.has(callee) && /^\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>/.test(a.text)) continue; // a truth test, not a value handed on
+        if (carries(a.text)) calls.push({ file, fn, line, callee, call: `${callee}(${norm(src.slice(a.start, a.start + a.text.length))}` });
+      }
       if (GRANT_READERS.includes(callee) && /\.card\b|\b(?:withAbilityLoss|abilityViewOf|enteringAbilityCard)\s*\(/.test(args[0]?.text ?? "")) grants.push({ file, fn, line, callee });
     }
-    // aliases of a printed card, and where each reaches a non-characteristic call or a text read in its function
-    for (const m of t.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g)) {
-      const [, alias, expr] = m;
-      if (/^\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>/.test(expr) || /^\s*function\b/.test(expr) || !carries(expr)) continue;
-      const line = lineAt(starts, m.index);
+    // aliases of a printed card — declared (`const card = perm.card`) or assigned (`card = perm.card`) — and where each reaches a
+    // non-characteristic call or a text read in its function, from the end of its own statement on (the R1 review: a read on the
+    // declaration line itself was missed)
+    const aliasSites = [];
+    for (const m of t.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g)) aliasSites.push({ alias: m[1], expr: m[2], at: m.index, end: m.index + m[0].length });
+    for (const m of t.matchAll(ASSIGN_RE)) {
+      if (KW.has(m[1]) || /\b(?:const|let|var)\s+$/.test(t.slice(Math.max(0, m.index - 8), m.index))) continue; // a declaration (above)
+      aliasSites.push({ alias: m[1], expr: m[2], at: m.index, end: m.index + m[0].length });
+    }
+    // An ALIAS OF AN ALIAS (`const c = p.card; const d = c;` — the S1 review's F4) is an alias too: a site whose value carries an alias
+    // already found, later in the same function, joins the list (until no new one appears).
+    const fnOf = (at) => fns[lineAt(starts, at) - 1];
+    const notFn = (expr) => !/^\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>/.test(expr) && !/^\s*function\b/.test(expr);
+    const cardAliases = aliasSites.filter((x) => notFn(x.expr) && carries(x.expr));
+    for (let k = 0; k < cardAliases.length; k++) {
+      const a = cardAliases[k];
+      for (const x of aliasSites) {
+        if (x.at <= a.at || cardAliases.includes(x) || fnOf(x.at) !== fnOf(a.at) || !notFn(x.expr) || !carries(x.expr, a.alias)) continue;
+        cardAliases.push(x);
+      }
+    }
+    for (const { alias, at, end } of cardAliases) {
+      const line = lineAt(starts, at);
       const fn = fns[line - 1];
-      for (let i = line; i < tLines.length && fns[i] === fn; i++) {
-        const l = tLines[i];
-        if (new RegExp(`(?<![\\w$.])${alias}\\??\\.(?:oracle|oracle_text)\\b`).test(l)) aliasUses.push({ file, fn, alias, use: ".oracle", line: i + 1 });
-        for (const c of l.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+      for (let i = line - 1; i < tLines.length && fns[i] === fn; i++) {
+        const from = i === line - 1 ? end - starts[i] : 0; // the declaration line: only what follows the statement
+        const l = tLines[i].slice(from);
+        if (new RegExp(`(?<![\\w$.])${alias.replace(/\$/g, "\\$")}\\??\\.(?:oracle|oracle_text)\\b`).test(l)) aliasUses.push({ file, fn, alias, use: ".oracle", line: i + 1 });
+        for (const c of l.matchAll(CALL_RE)) {
           if (KW.has(c[1])) continue;
-          const lineOffset = starts[i];
-          const args = argsAt(t, lineOffset + c.index + c[0].length - 1);
+          const args = argsAt(t, starts[i] + from + c.index + c[0].length - 1);
           if (args.some((a) => carries(a.text, alias))) aliasUses.push({ file, fn, alias, use: c[1], line: i + 1 });
         }
       }
     }
-    // direct text reads, and the Class-view reads
+    // direct text reads — `<x>.card.oracle`, and a grouped one, `(<x>.card || {}).oracle` (R1) — and the Class-view reads
     tLines.forEach((l, i) => {
       for (const m of l.matchAll(/\b([A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*?)\??\.card\??\.(?:oracle|oracle_text)\b/g)) texts.push({ file, fn: fns[i], line: i + 1, holder: m[1] });
+      for (const m of l.matchAll(/\(\s*([A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*?)\??\.card\b[^()]*\)\s*\??\.(?:oracle|oracle_text)\b/g)) texts.push({ file, fn: fns[i], line: i + 1, holder: m[1] });
       if (/\bclassLiveCard\(/.test(l) && !/\bimport\b/.test(srcLines[i]) && !/\bfunction\s+classLiveCard\b/.test(l)) classViews.push({ file, fn: fns[i], line: i + 1, text: srcLines[i].trim().slice(0, 120), viewed: /\b(?:withAbilityLoss|abilityViewOf)\(/.test(l) });
     });
   }
-  _scan = { calls, aliasUses, texts, grants, classViews, defs, bodies, declared };
-  return _scan;
+  return { calls, aliasUses, texts, grants, classViews, defs, bodies, declared };
 }
 
 const CHAR_NAMES = new Set(CHARACTERISTIC_READERS.map((c) => c.fn));
@@ -474,6 +559,38 @@ describe("the ability-loss source lint (ABILITY-LOSS-PROGRAM.md §5.5 — invert
     const { grants, bodies } = scanAll();
     expect(grants.length).toBeGreaterThan(0);
     expect(grants.filter((g) => !/\battachedGrantCutByLoss\s*\(/.test(bodies.get(`${g.file}|${g.fn}`) || "")).map((g) => `${g.file}:${g.line}  [${g.fn}]  ${g.callee}`)).toEqual([]);
+  });
+
+  it("the scanner goes red on each shape the S0b review's recheck found it blind to (R1), and stays quiet on the routed form", () => {
+    // Each sample a function of its own in one sample module, scanned by the same scanner as the engine (no allowlist names it).
+    const SAMPLES = [
+      ["`x.card ?? y` handed to a reader", "calls", "function r1a(p) { return detectTriggers(p.card ?? null); }"],
+      ["an alias of `x.card ?? {}`", "aliasUses", "function r1b(p) { const c = p.card ?? {}; return detectTriggers(c); }"],
+      ["a routed form with a condition that is no board test", "calls", "function r2(state, p) { return detectTriggers(p.tapped ? withAbilityLoss(state, p) : p.card); }"],
+      ["a spread of the printed card", "calls", "function r3(p) { return detectTriggers({ ...p.card }); }"],
+      ["a plain-assignment alias", "aliasUses", "function r4(p) { let card; card = p.card; return detectTriggers(card); }"],
+      ["printed cards mapped into a reader", "calls", "function r5(bf) { return uncounterableSubtypesOnBattlefield(bf.map((p) => p.card)); }"],
+      ["a computed `card` read", "calls", "function r6(p) { return hasKeyword(p[\"card\"], \"flying\"); }"],
+      ["an alias read on its declaration line", "aliasUses", "function r7(p) { const c = p.card; return String(c.oracle); }"],
+      ["an optional call", "calls", "function r8(p, reader) { return reader?.(p.card); }"],
+      ["a grouped text read", "texts", "function r9(p) { return /flying/.test((p.card || {}).oracle); }"],
+      // the S1 review's F4
+      ["an alias of an alias", "aliasUses", "function f4a(p) { const c = p.card; const d = c; return detectTriggers(d); }"],
+      ["an optional computed `card` read", "calls", "function f4b(p) { return hasKeyword(p?.[\"card\"], \"flying\"); }"],
+      ["a computed `oracle` read off the printed card", "texts", "function f4c(p) { return /flying/.test(p.card[\"oracle\"]); }"],
+      ["a computed `oracle` read off an alias", "aliasUses", "function f4d(p) { const c = p.card; return String(c[\"oracle\"]); }"],
+      ["a logical-assignment alias", "aliasUses", "function f4e(p, c) { c ||= p.card; return detectTriggers(c); }"],
+      ["a routed form whose board test reads another state", "calls", "function f4f(state, other, p) { return detectTriggers(boardHasAbilityLoss(other) ? withAbilityLoss(state, p) : p.card); }"],
+    ];
+    const CONTROLS = [
+      "function k1(state, p, lossy) { return detectTriggers(lossy ? withAbilityLoss(state, p) : p.card); }",
+      "function k2(state, p) { return detectTriggers(boardHasAbilityLoss(state) ? withAbilityLoss(state, p) : p.card); }",
+      "function k3(p) { return typeLineOf(p.card) + String(p.card?.name); }",
+      "function k4(bf) { return bf.filter((p) => p.card?.isCommander).map((p) => p.id); }",
+    ];
+    const hitsOf = (src) => { const r = scanSources([{ file: "zzLintSample.js", src }]); return { calls: r.calls.filter((c) => !okCallee(c.callee)), aliasUses: r.aliasUses.filter((u) => u.use === ".oracle" || !okCallee(u.use)), texts: r.texts }; };
+    expect(SAMPLES.map(([label, rule, src]) => [label, hitsOf(src)[rule].length > 0])).toEqual(SAMPLES.map(([label]) => [label, true]));
+    expect(CONTROLS.map((src) => { const h = hitsOf(src); return [src, h.calls.length + h.aliasUses.length + h.texts.length]; })).toEqual(CONTROLS.map((src) => [src, 0]));
   });
 
   it("every allowlist entry matches the source exactly (site and count — no stale exemption) and states its reason", () => {
