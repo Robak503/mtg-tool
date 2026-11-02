@@ -21,6 +21,7 @@
 
 import { findPermanent, removeCounter, logEvent } from "./gameState.js";
 import { sacrificePermanentForCost } from "./costSacrifice.js"; // THE sacrifice outside a resolution (gameState, layers, triggers only — no cycle)
+import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // a permanent that lost its abilities has no fading or vanishing (CR 613.1f)
 
 // Keyword-position match (line start / keyword-list) so a reminder-text or granted mention can't false-fire.
 const FADING = /(?:^|\n|, |; )fading\s+(\d+)/i;
@@ -55,6 +56,9 @@ export function entersWithFadeCounters(card) {
  * fired Blood Artist and counted a death, a death-specific exile (an opponent's Misery's Shadow) was not the destination, and
  * Korvold never saw the sacrifice. The permanent is read off the live board at the sacrifice, after a vanishing counter came
  * off (its look-back holds the counters it left with).
+ * A permanent that lost all its abilities (CR 613.1f) has neither upkeep ability (CR 702.32a, 702.63a — both are abilities of the
+ * permanent): it keeps its counters and is never sacrificed by them. Read through the ability view on the board as the upkeep
+ * began, one board test per call.
  * Pure.
  */
 export function applyFadeVanishUpkeep(state) {
@@ -63,9 +67,10 @@ export function applyFadeVanishUpkeep(state) {
   if (!player) return state;
   let next = state;
   const sacrificed = [];
+  const lossy = abilityViewLossy(state);
   // Snapshot the battlefield up front (we mutate `next` while iterating).
   for (const snapshot of [...player.battlefield]) {
-    const fv = parseFadingVanishing(snapshot.card);
+    const fv = parseFadingVanishing(lossy ? abilityViewOf(state, snapshot) : snapshot.card);
     if (!fv) continue;
     const lk = findPermanent(next, snapshot.id);
     if (!lk) continue; // already gone

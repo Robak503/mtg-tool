@@ -36,7 +36,7 @@
  * watcher is byte-identical (the watchers scan is empty → the state is returned unchanged).
  */
 import { logEvent, untapOrConsumeStun } from "./gameState.js";
-import { permanentColors, permanentIsCreature } from "./layers.js";
+import { permanentColors, permanentIsCreature, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f)
 
 // Anchored to the WHOLE Murkfiend templating so no other card false-matches. The subject must be "all
 // green and/or blue creatures YOU control" (the controller's own green/blue creatures) and the timing must
@@ -68,11 +68,13 @@ export function applyMurkfiendUntap(state, activePlayer) {
   const players = state?.players;
   if (!players) return state;
   let next = state;
+  // A watcher that lost all its abilities (CR 613.1f) untaps nothing: read through the ability view, one board test per call.
+  const lossy = boardHasAbilityLoss(state);
   for (const pid of Object.keys(players)) {
     if (pid === activePlayer) continue; // the active player already untapped via the normal turn-based untapAll
     const player = next.players[pid];
     if (!player?.battlefield?.length) continue;
-    const hasWatcher = player.battlefield.some((perm) => isMurkfiendUntap(perm.card));
+    const hasWatcher = player.battlefield.some((perm) => isMurkfiendUntap(lossy ? withAbilityLoss(next, perm) : perm.card));
     if (!hasWatcher) continue;
     let changed = false;
     const becameUntapped = []; // BECOMES-UNTAPPED events (Mesmeric Orb) — real tapped→untapped transitions only

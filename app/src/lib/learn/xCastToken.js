@@ -10,6 +10,7 @@
  * detectTriggers / parseEffectProgram core. Pure (returns a new state).
  */
 import { applyCreateToken } from "./effects/effectAtoms.js";
+import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // the ability view (CR 613.1f — a zero-import leaf)
 
 const _NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -46,8 +47,11 @@ export function applyXCastTokenTriggers(state, { spellCard, casterId, xValue }) 
   const player = state.players?.[casterId];
   if (!player) return state;
   let next = state;
+  // A permanent that lost all its abilities (CR 613.1f) has no trigger (CR 603.2): read through the ability view on the board as the
+  // spell was cast, one board test per call.
+  const lossy = abilityViewLossy(state);
   for (const perm of [...player.battlefield]) {
-    const spec = parseXCastTokenTrigger(perm.card);
+    const spec = parseXCastTokenTrigger(lossy ? abilityViewOf(state, perm) : perm.card);
     if (!spec) continue;
     const atom = {
       op: "create-token",

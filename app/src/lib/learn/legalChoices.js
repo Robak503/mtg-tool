@@ -4526,6 +4526,8 @@ function actionsDeclareAttacker(state, playerId) {
   // the step that is not an attacker declaration (gameEngine.closeAttackDeclaration records combat.declaredAttackerCount
   // there); no creature is declared after it — not once the attack triggers are on the stack, not after a spell resolves.
   if (state.combat?.declaredAttackerCount != null) return none;
+  // ABILITY LOSS (CR 613.1f): the attack filters below read each creature's own text through the ability view — one board test here.
+  const lossy = lossyOf(state);
 
   // Creatures already attacking this combat can't be re-declared. Tapping on
   // attack already excludes most, but a Vigilance attacker stays untapped —
@@ -4563,7 +4565,7 @@ function actionsDeclareAttacker(state, playerId) {
     // creature never leads; the AI's per-tick re-offer sweeps it in on a later tick once a teammate is
     // declared). cantAttackAlone matches BOTH the bare "can't attack alone" and the combined "attack or block
     // alone" form — the block-only "can't block alone" (Craven Hulk) is NOT gated here (it may attack alone).
-    .filter(p => !cantAttackAlone(lossyOf(state) ? withAbilityLoss(state, p) : p.card) || declared.size > 0)
+    .filter(p => !cantAttackAlone(lossy ? withAbilityLoss(state, p) : p.card) || declared.size > 0)
     // SELF CAN'T-ATTACK[-OR-BLOCK], optionally LAND-GATED (CR 508.1c — Topiary Stomper "can't attack or block
     // unless you control seven or more lands"; the ungated "This creature can't attack." too). Read LIVE each
     // enumeration, so playing the seventh land frees it mid-turn. The BLOCK half of the same printed clause is
@@ -4575,7 +4577,7 @@ function actionsDeclareAttacker(state, playerId) {
     // predicate. Read LIVE each enumeration (layer-aware types/subtypes/power), so casting the missing
     // artifact this main phase immediately unlocks the attack.
     .filter(p => {
-      const req = attackControllerRequirementOf(lossyOf(state) ? withAbilityLoss(state, p) : p.card);
+      const req = attackControllerRequirementOf(lossy ? withAbilityLoss(state, p) : p.card);
       return !req || controllerMeetsBoardPredicate(state, playerId, p.id, req);
     });
 
@@ -4651,7 +4653,7 @@ function actionsDeclareAttacker(state, playerId) {
   // most of those requirements — a player other than X when one can be attacked without paying a cost, never a planeswalker
   // then — so no seat, a person's included, can declare it elsewhere.
   const allowedTargetsFor = (p) => {
-    const req = attackDefenderRequirementOf(lossyOf(state) ? withAbilityLoss(state, p) : p.card);
+    const req = attackDefenderRequirementOf(lossy ? withAbilityLoss(state, p) : p.card);
     return obeyingAttackOptions(state, playerId, p.id, targets.filter((t) =>
       canPayAttackTax(p, t)
       && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))));
@@ -4715,6 +4717,9 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   // closed — its block triggers fired (combat._blockTriggersFired, set by gameEngine.closeBlockDeclaration or a forced
   // advance) — the priority that follows offers no block: a creature can't join a block after the attacker has acted on it.
   if (state.combat?._blockTriggersFired) return [];
+  // ABILITY LOSS (CR 613.1f): the block filters and the block-count cap read each creature's own text through the ability view — one
+  // board test here.
+  const lossy = lossyOf(state);
 
   // MULTI-BLOCK (BLITZ CS-1, CR 509.1a): a creature may block ONE attacker by default; a printed
   // "can block an additional creature each combat" (max 2 — Selesnya Sagittars class) or "can block
@@ -4747,7 +4752,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
     // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the
     // attack-only "can't attack alone" (Raging Kronch) is NOT gated here (it may block alone).
-    .filter(p => !cantBlockAlone(lossyOf(state) ? withAbilityLoss(state, p) : p.card) || assigned.size > 0)
+    .filter(p => !cantBlockAlone(lossy ? withAbilityLoss(state, p) : p.card) || assigned.size > 0)
     // The BLOCK half of the land-gated self restriction (Topiary Stomper). The bare "can't block" is enforced
     // downstream in canBlockAttacker (isSelfCantBlock); this gate is what adds the LAND WINDOW, read live so
     // the seventh land frees it. Both halves of one printed clause, each enforced at the declaration site
@@ -4787,9 +4792,12 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
       if (minBlk > 1 && (blockersOnAttacker[attackerId] || 0) + eligible.length < minBlk) continue;  // a legal ≥N block can't be completed (menace / EV-3 set rule)
       // BLOCK-COUNT CAP (CR 509.1c) — "can't be blocked by more than one creature": once one blocker is on this
       // attacker, no further blocker may be declared (menace-inverse). PRINTED (the attacker's own card) OR
-      // GRANTED (Meltstrider's Resolve, W7 — the attached blockCapOne pseudo-keyword, lifted when the aura leaves).
-      if ((blockersOnAttacker[attackerId] || 0) >= 1
-        && (isBlockedByAtMostOne(findPermanent(state, attackerId)?.permanent?.card) || permanentHasKeyword(state, attackerId, "blockCapOne"))) continue;
+      // GRANTED (Meltstrider's Resolve, W7 — the attached blockCapOne pseudo-keyword, lifted when the aura leaves). The printed cap is the
+      // attacker's own static ability (CR 509.1b), so an attacker that lost all its abilities (CR 613.1f) has none: read through the view.
+      if ((blockersOnAttacker[attackerId] || 0) >= 1) {
+        const attPerm = findPermanent(state, attackerId)?.permanent;
+        if (isBlockedByAtMostOne(lossy ? withAbilityLoss(state, attPerm) : attPerm?.card) || permanentHasKeyword(state, attackerId, "blockCapOne")) continue;
+      }
       // N2: attach the attacker's name — without it, blocking among several attackers in a pod
       // renders as N byte-identical "Block the attacker with [[X]]." lines.
       const attackerName = findPermanent(state, attackerId)?.permanent?.card?.name || null;

@@ -1015,7 +1015,8 @@ function applyColorLayer(seed, l5) {
 }
 
 /** The card a permanent IS after layer 1 (CR 613.1a — copy effects; CR 707.2 — the copiable values they carry): the
- *  latest copy effect's copiable card by timestamp (CR 613.7), else null. ONE pick for the derive and boardCountColors. */
+ *  latest copy effect's copiable card by timestamp (CR 613.7), else null. Read through copySourceFor (the face-down rule) by the
+ *  derive and copyBaseOf. */
 function latestCopySource(copyEffects) {
   return copyEffects.length
     ? copyEffects.reduce((a, b) => ((b.timestamp ?? 0) >= (a.timestamp ?? 0) ? b : a)).copiableCard
@@ -1049,13 +1050,25 @@ function effectNamesPermanent(e, perm) {
 }
 
 /** The permanent over its COPIABLE values (CR 613.1a / 707.2): its card swapped for the latest layer-1 copy effect that names
- *  it — the pick deriveCharacteristics makes (latestCopySource) — or the permanent itself when nothing copies. Recursion-free:
+ *  it — the pick deriveCharacteristics makes (copySourceFor) — or the permanent itself when nothing copies. Recursion-free:
  *  every layer-1 copy effect the engine emits names its permanent (becomeCopy — self). */
 function copyBaseOf(state, perm) {
   const copies = boardCopyEffects(state); // layer 1 only — the loss filter never removes one
   if (copies.length === 0) return perm; // the board fast path: no copy effect anywhere — one memo read
-  const copySource = latestCopySource(copies.filter((e) => effectNamesPermanent(e, perm)));
+  const copySource = copySourceFor(perm, copies.filter((e) => effectNamesPermanent(e, perm)));
   return copySource ? { ...perm, card: copySource } : perm;
+}
+
+/**
+ * THE COPY PICK (CR 613.1a, 613.7b — the latest layer-1 copy effect among `copyEffects`, the ones that name `perm`), shared by
+ * deriveCharacteristics and copyBaseOf so the two can never disagree. A FACE-DOWN permanent has none (CR 708.10, 613.2b — the S0b
+ * review's F5): its copiable values become the copied permanent's "as modified by its face-down status", so it stays a face-down
+ * 2/2 with no name, text or keywords (the face-down sublayer 1b applies after the copy in 1a); once turned face up the same copy
+ * effect applies to it.
+ */
+function copySourceFor(perm, copyEffects) {
+  if (perm?.faceDown) return null;
+  return latestCopySource(copyEffects);
 }
 
 /** The board's layer-1 copy effects (CR 613.1a — `op: "copy"` with a copiable card), from the raw collection, memoized beside it
@@ -1664,6 +1677,8 @@ export function abilityViewPermanents(state, perms) {
  * keeps the mana abilities. A grant from an attachment attached after the loss applies. The host may be a look-back (its stamp).
  * The same-effect exception (`grantedWith`) is a layer-system descriptor; a printed attachment grant carries none, so a grant from
  * the very Aura that removes the abilities reads as cut (an under-read — S4 models those grants as siblings).
+ * A printed GROUP grant read outside the layers (kiraTargetCounter's "Creatures you control have …") passes its granter in the
+ * attachment's place: a static ability's effect has its object's timestamp (CR 613.7a), so the same reading holds.
  */
 export function attachedGrantCutByLoss(state, host, attachment, kind = "ability") {
   if (!host || host.id == null) return false;
@@ -2468,7 +2483,7 @@ export function deriveCharacteristics(state, permanentId) {
   // name means what it says (well-formed copy effects), and labelled so a later reader does not mistake it
   // for the thing that makes the malformed case safe. That protection is downstream.
   const copyEffects = selfEffectsAll.filter(e => e.layer === 1 && e.op === "copy" && e.copiableCard);
-  const copySource = latestCopySource(copyEffects); // the same pick boardCountColors makes
+  const copySource = copySourceFor(perm, copyEffects); // the same pick copyBaseOf makes (a face-down permanent has none — CR 708.10)
   const permBase = copySource ? { ...perm, card: copySource } : perm;
   // Layers 2+ still run; only the layer-1 records are consumed here.
   const selfEffects = copyEffects.length ? selfEffectsAll.filter(e => !(e.layer === 1 && e.op === "copy")) : selfEffectsAll;

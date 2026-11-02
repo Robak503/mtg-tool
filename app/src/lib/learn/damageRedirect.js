@@ -10,17 +10,19 @@
  * LEAF: imports the static-line recognizer and the layer-aware creature check; neither imports back.
  */
 import { playerDamageRedirectOf } from "./staticAbilityParser.js";
-import { permanentIsCreature } from "./layers.js";
+import { permanentIsCreature, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view: a permanent that lost its abilities redirects nothing (CR 613.1f)
 
 /**
  * The creature that damage about to be dealt to `playerId` is dealt to instead, or null. The first redirect on the player's
  * battlefield applies (CR 616.1 — the affected player picks which replacement applies; this is the deterministic pick). Its
  * recipient must be a creature on the battlefield right now, or the effect does nothing (CR 614.9): an Aura's or Equipment's
- * host, or the permanent itself for "this creature".
+ * host, or the permanent itself for "this creature". The redirection is the permanent's own static ability, so a permanent that
+ * lost all its abilities (CR 613.1f) has none: each is read through the ability view, one board test per call.
  */
 export function playerDamageRedirectTarget(state, playerId) {
+  const lossy = boardHasAbilityLoss(state);
   for (const perm of state?.players?.[playerId]?.battlefield || []) {
-    const who = playerDamageRedirectOf(perm.card);
+    const who = playerDamageRedirectOf(lossy ? withAbilityLoss(state, perm) : perm.card);
     if (!who) continue;
     const to = who === "this" ? perm.id : perm.attachedTo;
     if (to && permanentIsCreature(state, to)) return to;

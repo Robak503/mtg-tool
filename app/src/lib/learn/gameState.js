@@ -1721,14 +1721,36 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
  * member left no longer holds an earlier one; the shared `group` tells triggers.checkLeavesTriggers that every member left at the
  * same time, so a watcher among them saw the others go. An event already in a group keeps it (the enclosing operation is the
  * wider event — a destroy's death batch is part of the destroy). Fewer than two members is no batch. Pure.
+ *
+ * THE LOOK-BACK OF ONE EVENT (CR 603.10, 603.10a — the S0b review's F1): a leaves-the-battlefield ability looks back to the game
+ * immediately before the EVENT, and each member's own leave event was written off the board its own move left — after the members
+ * moved before it. So each member's ability-loss stamp (`lkiAbilityLoss`) is written again here, from the event's starting point:
+ *   · `before` — the board as the event began (the operation's input state): each member's stamp is abilityLossStamp on that board;
+ *   · `lookBacks` — the members' death look-backs (gameState.deathLookback, read on the board as the event began): each carries its
+ *     stamp, copied across (the death batch has no starting board of its own, and its look-backs already hold the answer).
+ * A Lignify (an Aura that removes its host's abilities) destroyed with its host before the host moves no longer erases the host's
+ * stamp, so the host's own leave triggers stay off whatever order the members move in. Only the stamp is restamped.
  */
-export function groupLeaveEvents(state, memberIds) {
+export function groupLeaveEvents(state, memberIds, { before = null, lookBacks = null } = {}) {
   const ids = new Set(memberIds);
   const evs = state.pendingLeaveEvents || [];
   const members = evs.filter((e) => ids.has(e.id) && e.group == null);
   if (members.length < 2) return state;
   const group = `leave:${members[0].id}`;
-  return { ...state, pendingLeaveEvents: evs.map((e) => (ids.has(e.id) && e.group == null ? { ...e, group } : e)) };
+  const lookBackOf = lookBacks ? new Map(lookBacks.filter((d) => d?.id != null).map((d) => [d.id, d])) : null;
+  const restamped = (e) => {
+    let stamp;
+    if (before) {
+      const lk = findPermanent(before, e.id);
+      if (!lk) return e;
+      stamp = abilityLossStamp(before, lk.permanent).lkiAbilityLoss;
+    } else if (lookBackOf?.has(e.id)) stamp = lookBackOf.get(e.id).lkiAbilityLoss;
+    else return e;
+    if (stamp === e.lkiAbilityLoss) return e;
+    const { lkiAbilityLoss: _was, ...rest } = e;
+    return stamp ? { ...rest, lkiAbilityLoss: stamp } : rest;
+  };
+  return { ...state, pendingLeaveEvents: evs.map((e) => (ids.has(e.id) && e.group == null ? { ...restamped(e), group } : e)) };
 }
 
 /**

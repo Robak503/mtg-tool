@@ -54,7 +54,7 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false, libraryIn
     }
   }
   // …and their leaves are one event (CR 603.10a): a leave watcher moved with the others saw them go (checkLeavesTriggers).
-  next = groupLeaveEvents(next, targets.map((t) => t.id));
+  next = groupLeaveEvents(next, targets.map((t) => t.id), { before: state }); // each member stamped off the board as the event began
   // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
   const effect = toZone === "exile" ? "exile" : toZone === "library" ? "tuck" : "bounce";
   return logEvent(next, { kind: "spell-effect", effect, targets: targets.map(t => t.id) });
@@ -241,7 +241,7 @@ export function applyBlink(state, atom, ctx) {
   }
   // The exile is one event (CR 603.10a): a leave watcher among the targets saw the others go; the cards coming back are new objects
   // that saw nothing (CR 400.7 — checkLeavesTriggers reads each leave's board).
-  next = groupLeaveEvents(next, leaving.map((l) => l.permId));
+  next = groupLeaveEvents(next, leaving.map((l) => l.permId), { before: state }); // each member stamped off the board as the exile began
   // `returnTo` picks the controller: "controller" for "under your control", "owner" for "under its owner's control". An Aura
   // whose side its reading can't tell goes back to the side it left (`auraSideHint` — auraEntry.auraEntryHostScore).
   // The return's own riders (play-weighted 2026-10-20): "tapped" (Eldrazi Displacer — CR 110.5b, the effect says otherwise) and

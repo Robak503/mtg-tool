@@ -21,7 +21,7 @@
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js";
-import { permanentHasKeyword, permanentIsCreature } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, abilityLossOf, boardHasAbilityLoss } from "./layers.js"; // + the ability-loss marker (CR 613.1f)
 
 // Combat-relevant keywords surfaced as badges on creature tiles.
 const BADGE_KEYWORDS = [
@@ -54,7 +54,7 @@ function cardView(card) {
 }
 
 /** A permanent on the battlefield — with derived characteristics + board state. */
-function permanentView(state, perm) {
+function permanentView(state, perm, lossy) {
   const t = typeOf(perm.card);
   // Layer-aware (WALT-ANIMATE): an animated land / man-land IS the creature it has become, so the
   // board shows it as a creature with its set P/T + granted keywords — not the printed land. `isLand`
@@ -74,6 +74,10 @@ function permanentView(state, perm) {
     isLand: /Land/.test(t),
     isCreature,
   };
+  // ABILITY LOSS (CR 613.1f — the S0b review's F7): `oracle` is the card's printed text, what the card says. A permanent that has lost
+  // all its abilities is marked beside it, so a reader of this view does not take the printed text for abilities it has (its keyword
+  // badges below already read through the layers). Present only while it applies (never on a board without a loss).
+  if (lossy && abilityLossOf(state, perm.id)) view.abilitiesLost = true;
   if (isCreature) {
     view.power = creaturePower(perm, state);
     view.toughness = creatureToughness(perm, state);
@@ -88,7 +92,8 @@ function permanentView(state, perm) {
 function playerView(state, id) {
   const p = state.players[id];
   const isUser = id === "user";
-  const battlefield = (p.battlefield || []).map(perm => permanentView(state, perm));
+  const lossy = boardHasAbilityLoss(state); // one board test per player view
+  const battlefield = (p.battlefield || []).map(perm => permanentView(state, perm, lossy));
   return {
     id,
     isUser,

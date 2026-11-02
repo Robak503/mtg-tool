@@ -88,7 +88,7 @@ export function sacrificePermanentsTogether(state, victims) {
     if (deathKind && deathKind !== "creature-dies") next = logEvent(next, { kind: deathKind, turn: next.turn, cardName: lk.permanent.card?.name, controller: playerId, via: "sacrifice" });
   }
   // One event (CR 603.10a): every victim leaves together, creature or not — a leave watcher among them saw the others go.
-  next = groupLeaveEvents(next, batch.map((v) => v.permId));
+  next = groupLeaveEvents(next, batch.map((v) => v.permId), { before: state }); // each member stamped off the board before any left
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
   // The sacrifice look-backs carry the types each had as it left (sacrificePermanentForCost's shape), for the creature scope.

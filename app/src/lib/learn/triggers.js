@@ -8010,7 +8010,8 @@ export function checkDiesTriggers(state, dead) {
     .map((e) => ({ id: e.id, controller: e.controller, card: e.card, attachedTo: null, ...lookBackLoss(e) }));
   // The batch's creatures left the battlefield in ONE event (CR 603.10a): marked so a leave watcher among them sees the others go
   // (checkLeavesTriggers' departed look-back) — an event already grouped by its operation (a wipe) keeps that wider group.
-  let state2 = checkLeavesTriggers(dead && dead.length > 1 ? groupLeaveEvents(state, dead.map((d) => d?.id)) : state);
+  // Each member's ability-loss stamp is copied from its death look-back (read on the board as the batch began — CR 603.10a).
+  let state2 = checkLeavesTriggers(dead && dead.length > 1 ? groupLeaveEvents(state, dead.map((d) => d?.id), { lookBacks: dead }) : state);
   if (!dead || !dead.length) return state2;
   // DEATHS-THIS-TURN (CR 700.4): bump each dying creature's controller's per-turn death tally BEFORE firing
   // dies-triggers, so a dies-triggered "for each creature that died this turn" payoff (and the "if a creature
@@ -8328,7 +8329,12 @@ export function checkLeavesTriggers(state) {
     // graveyard, exile, bounce, tuck (the "until" duration ends however the detainer leaves), UNLIKE
     // earthbend's dies-or-exiled rider. The links ride the trigger context; zones.applyDetainReturn
     // re-enters each card from its owner's exile zone (a gone card is a clean no-op).
-    if (e.detainedExile?.length) {
+    // A DETAINER THAT HAD LOST ITS ABILITIES (CR 613.1f, 603.10a — the S0b review's F2g): the "until" duration of the modern printing
+    // (Banisher Priest) is part of the resolved effect, not an ability (CR 610.3), so its return comes whatever the detainer lost; the
+    // OLD two-trigger printing (Fiend Hunter, Oblivion Ring — detainReturnIsTriggered reads which printing the card has) returns the
+    // card with the detainer's own leaves-the-battlefield ability, which a detainer that left with no abilities (its look-back
+    // stamp) does not have — the card stays exiled.
+    if (e.detainedExile?.length && !(e.lkiAbilityLoss && detainReturnIsTriggered(e.card))) {
       const desc = { event: "detainReturn", scope: "self", whose: "any", optional: false, effectClause: "[detain-return] return the exiled cards to the battlefield" };
       // A DETAINER WHOSE CONTROLLER LEFT THE GAME (CR 800.4a — Banishing Light leaves with its owner): the return is a one-shot
       // effect of the "until" duration ending (CR 610.3), not a triggered ability, so CR 800.4d does not stop it — the engine

@@ -42,7 +42,7 @@
  */
 
 import { findPermanent } from "./gameState.js";
-import { permanentIsCreature } from "./layers.js";
+import { permanentIsCreature, withAbilityLoss, boardHasAbilityLoss, attachedGrantCutByLoss } from "./layers.js"; // + the ability view and the grant cutoff (CR 613.1f, 613.7)
 import { counterIfCounterable } from "./effects/atoms/stack.js";
 
 // The canonical Kira grant sentence → true/false. Reminder text (CR 207.2) is parenthetical and stripped; the
@@ -59,10 +59,20 @@ export function hasKiraGrant(card) {
   return RE_KIRA_GRANT.test(oracle);
 }
 
-/** Does `playerId` control a Kira-style group-grant source right now? (Scans that player's battlefield.) */
-function controlsKira(state, playerId) {
+/**
+ * Does a Kira-style group grant reach `recipient` (a creature permanent its controller `playerId` controls) right now? The grant is
+ * a static ability of the source that gives each creature its controller controls the triggered ability, so (CR 613.1f, 613.7):
+ *   · a SOURCE that lost all its abilities grants nothing — its text is read through the ability view;
+ *   · a RECIPIENT that lost all its abilities at or after the grant's timestamp (the source's — CR 613.7a) does not have the granted
+ *     ability: the earlier grant applies first and the loss then removes it (layers.attachedGrantCutByLoss — the attachment cutoff's
+ *     reading, the granter in the attachment's place). A grant from a source that arrived after the loss applies.
+ * One board test per call; a board without a loss reads each source's printed card.
+ */
+function kiraGrantReaches(state, playerId, recipient, lossy) {
   for (const perm of state.players?.[playerId]?.battlefield || []) {
-    if (hasKiraGrant(perm?.card)) return true;
+    if (!hasKiraGrant(lossy ? withAbilityLoss(state, perm) : perm?.card)) continue;
+    if (lossy && attachedGrantCutByLoss(state, recipient, perm)) continue;
+    return true;
   }
   return false;
 }
@@ -94,13 +104,14 @@ export function applyKiraTargetCounter(state, stackObj) {
     if (!lk?.permanent) continue; // target already gone (a fizzled earlier target) — skip
     if (!permanentIsCreature(state, t.id)) continue; // Kira grants only to CREATURES you control (layer-aware)
     seen.add(t.id);
-    creatures.push({ id: t.id, wasFresh: !lk.permanent.becameTargetThisTurn, controller: lk.controller });
+    creatures.push({ id: t.id, wasFresh: !lk.permanent.becameTargetThisTurn, controller: lk.controller, permanent: lk.permanent });
   }
   if (!creatures.length) return state;
 
   // Decide the counter from the PRE-EXISTING freshness (before we set the flag below): counter iff some targeted
-  // creature is fresh AND its controller controls a Kira source.
-  const shouldCounter = creatures.some((c) => c.wasFresh && controlsKira(state, c.controller));
+  // creature is fresh AND a Kira source its controller controls grants it the trigger (kiraGrantReaches — the loss on either side).
+  const lossy = boardHasAbilityLoss(state);
+  const shouldCounter = creatures.some((c) => c.wasFresh && kiraGrantReaches(state, c.controller, c.permanent, lossy));
 
   // Mark every targeted creature as having become a target this turn (CR 603.2 — they all did, regardless of
   // Kira / of whether the object gets countered). One battlefield map per affected controller.

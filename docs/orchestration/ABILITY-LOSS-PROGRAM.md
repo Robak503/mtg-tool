@@ -12,7 +12,7 @@ every stage off, its predicate wired into the four consult points. Mechanics: EN
 S0a's blind review (LAND-WITH-NOTES): F1 (the view memo's key), F2 (the subtype counts inside the derive), F4 (loyalty lines), F7
 (memo reads inside a loss decision), F8 (the Changeling pins) and F9 (the save format, v7) are fixed in S0a; F3 and F6 are S3
 prerequisites (below, after the slice table); F5 is in S0b's hand-off (the research file's table).
-**S0b (built, 2026-11-01 — day/abloss-s0b on 24f69959; awaiting its blind review):** §1 items 8–9 and every reader OUTSIDE layers.js
+**S0b (built, 2026-11-01 — day/abloss-s0b on 24f69959; landed as 0b1e9bea; its review and fix below):** §1 items 8–9 and every reader OUTSIDE layers.js
 routed through the view — the research file's §0b table (file:line) and ENGINE-SCAFFOLD §4.6 "The routed readers". Four mechanisms: the
 view (`withAbilityLoss` over each reader's own base; `abilityView.abilityViewOf` for the modules layers.js imports), the look-back stamp
 (`abilityLossStamp` → `lkiAbilityLoss` on the death and leave look-backs — §1.9, the review's F5), the attachment cutoff
@@ -23,6 +23,20 @@ stamp, a stamp-only migration). The §5 witnesses: `abilityLossReaders.test.js` 
 vanilla-twin differential, grant timing, the look-back, the copy-aware seed) and the source lint `abilityLossLint.test.js` (two
 allowlists — five raw reader calls, three direct text reads — each with its reason). Evidence: the RUN-LEDGER entry. S0 lands when
 S0b's review passes; no stage turns on before.
+**S0b's blind review (2026-11-02, `review-abloss-s0b.md`): FIX-BEFORE-S1 — correction:** "every reader OUTSIDE layers.js routed" above
+was not true at S0b (0b1e9bea). F1: a group leave event (a wipe, a mass bounce or exile, a blink, a group sacrifice, a death batch) was
+stamped member by member, so an Aura that removes its host's abilities and moves first handed the host back its own leave triggers;
+F2 / F3: eight readers still read the printed card (Ascend, fading / vanishing, the player damage redirect, Kira both ways, Murkfiend
+Liege, Zaxara's X-cast token, Fiend Hunter's triggered return, the "can't be blocked by more than one creature" cap); F4: the census had
+no carrier for them and the lint could not see their shapes; F5: a face-down permanent that became a copy took the copy's keywords;
+F6: "one board test per scan" was inexact; F7: the board view showed a lost permanent's printed text with no mark.
+**The S0b fix (day/abloss-s0bfix on 0b1e9bea, 2026-11-02 — built; for the integrator):** every finding reproduced and is fixed —
+`groupLeaveEvents` restamps every member from the event's starting board (or the death batch's look-backs); the eight readers route
+through the view (Kira's recipient through the grant cutoff); the census has a carrier and a row for each; the source lint is INVERTED
+(every printed card handed to a function outside two closed lists — characteristic readers, card handlers — is a site with its
+reason, keyed by file, function and call; red on 0b1e9bea at every F2 / F3 site); a face-down permanent takes no copy pick (CR 708.10);
+the docs say "per scan, or an O(1) read per element"; the board view marks `abilitiesLost`. The whole-corpus twin comparisons are
+`app/scripts/ability-loss-twin-diff.mjs`. Evidence: its RUN-LEDGER entry. S1 may start when the fix lands.
 **What S1 needs from S0b** (Lignify and the existing-op family): an Aura shape emitting `loseAllAbilities` beside its 7b set / subtype
 replace / colour set — the readers are routed, so a lost Lignified creature already reads vanilla everywhere once the op is emitted;
 the fast path then takes the full collection on every board (`abilityLossShapesMayEmit` turns true with the stage), so S1 re-measures

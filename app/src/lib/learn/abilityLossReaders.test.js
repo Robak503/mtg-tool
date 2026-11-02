@@ -16,7 +16,14 @@
  *      the loss is cut, one after counts; a same-effect (`grantedWith`) grant is kept — through the routed readers.
  *   4. THE LOOK-BACK (CR 603.10a — the S0a review's F5): a creature that lost its abilities dies or leaves with none, so its own dies
  *      and leave triggers do not fire, and a granted dies trigger made before the loss stays cut (one made after fires).
- *   5. THE COPY-AWARE KEYWORD SEED (the S0a found-not-fixed (2)): a permanent that became a copy has the copy's printed keywords.
+ *   5. THE COPY-AWARE KEYWORD SEED (the S0a found-not-fixed (2)): a permanent that became a copy has the copy's printed keywords —
+ *      and a FACE-DOWN permanent that became one stays a face-down 2/2 (CR 708.10 — the S0b review's F5).
+ *   6. THE LOOK-BACK OF ONE EVENT (CR 603.10a — the S0b review's F1): several permanents leaving together — a wipe, a mass bounce or
+ *      exile, a blink, a group sacrifice, a death batch — are each looked back at on the board as the event began, so an Aura (or a
+ *      static source) that removes its host's abilities and leaves first does not hand the host back its own leave triggers.
+ *
+ * The S0b review's F2 / F3 readers (Ascend, fading, the damage redirect, Kira both ways, Murkfiend Liege, Zaxara, Fiend Hunter's
+ * triggered return, the block-count cap) have carriers in the corpus and rows below.
  *
  * Read only through PUBLIC readers that existed before the slice (the check* trigger dispatchers, legalActionsForPlayer,
  * manaSources, permanentHasKeyword, canBlockAttacker, resolveCombatDamage, applyEnterReplacements, dispatchAction, the board
@@ -44,12 +51,25 @@ import * as RS from "./resolvers.js";
 import * as AD from "./actionDispatcher.js";
 import * as SU from "./seedbornUntap.js";
 import * as GE from "./gameEngine.js";
+import * as SE from "./spellEffects.js";
+import * as ZN from "./effects/atoms/zones.js";
+import * as CS from "./costSacrifice.js";
+import * as PR from "./effects/parser.js";
+import * as RP from "./effects/runProgram.js";
+import * as SBA from "./sba.js";
+import * as ASC from "./ascend.js";
+import * as FAD from "./fading.js";
+import * as KIRA from "./kiraTargetCounter.js";
+import * as MURK from "./murkfiendUntap.js";
+import * as XC from "./xCastToken.js";
+import { _withAbilityLossShapesForTests } from "./abilityLossShapes.js";
+import { boardSnapshot } from "./boardSnapshot.js";
 import { COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS } from "./keywords.js";
 
 beforeEach(() => G._resetIdsForTests());
 
 // ─── the corpus sample (bundled Scryfall data — generated, never typed) ────────────────────────────────────────────────────────
-// 118 cards: a carrier for each routed reader (triggers, activated and mana abilities, combat text, keywords, protection,
+// 126 cards: a carrier for each routed reader (triggers, activated and mana abilities, combat text, keywords, protection,
 // ward, the board scanners, the cost scanners, the entry replacements), the attachments that grant abilities, and a neutral support set
 const CORPUS = [
 {"name":"Blood Artist","type":"Creature — Vampire","mana":"{1}{B}","oracle":"Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.","layout":"normal","cmc":2,"power":"0","toughness":"1","loyalty":null,"keywords":[],"colors":["B"],"colorIdentity":["B"]},
@@ -170,9 +190,25 @@ const CORPUS = [
   {"name":"Reliquary Tower","type":"Land","mana":"","oracle":"You have no maximum hand size.\n{T}: Add {C}.","layout":"normal","cmc":0,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":[],"colorIdentity":[]},
   {"name":"Thragtusk","type":"Creature — Beast","mana":"{4}{G}","oracle":"When this creature enters, you gain 5 life.\nWhen this creature leaves the battlefield, create a 3/3 green Beast creature token.","layout":"normal","cmc":5,"power":"5","toughness":"3","loyalty":null,"keywords":[],"colors":["G"],"colorIdentity":["G"]},
   {"name":"Zendikar Resurgent","type":"Enchantment","mana":"{5}{G}{G}","oracle":"Whenever you tap a land for mana, add one mana of any type that land produced. (The types of mana are white, blue, black, red, green, and colorless.)\nWhenever you cast a creature spell, draw a card.","layout":"normal","cmc":7,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["G"],"colorIdentity":["G"]},
+  {"name":"Wayward Swordtooth","type":"Creature — Dinosaur","mana":"{2}{G}","oracle":"Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nYou may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the city's blessing.","layout":"normal","cmc":3,"power":"5","toughness":"5","loyalty":null,"keywords":["Ascend"],"colors":["G"],"colorIdentity":["G"]},
+  {"name":"Blastoderm","type":"Creature — Beast","mana":"{2}{G}{G}","oracle":"Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)","layout":"normal","cmc":4,"power":"5","toughness":"5","loyalty":null,"keywords":["Shroud","Fading"],"colors":["G"],"colorIdentity":["G"]},
+  {"name":"Protector of the Crown","type":"Creature — Giant Soldier","mana":"{5}{W}","oracle":"When this creature enters, you become the monarch.\nAll damage that would be dealt to you is dealt to this creature instead.","layout":"normal","cmc":6,"power":"2","toughness":"5","loyalty":null,"keywords":[],"colors":["W"],"colorIdentity":["W"]},
+  {"name":"Empyrial Archangel","type":"Creature — Angel","mana":"{4}{G}{W}{W}{U}","oracle":"Flying\nShroud (This creature can't be the target of spells or abilities.)\nAll damage that would be dealt to you is dealt to this creature instead.","layout":"normal","cmc":8,"power":"5","toughness":"8","loyalty":null,"keywords":["Flying","Shroud"],"colors":["G","U","W"],"colorIdentity":["G","U","W"]},
+  {"name":"Kira, Great Glass-Spinner","type":"Legendary Creature — Spirit","mana":"{1}{U}{U}","oracle":"Flying\nCreatures you control have \"Whenever this creature becomes the target of a spell or ability for the first time each turn, counter that spell or ability.\"","layout":"normal","cmc":3,"power":"2","toughness":"2","loyalty":null,"keywords":["Flying"],"colors":["U"],"colorIdentity":["U"]},
+  {"name":"Murkfiend Liege","type":"Creature — Horror","mana":"{2}{G/U}{G/U}{G/U}","oracle":"Other green creatures you control get +1/+1.\nOther blue creatures you control get +1/+1.\nUntap all green and/or blue creatures you control during each other player's untap step.","layout":"normal","cmc":5,"power":"4","toughness":"4","loyalty":null,"keywords":[],"colors":["G","U"],"colorIdentity":["G","U"]},
+  {"name":"Zaxara, the Exemplary","type":"Legendary Creature — Nightmare Hydra","mana":"{1}{B}{G}{U}","oracle":"Deathtouch\n{T}: Add two mana of any one color.\nWhenever you cast a spell with {X} in its mana cost, create a 0/0 green Hydra creature token, then put X +1/+1 counters on it.","layout":"normal","cmc":4,"power":"2","toughness":"3","loyalty":null,"keywords":["Deathtouch"],"colors":["B","G","U"],"colorIdentity":["B","G","U"]},
+  {"name":"Fiend Hunter","type":"Creature — Human Cleric","mana":"{1}{W}{W}","oracle":"When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.","layout":"normal","cmc":3,"power":"1","toughness":"3","loyalty":null,"keywords":[],"colors":["W"],"colorIdentity":["W"]},
+];
+// Not census probes: the cards the event witnesses use (an Aura that removes its host's abilities, a one-sided wipe, an "until"
+// detainer, an {X} spell) — generated from the bundled oracle like the corpus.
+const EXTRA = [
+  {"name":"Lignify","type":"Kindred Enchantment — Treefolk Aura","mana":"{1}{G}","oracle":"Enchant creature\nEnchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities.","layout":"normal","cmc":2,"power":null,"toughness":null,"loyalty":null,"keywords":["Enchant"],"colors":["G"],"colorIdentity":["G"]},
+  {"name":"Ruinous Ultimatum","type":"Sorcery","mana":"{R}{R}{W}{W}{W}{B}{B}","oracle":"Destroy all nonland permanents your opponents control.","layout":"normal","cmc":7,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["B","R","W"],"colorIdentity":["B","R","W"]},
+  {"name":"Banisher Priest","type":"Creature — Human Cleric","mana":"{1}{W}{W}","oracle":"When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.","layout":"normal","cmc":3,"power":"2","toughness":"2","loyalty":null,"keywords":[],"colors":["W"],"colorIdentity":["W"]},
+  {"name":"Fireball","type":"Sorcery","mana":"{X}{R}","oracle":"This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets.","layout":"normal","cmc":1,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["R"],"colorIdentity":["R"]},
 ];
 const card = (name) => {
-  const c = CORPUS.find((x) => x.name === name);
+  const c = CORPUS.find((x) => x.name === name) ?? EXTRA.find((x) => x.name === name);
   if (!c) throw new Error(`not in the corpus: ${name}`);
   return c;
 };
@@ -309,6 +345,34 @@ const READERS = [
   ["indestructible: live and as it last existed (isIndestructible)", (s) => (G.isIndestructible(permOf(s, ID), s) ? 1 : 0) + (G.isIndestructible(deathOf(s, ID).lk, null) ? 1 : 0)],
   // ── the collection (layers — S0a's filter, read here as a census row) ──
   ["statics: collected effects at layer 6+ sourced from it", (s) => L.collectContinuousEffects(s).filter((e) => e.source?.kind === "static" && e.source.permanentId === ID && !(e.layer >= 1 && e.layer <= 5)).length],
+  // ── the S0b review's F2 readers (each read the printed card on 0b1e9bea) ──
+  ["ascend: the city's blessing at ten permanents (grantCitysBlessings — CR 702.131b)", (s) => {
+    const extra = Array.from({ length: 4 }, (_, i) => ({ ...G.createPermanent({ id: `asc-${i}`, card: { ...card("Forest"), id: `card-asc-${i}` }, controller: "user", summoningSick: false }), timestamp: s.timestampCounter + i }));
+    const sx = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [...s.players.user.battlefield, ...extra] } } };
+    return ASC.grantCitysBlessings(sx).players.user.citysBlessing === true ? 1 : 0;
+  }],
+  ["fading / vanishing at its controller's upkeep (applyFadeVanishUpkeep — CR 702.32a, 702.63a)", (s) => {
+    const sx = { ...s, phase: "beginning", step: "upkeep", players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === ID ? { ...p, counters: { ...(p.counters || {}), fade: 1, time: 1 } } : p)) } } };
+    const after = permOf(FAD.applyFadeVanishUpkeep(sx), ID);
+    return !after || JSON.stringify(after.counters) !== JSON.stringify(permOf(sx, ID).counters) ? 1 : 0;
+  }],
+  ["damage redirect: a spell's damage to its controller is dealt to it instead (applyDamageEffect — CR 614.9)", (s) => {
+    const next = SE.applyDamageEffect(s, { controller: "ai", amount: 3, targetType: "any", targets: [{ type: "player", id: "user" }], source: { ...card("Lightning Bolt"), id: "redirect-bolt" } });
+    return next.players.user.life === s.players.user.life ? 1 : 0;
+  }],
+  ["Kira (the source): the first spell targeting its controller's creature is countered (applyKiraTargetCounter)", (s) => {
+    const so = { id: "kira-so", kind: "spell", controller: "ai", source: { ...card("Lightning Bolt"), id: "kira-bolt" }, targets: [{ type: "creature", id: SUP }] };
+    const next = KIRA.applyKiraTargetCounter({ ...s, stack: [...(s.stack || []), so] }, so);
+    return (next.stack || []).some((x) => x.id === so.id) ? 0 : 1;
+  }],
+  ["Murkfiend Liege: its controller's green creature untaps in another player's untap step (applyMurkfiendUntap)", (s) => {
+    const tapped = { ...s, activePlayer: "ai", players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === SUP ? { ...p, tapped: true } : p)) } } };
+    return permOf(MURK.applyMurkfiendUntap(tapped, "ai"), SUP).tapped ? 0 : 1;
+  }],
+  ["Zaxara: a token as its controller casts an {X} spell (applyXCastTokenTriggers — CR 603.2)", (s) => {
+    const next = XC.applyXCastTokenTriggers(s, { spellCard: { ...card("Fireball"), id: "x-fireball" }, casterId: "user", xValue: 2 });
+    return next.players.user.battlefield.length - s.players.user.battlefield.length;
+  }],
 ];
 
 // ── the readers whose answer has no "empty" of its own: run against the board with the no-text twin in its place (same name) ──
@@ -328,6 +392,11 @@ function combatReadout(s) {
     cantAttack: CE.selfCantAttackNow(s, p),
     cantBlock: CE.selfCantBlockNow(s, p),
     mustAttack: AR.mustAttackNow(s, "user", p),
+    // the declare-blockers offers with one blocker already on it (CR 509.1b — "can't be blocked by more than one creature": the S0b
+    // review's F3): which other creatures the defender is offered as a second blocker
+    secondBlocker: LC.legalActionsForPlayer({ ...s, priorityHolder: "ai", phase: "combat", step: "declare-blockers",
+      combat: { attackers: [{ permanentId: subj, attackingPlayer: "user", defender: "ai" }], blockers: [{ blockerId: "aiBear", attackerId: subj }] } }, "ai")
+      .filter((a) => a.kind === "declare-blocker" && a.attackerId === subj).map((a) => a.permanentId),
   };
 }
 function damageReadout(s) {
@@ -541,6 +610,19 @@ describe("GRANT TIMING through the routed readers (§5.4 — CR 613.7, 613.7c, 6
     t = L.addContinuousEffect(t, { layer: 6, op: { layerOp: "addKeyword", keyword: "Indestructible" }, affects: { mode: "fixed", permanentIds: [ID] }, duration: { kind: "endOfTurn", turn: t.turn }, source: { kind: "resolution", permanentId: null, controller: "ai" }, timestamp: ts }).state;
     expect(G.isIndestructible(permOf(t, ID), t)).toBe(false);
   });
+  it("Kira's printed group grant (the S0b review's F2d, CR 613.7a): a creature that lost its abilities AFTER Kira arrived has no counter-trigger; one that lost them BEFORE Kira arrived has it", () => {
+    const so = { id: "kira-so", kind: "spell", controller: "ai", source: { ...card("Lightning Bolt"), id: "kira-bolt" }, targets: [{ type: "creature", id: SUP }] };
+    const countered = (s) => !(KIRA.applyKiraTargetCounter({ ...s, stack: [...(s.stack || []), so] }, so).stack || []).some((x) => x.id === so.id);
+    // board(): the Grizzly Bears (sup) has timestamp 1, Kira (the probe) timestamp 2 — a loss made now is newer than Kira's grant
+    const kira = board(card("Kira, Great Glass-Spinner"));
+    expect(countered(kira)).toBe(true); // control: the grant reaches the Bears
+    expect(countered(lose(kira, [SUP]))).toBe(false);
+    // the Bears lost its abilities, THEN a Kira entered (a newer timestamp): the grant applies to it (CR 613.7)
+    const lostFirst = lose(board(card("Grizzly Bears")), [SUP]);
+    const lateKira = { ...G.createPermanent({ id: "late-kira", card: { ...card("Kira, Great Glass-Spinner"), id: "card-late-kira" }, controller: "user", summoningSick: false }), timestamp: lostFirst.timestampCounter };
+    const withLateKira = { ...lostFirst, timestampCounter: lostFirst.timestampCounter + 1, players: { ...lostFirst.players, user: { ...lostFirst.players.user, battlefield: [...lostFirst.players.user.battlefield, lateKira] } } };
+    expect(countered(withLateKira)).toBe(true);
+  });
 });
 
 describe("THE LOOK-BACK (CR 603.10a — the S0a review's F5)", () => {
@@ -571,6 +653,17 @@ describe("THE LOOK-BACK (CR 603.10a — the S0a review's F5)", () => {
     const clean = G.moveCardToZone(board(card("Progenitus")), { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: ID });
     expect(clean.players.user.graveyard.some((c) => c.id === `card-${ID}`)).toBe(false); // control: printed, it shuffles away
   });
+  it("a detainer's return as it leaves (the S0b review's F2g): Fiend Hunter's — its own leaves-the-battlefield ability — is gone with its abilities; Banisher Priest's \"until\" (a duration, CR 610.3) still returns the card", () => {
+    const holding = (s) => ({ ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === ID ? { ...p, detainedExile: [{ cardId: "card-detained", ownerId: "ai" }] } : p)) } } });
+    const returns = (s) => {
+      const after = G.moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: ID });
+      return (T.checkDiesTriggers(fresh(after), []).pendingTriggers || []).filter((t) => t.event === "detainReturn").length;
+    };
+    expect(returns(holding(board(card("Fiend Hunter"))))).toBe(1); // control
+    expect(returns(lose(holding(board(card("Fiend Hunter")))))).toBe(0);
+    expect(returns(holding(board(card("Banisher Priest"))))).toBe(1);
+    expect(returns(lose(holding(board(card("Banisher Priest")))))).toBe(1);
+  });
 });
 
 describe("THE COPY-AWARE KEYWORD SEED (the S0a found-not-fixed (2) — CR 613.1a, 707.2)", () => {
@@ -581,5 +674,98 @@ describe("THE COPY-AWARE KEYWORD SEED (the S0a found-not-fixed (2) — CR 613.1a
     expect(CE.canBlockAttacker(bears, "aiBear", ID, "ai")).toBe(false);
     const angel = copyOf(board(card("Serra Angel")), card("Grizzly Bears"));
     expect(L.permanentHasKeyword(angel, ID, "Flying")).toBe(false);
+  });
+  it("a FACE-DOWN 2/2 that becomes a copy of Serra Angel stays a face-down 2/2 (CR 708.10, 613.2b — the S0b review's F5): no flying at the seed or the derive", () => {
+    const copyOf = (s, c) => L.addContinuousEffect(s, { layer: 1, op: "copy", copiableCard: { ...c, id: "copied" }, affects: { mode: "self", permanentId: ID }, duration: { kind: "endOfTurn", turn: s.turn }, source: { kind: "resolution", permanentId: ID } }).state;
+    // the face-down card the engine's manifest atom builds (effects/atoms/manifest.js), with the Serra Angel it hides as its face-up card
+    const faceDown = { name: "", power: 2, toughness: 2, type: "Creature", keywords: [], faceDown: true };
+    const s0 = board(faceDown);
+    const fd = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: s0.players.user.battlefield.map((p) => (p.id === ID ? { ...p, faceDown: true, faceUpCard: { ...card("Serra Angel"), id: "card-hidden" } } : p)) } } };
+    const s = copyOf(fd, card("Serra Angel"));
+    expect(L.permanentHasKeyword(s, ID, "Flying")).toBe(false);
+    const d = L.deriveCharacteristics(s, ID);
+    expect([d.power, d.toughness, [...(d.keywords || [])].map((k) => String(k).toLowerCase()).includes("flying")]).toEqual([2, 2, false]);
+    expect(CE.canBlockAttacker(s, "aiBear", ID, "ai")).toBe(true); // a Grizzly Bears can block it
+  });
+});
+
+describe("THE LOOK-BACK OF ONE EVENT — several permanents leave together (CR 603.10, 603.10a — the S0b review's F1)", () => {
+  // Lignify's own clause, as the attached-clause parser hands it over, registered as a test shape (stage S1) emitting the loss — the
+  // shape S1 turns on. With it Thragtusk under Lignify has no abilities; its leave trigger must stay off however the event orders its moves.
+  const LIGNIFY_LOSS = { id: "test-lignify-loss", stage: "S1", pattern: /^enchanted creature is a treefolk with base power and toughness 0\/4 and loses all abilities$/,
+    emit: { attached: [{ layer: 6, op: { layerOp: "loseAllAbilities" }, duration: { kind: "permanent" } }] } };
+  // Humility's own clause (the static consult point) — a static loss over every creature, from a source that dies in the batch.
+  const HUMILITY_LOSS = { id: "test-humility-loss", stage: "S3", pattern: /^all creatures lose all abilities and have base power and toughness 1\/1$/i,
+    emit: { static: [{ layer: 6, op: { layerOp: "loseAllAbilities" }, affects: { mode: "dynamic", selector: { cardTypes: ["Creature"] } }, duration: { kind: "permanent" } }] } };
+  const withShapes = (fn) => _withAbilityLossShapesForTests([LIGNIFY_LOSS, HUMILITY_LOSS], { S1: true, S3: true }, fn);
+  const tuskLeaves = (s) => (s.pendingTriggers || []).filter((t) => t.source?.permanentId === "tusk").length;
+  /** Thragtusk ("tusk") with an Aura ("aura": Lignify, or the control's Sixth Sense) attached, on the given seats. */
+  function hosted(auraName, { auraSeat = "user", hostSeat = "user", commander = false } = {}) {
+    const s0 = commander ? G.createGameState({ userDeck: [], opponentDecks: [[], [], []], mode: "commander" }) : G.createGameState({ userDeck: [], aiDeck: [] });
+    let s = { ...s0, turn: 3, timestampCounter: 1, pendingTriggers: [] };
+    const put = (st, pid, id, c) => ({ ...st, timestampCounter: st.timestampCounter + 1,
+      players: { ...st.players, [pid]: { ...st.players[pid], battlefield: [...st.players[pid].battlefield, { ...G.createPermanent({ id, card: { ...c, id: `card-${id}` }, controller: pid, summoningSick: false }), timestamp: st.timestampCounter }] } } });
+    s = put(s, hostSeat, "tusk", card("Thragtusk"));
+    s = put(s, auraSeat, "aura", card(auraName));
+    return G.attachPermanent(s, { equipId: "aura", targetId: "tusk" });
+  }
+  const targetsOf = (order) => order.map((id) => ({ type: id === "tusk" ? "creature" : "permanent", id }));
+  const events = {
+    destroy: (s, order) => SE.applyDestroyEffect(s, { controller: "ai", targets: targetsOf(order) }),
+    bounce: (s, order) => T.checkDiesTriggers(ZN.applyZoneMove(s, { op: "bounce", targetType: "creature" }, { controller: "ai", targets: targetsOf(order) }, "hand"), []),
+    exile: (s, order) => T.checkDiesTriggers(ZN.applyZoneMove(s, { op: "exile", targetType: "creature" }, { controller: "ai", targets: targetsOf(order) }, "exile"), []),
+    blink: (s, order) => T.checkDiesTriggers(ZN.applyBlink(s, { op: "blink" }, { controller: "user", targets: targetsOf(order) }), []),
+  };
+  it("Ruinous Ultimatum — its parsed program, resolved — over a Lignify on another seat's Thragtusk: no Thragtusk leave trigger, in either seat order", () => {
+    const program = PR.parseEffectProgram({ ...card("Ruinous Ultimatum") });
+    const cast = (s) => RP.runEffectProgram(s, { kind: "spell", source: { ...card("Ruinous Ultimatum"), id: "card-ruin" }, payload: { params: { program, controller: "user", targets: [], sourceId: null, context: {} } } });
+    for (const [auraSeat, hostSeat] of [["ai1", "ai2"], ["ai2", "ai1"]]) {
+      expect(tuskLeaves(cast(hosted("Sixth Sense", { auraSeat, hostSeat, commander: true }))), `control ${auraSeat}/${hostSeat}`).toBe(1);
+      withShapes(() => {
+        const s = hosted("Lignify", { auraSeat, hostSeat, commander: true });
+        expect(L.abilityLossOf(s, "tusk")).not.toBe(null);
+        expect(tuskLeaves(cast(s)), `${auraSeat}'s Lignify on ${hostSeat}'s Thragtusk`).toBe(0);
+      });
+    }
+  });
+  it("a destroy, a mass bounce or exile, and a blink of the Aura and its host, in both orders: no Thragtusk leave trigger (the control fires one)", () => {
+    for (const [name, run] of Object.entries(events)) {
+      for (const order of [["aura", "tusk"], ["tusk", "aura"]]) {
+        expect(tuskLeaves(run(hosted("Sixth Sense"), order)), `control: ${name} [${order}]`).toBe(1);
+        withShapes(() => expect(tuskLeaves(run(hosted("Lignify"), order)), `${name} [${order}]`).toBe(0));
+      }
+    }
+  });
+  it("a group sacrifice of the Aura and its host (sacrificePermanentsTogether): no Thragtusk leave trigger", () => {
+    const sac = (s) => CS.sacrificePermanentsTogether(s, [{ playerId: "user", permId: "aura" }, { playerId: "user", permId: "tusk" }]);
+    expect(tuskLeaves(sac(hosted("Sixth Sense")))).toBe(1); // control
+    withShapes(() => expect(tuskLeaves(sac(hosted("Lignify")))).toBe(0));
+  });
+  it("the death batch (the state-based actions): an animated Humility dies beside the Thragtusk it strips — no leave trigger, in either order", () => {
+    for (const first of ["hum", "tusk"]) {
+      const s0 = G.createGameState({ userDeck: [], aiDeck: [] });
+      const mk = (id, c, ts) => ({ ...G.createPermanent({ id, card: { ...c, id: `card-${id}-${first}` }, controller: "user", summoningSick: false }), timestamp: ts, enteredOnTurn: 1, damageMarked: 9 });
+      const pair = [mk("hum", card("Humility"), 1), mk("tusk", card("Thragtusk"), 2)];
+      const base = { ...s0, turn: 3, timestampCounter: 3, pendingTriggers: [], players: { ...s0.players, user: { ...s0.players.user, battlefield: first === "hum" ? pair : pair.reverse() } } };
+      // Humility made a creature (no printed toughness: a 0/0 that dies by the state-based actions, CR 704.5f)
+      const animated = (s) => L.addContinuousEffect(s, { layer: 4, op: { layerOp: "addType", types: ["Creature"] }, affects: { mode: "fixed", permanentIds: ["hum"] }, duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: null, controller: "user" } }).state;
+      withShapes(() => {
+        const s = animated(base);
+        expect([L.permanentIsCreature(s, "hum"), L.abilityLossOf(s, "tusk") != null]).toEqual([true, true]);
+        const after = SBA.checkAllStateBasedActions(s);
+        expect(after.players.user.battlefield.map((p) => p.id)).toEqual([]);
+        expect(tuskLeaves(after), `Humility moving ${first === "hum" ? "first" : "second"}`).toBe(0);
+      });
+    }
+  });
+});
+
+describe("THE BOARD VIEW (the S0b review's F7)", () => {
+  const probeView = (s) => boardSnapshot(s).players.find((p) => p.id === "user").permanents.find((v) => v.id === ID);
+  it("the board snapshot marks a permanent that lost all its abilities, beside its printed text; a loss-free board carries no mark", () => {
+    const clean = probeView(board(card("Serra Angel")));
+    expect([clean.abilitiesLost, clean.oracle, clean.keywords]).toEqual([undefined, card("Serra Angel").oracle, ["Flying", "Vigilance"]]);
+    const lost = probeView(lose(board(card("Serra Angel"))));
+    expect([lost.abilitiesLost, lost.oracle, lost.keywords]).toEqual([true, card("Serra Angel").oracle, []]);
   });
 });

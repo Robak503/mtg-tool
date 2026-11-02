@@ -40,6 +40,11 @@ grant cutoff: the stored fixed-ids grants (3207–3213) are matched by id alone,
 a Turn to Frog would still fire as the creature dies. Route them with the look-back (§1.9 — the death look-back stamps the view).
 
 ## 0b. The S0b hand-off, ROUTED (day/abloss-s0b on 24f69959, 2026-11-01 — every line re-grepped on that tree)
+**Correction (2026-11-02, the S0b fix — day/abloss-s0bfix on 0b1e9bea):** the sentence below was not true at S0b. Its blind review
+(`review-abloss-s0b.md`, FIX-BEFORE-S1) found eight readers outside layers.js still on the printed card — Ascend, fading / vanishing, the
+player damage redirect, Kira (§1b lists it among the whole-card hooks; this table had dropped it), Murkfiend Liege, Zaxara's X-cast token,
+Fiend Hunter's triggered return and the declare-blockers cap — and a group leave event stamped member by member (F1). They are routed in
+the S0b fix (the rows marked **fix** at the end of the table) and the source lint is inverted so the same shapes go red.
 Every item of the hand-off above now reads a permanent that lost its abilities through the ability view. Four mechanisms (ENGINE-SCAFFOLD
 §4.6 "The routed readers"): **the view** — `layers.withAbilityLoss(state, perm, base?)` over each reader's existing base (the stripped
 view after a loss, the base itself on every other board), and `abilityView.abilityViewOf` (the same function, registered by layers.js)
@@ -88,8 +93,21 @@ test per scan").
 | enterReplacements `applyEnterReplacements` | enterReplacements 218 (`own` 231); others 132, riot 174; actionDispatcher 211 (the land drop) | its own text through `enteringAbilityCard`; the others' statics through the view; a granted riot dropped when a loss reaches it (the under-read) |
 | layers `permanentHasKeyword` seed (S0a found-not-fixed (2)) | layers 2799 | `copyBaseOf(state, perm).card` (the derive's seed), O(1) on a board with no copy effect (`boardCopyEffects` 1063) |
 | the remaining whole-card hooks | annihilator 99, resolvers 246 (soulbond), urDragonAttack 125, vihaanAnimate 90, wolverine 54, auraEntry 197 / 211, groupWard 76, fetchLand 54, tokenLoopLine 62, loopStepLine 237 (routed at integration), outletFinishLine 109, triggerTargetRestraint 70, removal 243, spellEffects 848 | the view |
+| **fix** — Ascend `grantCitysBlessings` (CR 702.131b) | ascend 49 | `abilityViewOf`, one board test per call |
+| **fix** — fading / vanishing `applyFadeVanishUpkeep` (CR 702.32a, 702.63a) | fading 73 | `abilityViewOf` on the board as the upkeep began |
+| **fix** — the player damage redirect `playerDamageRedirectTarget` (CR 614.9) | damageRedirect 25 | the view, one board test per call |
+| **fix** — Kira `applyKiraTargetCounter` (source and recipient) | kiraTargetCounter 71 (`kiraGrantReaches`) | the source through the view; the recipient's newer loss cuts the grant (`attachedGrantCutByLoss`, the granter in the attachment's place — CR 613.7a) |
+| **fix** — Murkfiend Liege `applyMurkfiendUntap` | murkfiendUntap 77 | the view, one board test per call |
+| **fix** — Zaxara `applyXCastTokenTriggers` (CR 603.2) | xCastToken 54 | `abilityViewOf` on the board as the spell was cast |
+| **fix** — Fiend Hunter's triggered return (the two-trigger printing) | triggers 8337 (checkLeavesTriggers) | skipped when the departed detainer's look-back carries a stamp and `detainReturnIsTriggered`; the "until" duration (Banisher Priest) still returns (CR 610.3) |
+| **fix** — "can't be blocked by more than one creature" `isBlockedByAtMostOne` (CR 509.1b) | legalChoices 4799 | the view, one board test per declaration (the attack and block filters' four per-creature tests hoisted too — the review's F6) |
+| **fix** — a group leave event's look-back (F1, CR 603.10) | gameState `groupLeaveEvents` 1734; spellEffects 1455, zones 57 / 244, costSacrifice 91 (`before`), triggers 8014 (`lookBacks`) | each member restamped from the event's starting board, or from the death batch's look-backs |
+| **fix** — the copy pick for a face-down permanent (F5, CR 708.10) | layers `copySourceFor` (the derive and `copyBaseOf`) | none: a face-down permanent stays face-down |
+| **fix** — the board view (F7) | boardSnapshot `permanentView` | the printed text kept, `abilitiesLost: true` beside it while it applies |
 
-**Left on the printed card, by design** (the source lint's two allowlists, `abilityLossLint.test.js`): layers.js's two Changeling reads
+**Left on the printed card, by design** (since the S0b fix the source lint is inverted — every printed card handed to a function outside its
+closed CHARACTERISTIC_READERS / CARD_HANDLERS lists is a site with its reason in SITE_ALLOWLIST, ALIAS_ALLOWLIST or TEXT_ALLOWLIST,
+`abilityLossLint.test.js`; the list below is S0b's and stands within those): layers.js's two Changeling reads
 (a characteristic-defining ability applied in layer 4, before the layer-6 loss — CR 702.73a, 613.3); manaModel `tapCostPayerOrder` (a
 payer sort key with no state); triggers' `gyEnterSelf` (a card in a graveyard, not a permanent); boardEval `isUntappedManaSource` (the
 AI's stateless estimate); gameState `recordLeaveEvent`'s sourceLki test (it records data, applies no ability); sba.js's Aura Enchant

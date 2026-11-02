@@ -1452,7 +1452,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   }
   // ONE EVENT (CR 608.2f, 603.10a): everything this destroys leaves together, creature or not — a leave watcher among them (Marionette
   // Apprentice, Disciple of the Vault) sees the others go.
-  next = groupLeaveEvents(next, moves.map((m) => m.id));
+  next = groupLeaveEvents(next, moves.map((m) => m.id), { before: state }); // each member stamped off the board as the event began (F1)
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) });

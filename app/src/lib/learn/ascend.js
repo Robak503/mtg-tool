@@ -19,6 +19,7 @@
  * conditions) and combatEvasion ("can't attack or block unless you have the city's blessing").
  */
 import { logEvent } from "./gameState.js";
+import { abilityViewOf, abilityViewLossy } from "./abilityView.js"; // a permanent that lost its abilities has no Ascend (CR 613.1f) — the leaf view
 
 const ASCEND_LINE_RE = /(?:^|\n)[ \t]*Ascend[ \t]*(?:\(|\n|$)/;
 
@@ -35,14 +36,17 @@ export function hasCitysBlessing(state, playerId) {
 /**
  * Give the city's blessing to every player who controls a permanent with Ascend and ten or more permanents, and doesn't
  * already have it. Returns the same state object when nothing changes (the SBA fixpoint's reference-stability contract).
+ * A permanent that lost all its abilities (CR 613.1f) has no Ascend: each permanent is read through the ability view, with one board
+ * test per call (no per-permanent work on a board without a loss).
  */
 export function grantCitysBlessings(state) {
   let next = state;
+  const lossy = abilityViewLossy(state);
   for (const [pid, player] of Object.entries(state?.players || {})) {
     if (player?.citysBlessing) continue;
     const bf = player?.battlefield || [];
     if (bf.length < 10) continue;
-    if (!bf.some((p) => cardHasAscend(p.card))) continue;
+    if (!bf.some((p) => cardHasAscend(lossy ? abilityViewOf(state, p) : p.card))) continue;
     next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], citysBlessing: true } } };
     next = logEvent(next, { kind: "citys-blessing", playerId: pid, permanents: bf.length });
   }
