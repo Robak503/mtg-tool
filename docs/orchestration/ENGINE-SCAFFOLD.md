@@ -2513,6 +2513,54 @@ The offer side changed once for it: a required target with more than 64
 candidates lists the players first (`targeting.playersFirstOverCap`), so a face
 target survives the option cap on a wide board.
 
+**The offer over the cap (`targeting.expandAtoms`, day-targetcap 2026-11-03).** A cast's targets are
+announced slot by slot (CR 601.2c), but the offer is a list of whole casts, built in two steps:
+`castSlots` (each slot's legal options, before combining — exposed on `_internals` for tests and the
+corpus scan) and the combine. A product of the slots' option counts up to `MAX_CAST_EXPANSIONS` (64) is
+offered whole, in its old order. Past it the offer is a COVERING (`coveringVectors`): the product's first
+64 rows exactly as the old capped loop offered them (lexicographic, the first slot slowest — the old
+offer, kept so every pick the default AI made among them is unchanged), then every option of every
+slot with all the other slots at one seat's first option there (a row per seat: the option's own seat,
+then turn order from the caster), at the same object, and at no target. A slot without such an option
+falls back to the first seat that has one. A row whose two-target atom names one creature twice ("another
+target creature" — CR 115.3) is dropped by the DISTINCTNESS rule after the combine, and no option is lost:
+an option collides only with its own seat's first option in the other slot, so each other seat's first,
+or (one seat holding them all) the first 64 rows and the second option's own rows, still name it. Size of
+one cast shape: at most 64 + (seats + 2) × the sum of the slots' option counts — never the product. **A
+cost choice beside the rows multiplies them**, so it doesn't pair with all of them: the rows the covering
+added are marked (`isPastCapRow`, a WeakSet on each row's target array — the action itself carries
+nothing new), and `legalChoices.pairCostChoicesWithRows` (the cast lane's sacrifice, discard-one,
+exile-one-from-graveyard and return-to-hand costs) and the activation lane's victim nest (two passes over
+`victimSets`) put every choice beside the capped offer's rows — the base's rows, in its order — and each
+added row once, beside the least valuable choice that pays for it — for a permanent the live order
+(`cheapestPermanentFirst`: live mana value, `layers.permanentManaValue`, then live power,
+`creaturePower`, then name and id — or the policy evaluator's when it is on; `leastValuableCardCmp` for
+a hand or graveyard card), not battlefield order and not printed values, so a row past the cap
+sacrifices a Squirrel token rather than the Squirrel Girl standing first (the round-2 recheck's R2-F1)
+or a Walking Ballista grown with counters, printed 0/0 (the round-3 recheck's R3-F1; the counted
+sacrifice keeps its printed `leastValuablePermanentCmp`): V × 64 + (C − 64). Every choice × every row
+grew with the square of a token board: Blasting Station beside 360 Squirrels threw RangeError at the
+`actions.push(...)` spreads (the target-cap review's F1; `buildLegalActions` appends with `pushAll`, a
+loop, since). The two payment passes (`withPhyrexianPayment`, `withPayableConsumedCosts`) compute one
+plan per action shape (`paymentPlanMemo` — keyed on the action less its own `targets`, `targetName`,
+`needsTargets`; no payment-source reader looks at a target), since a one-slot cast past the cap is one
+action per target: Noxious Revival on Squirrel Girl's graveyard board was priced 240 times a decision
+(R2-F2). The key keeps the whole cost — `cost`, `xValue`, `kicked` and every choice field — so two
+casts that pay differently never share a plan (the round-3 recheck's R3-F2: Corrosive Gale from
+{G}{C}{C} pays no life at X = 1 and 2 life at X = 3). Two in-slot caps got the same rule: a `targetSubsets` list the cap cut short names every
+target of its pool in some subset (`withEveryTarget` — its rows sort after the list's own, so the first
+64 options are the capped list's), and the player-and-cards slot (`gyFromTargetPlayer`, Dwell on the
+Past) keeps every player's options past its first 64. **What a person still can't pick** past the cap: any other
+combination — two slots each at an option that isn't its seat's first, or, with three slots or more, the
+other slots at different seats. That needs a slot-by-slot target prompt at cast; none exists (the
+trigger-target panel lists whole candidates). **The default AI's multi-slot cast pick** chooses slot 0's
+target and takes the first offered row with it (opponentAI `chooseDisciplinedVariant`), so the row order
+above is its partner choice: the option's own seat first means a creature and the face of the same
+opponent. When that first row is one the covering added, it takes instead the first such row whose other
+targets sit on their atom's side (`otherTargetsOnSide`, `atomTargetIntent` — a +3/+3 on its own creature,
+not the burned opponent's: the review's F2); inside the capped rows nothing changed. Witnesses:
+`castTargetCover.test.js`, `castChooserCover.test.jsx`, `castCostChoiceCover.test.js`.
+
 **A pw21 lane (2026-11-02).** A FREE PLAY IS AN ORDINARY CAST: `actionsPlayImpulseFromExile` holds a `_impulseFree` card (yours —
 Urza, Mind's Desire; an opponent's — Dauthi Voidwalker) to the timing a paid cast of it needs before the free builder (which skips
 timing for casts made during a resolution). (The activated {X} lane for a target whose legality reads X — The Mycosynth Gardens — was

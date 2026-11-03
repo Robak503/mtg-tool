@@ -146,13 +146,14 @@ describe("Apex Altisaur — a fight that gains nothing is declined (the soft-loc
       .toEqual({ settled: true, kogla: 0, phalanx: 0, fights: 0 });
   });
 
-  it("⭐ 64 Worldspine Wurms: the enumeration's expansion cap cuts the decline off the candidates, and the chooser declines anyway", () => {
+  it("⭐ 64 Worldspine Wurms: past the expansion cap the decline is still offered (it was cut off — the offer over the cap, 2026-11-03), and the chooser declines", () => {
     const wurms = Array.from({ length: 64 }, (_, i) => perm(`wurm${i}`, WURM, "user"));
     const program = parseEffectClause("it fights up to one target creature you don't control", "Instant", { sourceScoped: true });
     const offered = expandCastChoices(board("ai", { theirs: wurms }), "ai", program, [], { sourceId: "x" });
     const r = play(board("ai", { theirs: wurms }), "ai");
-    expect({ declineOffered: offered.some((c) => !(c.targets || []).length), settled: r.settled, altisaur: altisaur(r.s, "ai")?.damageMarked ?? "gone", fights: fights(r.s).length })
-      .toEqual({ declineOffered: false, settled: true, altisaur: 0, fights: 0 });
+    expect({ declineOffered: offered.some((c) => !(c.targets || []).length), wurmsOffered: new Set(offered.flatMap((c) => (c.targets || []).map((t) => t.id))).size,
+      settled: r.settled, altisaur: altisaur(r.s, "ai")?.damageMarked ?? "gone", fights: fights(r.s).length })
+      .toEqual({ declineOffered: true, wurmsOffered: 64, settled: true, altisaur: 0, fights: 0 });
   });
 });
 

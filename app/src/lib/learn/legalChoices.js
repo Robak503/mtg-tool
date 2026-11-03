@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, planPayment, manaSources, withoutOwnHandSource, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { boardHasCopyEffect, copiableBaseOf, permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { boardHasCopyEffect, copiableBaseOf, permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow, permanentManaValue } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -45,7 +45,7 @@ import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequiremen
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy, cardMatchesGraveyardFilter } from "./spellEffects.js"; // + cardMatchesGraveyardFilter: the granted-retrace lane's "nonland permanent card" (2026-11-02)
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
-import { expandCastChoices } from "./effects/targeting.js";
+import { expandCastChoices, isPastCapRow } from "./effects/targeting.js"; // + isPastCapRow: the rows the covering added past the cap (a cost choice beside them — pairCostChoicesWithRows)
 import { tutorManaValue } from "./effects/atoms/library.js"; // AC-1 — the least-valuable ranking the edict/discard auto-pick uses (library.js is a leaf, cycle-safe)
 import { evalLeastValuableCmp, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 — the shared evaluator's victim ranking (boardEval imports only leaves: gameState + library + cardPlayHints — cycle-free)
 
@@ -626,7 +626,7 @@ function actionsPlayLand(state, playerId) {
       continue;
     }
     if (!isLand(card)) continue;
-    actions.push(...withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name }));
+    pushAll(actions, withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name }));
   }
   // ADVENTURE-EXILE (CR 715.3d — "For as long as that card remains exiled, that player may play it"): a Town that went on
   // an adventure is PLAYED from exile as its land face. Playing a land is the one special action whatever zone the land is
@@ -689,6 +689,51 @@ export function xResolvedCost(cost, x) {
   const pips = cost.xCount ?? (cost.hasX ? 1 : 0);
   return { ...cost, generic: (cost.generic || 0) + pips * x };
 }
+
+/**
+ * Append every action of `list` to `actions` — a loop, never `actions.push(...list)`: a spread's arguments go on the call stack, and
+ * V8 throws RangeError past ~120,000 of them (the target-cap review's F1 — Blasting Station beside 360 Squirrels; by the review's
+ * inference the capped offer itself crossed it near 1,950 sacrifice victims, under the 2,000-permanent runaway guard). Defense in depth.
+ */
+function pushAll(actions, list) {
+  for (const a of list) actions.push(a);
+}
+
+/**
+ * A COST CHOICE BESIDE A TARGET LIST (the target-cap blind review's F1, 2026-11-03 — CR 601.2h, 602.2b: the cost's choice and the
+ * targets are both announced): one cast per entry of `choices` (a sacrifice victim, a card to discard or exile, a permanent to return)
+ * per row of `combos`. Every choice stands beside the rows the capped offer had — the base's rows, in the base's order — and each row
+ * the covering added past them (targeting.isPastCapRow) once, beside the least valuable choice that emits for it (`cheapestFirst`). So the list is V × the capped
+ * rows + the added rows, never V × every row: past the cap a one-slot ability lists every target, and victims × targets grew with the
+ * square of a token board — Bone Splinters beside 380 creatures threw RangeError. `emitPair(choice, row)` emits and returns true, or
+ * returns false when that choice can't pay for that row (the victim is the row's own target). The activation lane's nest does the same.
+ */
+function pairCostChoicesWithRows(choices, combos, emitPair, cheapestFirst) {
+  for (const c of choices) for (const ch of combos) if (!isPastCapRow(ch.targets)) emitPair(c, ch);
+  // THE ADDED ROWS' CHOICE IS THE LEAST VALUABLE ONE THAT PAYS (the round-2 recheck's R2-F1): `cheapestFirst` is the engine's own
+  // least-valuable order for these choices (cheapestPermanentFirst — live mana value and power, or the policy evaluator's — for a
+  // permanent; leastValuableCardCmp for a hand or graveyard card), so a row past the cap sacrifices a Squirrel token, not the Squirrel
+  // Girl standing first on the battlefield nor a Walking Ballista grown with counters. The first pass keeps the base's order.
+  let ranked = null;
+  for (const ch of combos) {
+    if (!isPastCapRow(ch.targets)) continue;
+    ranked ??= [...choices].sort(cheapestFirst);
+    for (const c of ranked) if (emitPair(c, ch)) break;
+  }
+}
+/**
+ * The least-valuable order for the permanent a row past the cap is paid with: the policy evaluator's when it is on (its values are
+ * already live), else the permanent's LIVE mana value (layers.permanentManaValue — a copy's, CR 202.3, 707.2), its LIVE power
+ * (creaturePower — counters and pumps, CR 613.4c), then name and id (the round-3 recheck's R3-F1: by printed mana value and power a
+ * Walking Ballista with three +1/+1 counters, 0 and 0, went before the 1/1 Squirrel tokens). Used only by the second pass beside the
+ * rows past the cap; the counted sacrifice keeps leastValuablePermanentCmp, the order runProgram's single-victim auto-pick mirrors.
+ */
+const cheapestPermanentFirst = (state, playerId) => (policyEvalEnabledFor(state, playerId) ? evalLeastValuableCmp(state) : liveLeastValuablePermanentCmp(state));
+const liveLeastValuablePermanentCmp = (state) => (a, b) =>
+  permanentManaValue(state, a) - permanentManaValue(state, b) ||
+  (Number(creaturePower(a, state)) || 0) - (Number(creaturePower(b, state)) || 0) ||
+  _cmpStr(String(a.card?.name || ""), String(b.card?.name || "")) ||
+  _cmpStr(String(a.id || ""), String(b.id || ""));
 
 function actionsCastSpell(state, playerId) {
   return castActionsFromZone(state, playerId, state.players[playerId].hand, "hand", null);
@@ -1804,19 +1849,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           (addCost.color == null || permanentColors(state, v.id).includes(addCost.color)) &&
           !sacrificeDropsTrigger(ownOracleOf(state, v)));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
-        for (const victim of victims) {
-          // W3 (two-sites invariant): a ONE-SHOT mana source (Treasure/Gold/Spawn) chosen as THE victim
-          // can't also be cracked to pay the mana cost — re-check affordability with it excluded, per
-          // victim (another victim or source may still afford). A repeatable victim taps first legally.
-          // + a sacrifice-a-creature source (the Altars) cannot be fed THE victim either (manaModel.castPaymentSources).
-          if (!freeCast && !canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(castSources(state, playerId), victim.id), new Set([victim.id])), cost)) continue;
-          for (const ch of combos) {
+        // W3 (two-sites invariant): a ONE-SHOT mana source (Treasure/Gold/Spawn) chosen as THE victim
+        // can't also be cracked to pay the mana cost — re-check affordability with it excluded, per
+        // victim (another victim or source may still afford). A repeatable victim taps first legally.
+        // + a sacrifice-a-creature source (the Altars) cannot be fed THE victim either (manaModel.castPaymentSources).
+        const payers = victims.filter((victim) => freeCast || canAfford(player.manaPool, withoutUnfeedableSacSources(state, playerId, sourcesExcludingOneShotVictim(castSources(state, playerId), victim.id), new Set([victim.id])), cost));
+        pairCostChoicesWithRows(payers, combos, (victim, ch) => {
           // Don't sacrifice the very permanent the effect targets — paid as a cost (gone before the spell
           // resolves) → the target would fizzle (CR 608.2b). Pointless self-defeating action; drop it.
-          if (ch.targets.some(t => t.id === victim.id)) continue;
+          if (ch.targets.some(t => t.id === victim.id)) return false;
           emit(ch, { sacCreatureId: victim.id, sacCreatureName: victim.card?.name ?? null, sacName: victim.card?.name ? `sacrifice ${victim.card.name}` : undefined });
-          }
-        }
+          return true;
+        }, cheapestPermanentFirst(state, playerId));
       } else if (addCost.kind === "payLife") {
         // No choice — just deduct N at cast. CR 119.4: you can't pay life you don't have (paying to exactly
         // 0 is legal, an SBA loss follows), so only a strictly-unaffordable cost is uncastable.
@@ -1919,13 +1963,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           const chosenIds = chosen.map(c => c.id);
           for (const ch of combos) emit(ch, { discardIds: chosenIds, discardName: `discard ${chosen.map(c => c.name).filter(Boolean).join(", ")}` });
         } else {
-          // N=1 — one cast per discardable hand card (a real in-game pick). BYTE-IDENTICAL.
-          for (const dc of discardable) {
-            if (!payableDiscarding([dc.id])) continue; // the card the mana needs can't be the one discarded
-            for (const ch of combos) {
-              emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
-            }
-          }
+          // N=1 — one cast per discardable hand card (a real in-game pick). BYTE-IDENTICAL. (The card the mana needs can't be the one
+          // discarded.) Past the cap, each added row once (pairCostChoicesWithRows).
+          pairCostChoicesWithRows(discardable.filter((dc) => payableDiscarding([dc.id])), combos, (dc, ch) => {
+            emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+            return true;
+          }, leastValuableCardCmp);
         }
       } else if (addCost.kind === "exileFromGraveyard") {
         // ADDCOST-3 (CR 601.2h) — exile a typed card from your OWN graveyard. A graveyard is a public zone
@@ -1945,9 +1988,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           const chosen = [...candidates].sort(leastValuableCardCmp).slice(0, addCost.count);
           for (const ch of combos) emit(ch, { exileGyCardIds: chosen.map((c) => c.id), exileGyName: `exile ${chosen.length} cards` });
         } else {
-          for (const gc of candidates) for (const ch of combos) {
+          pairCostChoicesWithRows(candidates, combos, (gc, ch) => {
             emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
-          }
+            return true;
+          }, leastValuableCardCmp);
         }
       } else if (addCost.kind === "returnToHand") {
         // AC-BOUNCE (CR 601.2f) — return a permanent you control to its owner's hand. Every permanent of the
@@ -1968,9 +2012,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // terminal `continue` still blocks the plain-cast fall-through, so uncastability is enforced there,
         // not here. Kept only for symmetry with the sibling cost branches. The real gate is that `continue`.
         if (bounceable.length === 0) continue;
-        for (const bp of bounceable) for (const ch of combos) {
+        pairCostChoicesWithRows(bounceable, combos, (bp, ch) => {
           emit(ch, { returnPermId: bp.id, returnPermName: bp.card?.name ?? null, returnName: bp.card?.name ? `return ${bp.card.name}` : undefined });
-        }
+          return true;
+        }, cheapestPermanentFirst(state, playerId));
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
       }
@@ -2510,7 +2555,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       }
     }
     actions.length = 0;
-    actions.push(...out);
+    pushAll(actions, out);
   }
   if (altSpecs.size) {
     const out = [];
@@ -3349,6 +3394,8 @@ function actionsActivateAbility(state, playerId) {
       // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
       // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
       const affordsWithReturnedLand = (c, returnLandVictim) => canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), c, spendCtx);
+      // THE VICTIM SETS the costs can pay, in the nest's order (each with the variants — the printed cost, or the Xs on the {X} lane — it pays).
+      const victimSets = [];
       for (const victim of sacVictims) {
         if (ab.sacOther && !affordsWithSacVictim(gateCost, victim)) continue;
        for (const tapVictim of tapVictims) {
@@ -3369,25 +3416,30 @@ function actionsActivateAbility(state, playerId) {
             variants.push({ x, cost: xCost, choices: xChoicesFor(x) });
           }
         }
-        for (const variant of variants) {
-        for (const discardVictim of discardVictims) { // γ1h (DC-1) — one action per distinct hand card to pitch
-        for (const ch of variant.choices) {
+        victimSets.push({ victim, tapVictim, unattachVictim, returnLandVictim, variants });
+       }
+       }
+       }
+      }
+      // ONE ROW'S ACTION for a victim set, a variant and a discard — or, for "Sacrifice X", one per X — or none when that choice
+      // can't pay for that row (its own target, too few left for a counted cost). Returns whether it emitted.
+      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch) => {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
-          if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
+          if (victim && ch.targets.some((t) => t.id === victim.id)) return false;
           // γ1f — don't offer tapping the very creature the effect targets when the target is that same
           // creature (a basic-land untap can't target a creature, so this never fires for Earthcraft — it's a
           // belt-and-suspenders no-op guard mirroring the sac path; a future tap-creature ability that targets
           // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
           // waste the tap on your own target" nicety, not a correctness gate.
-          if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) continue;
-          if (tapCountSet && ch.targets.some((t) => tapCountSet.has(t.id))) continue; // V6 slice 2 — a frozen tap victim is never also the target
+          if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) return false;
+          if (tapCountSet && ch.targets.some((t) => tapCountSet.has(t.id))) return false; // V6 slice 2 — a frozen tap victim is never also the target
           // γ1g — don't offer bouncing the very land the effect targets: the land is returned to hand as a COST
           // (gone before the ability resolves), so an "untap target land" that targeted that same land would
           // fizzle to a no-op (CR 608.2b — the target is no longer on the battlefield). Drop that self-defeating
           // combo; a DIFFERENT land target (untap one land, bounce another) is still offered.
-          if (ab.returnLand && returnLandVictim && ch.targets.some((t) => t.id === returnLandVictim.id)) continue;
+          if (ab.returnLand && returnLandVictim && ch.targets.some((t) => t.id === returnLandVictim.id)) return false;
           // γ1d — pick the N fungible victims for a "Sacrifice N <subtype>" cost, EXCLUDING any that the
           // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
           // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
@@ -3395,7 +3447,7 @@ function actionsActivateAbility(state, playerId) {
           if (ab.sacCount) {
             const targetIds = new Set(ch.targets.map((t) => t.id));
             const pick = sacCountPool.filter((v) => !targetIds.has(v.id)).slice(0, ab.sacCount.count);
-            if (pick.length < ab.sacCount.count) continue;
+            if (pick.length < ab.sacCount.count) return false;
             sacCountIds = pick.map((v) => v.id);
           }
           // LANDS-4 — pick the N graveyard cards to exile for an "Exile N [<type>] cards from your graveyard"
@@ -3405,7 +3457,7 @@ function actionsActivateAbility(state, playerId) {
           if (ab.exileGyCount) {
             const targetIds = new Set(ch.targets.map((t) => t.id));
             const pick = exileGyPool.filter((g) => !targetIds.has(g.id)).slice(0, ab.exileGyCount.count);
-            if (pick.length < ab.exileGyCount.count) continue;
+            if (pick.length < ab.exileGyCount.count) return false;
             exileGyIds = pick.map((g) => g.id);
           }
           // γ1e — "Sacrifice X <subtype>" (Grim Hireling): the PLAYER chooses X. Expand ONE action per legal X
@@ -3417,6 +3469,7 @@ function actionsActivateAbility(state, playerId) {
           // that starves the {mana} part is not offered (never an unpayable cost). One shared code path for the
           // final action push below (sacXIds threads like sacCountIds); the non-sacX case leaves sacXIds null.
           if (ab.sacX) {
+            const before = actions.length;
             const targetIds = new Set(ch.targets.map((t) => t.id));
             const avail = sacXPool.filter((v) => !targetIds.has(v.id));
             for (let x = 1; x <= avail.length; x++) {
@@ -3455,7 +3508,7 @@ function actionsActivateAbility(state, playerId) {
                 abilityText: `Sacrifice ${x} ${ab.sacX.subtype}${x === 1 ? "" : "s"}: ${ab.effectClause}`,
               });
             }
-            continue; // sacX expanded its own per-X actions; skip the single-action push below
+            return actions.length > before; // sacX expanded its own per-X actions; skip the single-action push below
           }
           // SAC-N-CLASS (P·17): a class sacrifice has no subtype to pluralize — name the frozen victims instead, so the
           // player sees exactly what goes (the spell-side count-sacrifice's sacName does the same).
@@ -3510,12 +3563,38 @@ function actionsActivateAbility(state, playerId) {
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
             abilityText: variant.x != null ? `X=${variant.x}: ${costText}` : costText,
           });
+          return true;
+      };
+      // A COST CHOICE BESIDE A TARGET LIST PAST THE CAP (pairCostChoicesWithRows, one nest over): every victim set beside the rows the
+      // capped offer had — the base's rows, in its order — and each row the covering added once, beside the least valuable victim set
+      // and discard that pays for it (the order below). Before, every victim set stood beside every row: a token board's outlet offered
+      // victims × targets, and Blasting Station beside 360 Squirrels threw RangeError (the target-cap review's F1).
+      for (const set of victimSets) for (const variant of set.variants) for (const discardVictim of discardVictims) {
+        for (const ch of variant.choices) if (!isPastCapRow(ch.targets)) emitRow(set, variant, discardVictim, ch);
+      }
+      // The second pass tries the victim sets and the discards least valuable first (the round-2 recheck's R2-F1 —
+      // pairCostChoicesWithRows): a row past the cap is shot by sacrificing a Squirrel token, not the Squirrel Girl standing first.
+      // Each dimension is all victims or all null (absent), so a null compares equal; ties keep the nest's order (a stable sort).
+      let rankedSets = null, rankedDiscards = null;
+      const ranked = () => {
+        if (rankedSets) return;
+        const cheaper = cheapestPermanentFirst(state, playerId);
+        const byPerm = (a, b) => (a && b ? cheaper(a, b) : 0);
+        rankedSets = [...victimSets].sort((p, q) => byPerm(p.victim, q.victim) || byPerm(p.tapVictim, q.tapVictim)
+          || byPerm(p.returnLandVictim, q.returnLandVictim) || byPerm(p.unattachVictim, q.unattachVictim));
+        rankedDiscards = [...discardVictims].sort((a, b) => (a && b && !a.random && !b.random ? leastValuableCardCmp(a, b) : 0));
+      };
+      for (const x of [...new Set(victimSets.flatMap((set) => set.variants.map((v) => v.x)))]) {
+        const rows = victimSets.flatMap((set) => set.variants).find((v) => v.x === x).choices;
+        for (const ch of rows) {
+          if (!isPastCapRow(ch.targets)) continue;
+          ranked();
+          placed: for (const set of rankedSets) {
+            const variant = set.variants.find((v) => v.x === x);
+            if (!variant) continue;
+            for (const discardVictim of rankedDiscards) if (emitRow(set, variant, discardVictim, ch)) break placed;
+          }
         }
-        }
-        }
-       }
-       }
-       }
       }
     }
   }
@@ -4020,24 +4099,24 @@ function actionsPlayImpulseFromExile(state, playerId) {
     // + P·28 (Dauthi Voidwalker): a card stamped `_impulseFree` is cast without paying its mana cost.
     const paid = foreign.filter((c) => !c._impulseFree);
     const free = foreign.filter((c) => c._impulseFree && freeTimingOk(c)); // + its timing (the Dauthi ruling — a sorcery not on an opponent's turn)
-    if (paid.length) actions.push(...castActionsFromZone(state, playerId, paid, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
-    if (free.length) actions.push(...castActionsFromZone(state, playerId, free, "exile", null, true).map((a) => ({ ...a, fromPlayerId: pid })));
+    if (paid.length) pushAll(actions, castActionsFromZone(state, playerId, paid, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
+    if (free.length) pushAll(actions, castActionsFromZone(state, playerId, free, "exile", null, true).map((a) => ({ ...a, fromPlayerId: pid })));
   }
   if (impulsed.length === 0) return actions;
   const nonlands = impulsed.filter(c => !isLand(c));
   const lands = impulsed.filter(c => isLand(c));
   // NONLANDS — cast at full cost from exile (freeCast=false), same builder as a hand cast (timing/cost/X/targets).
-  actions.push(...castActionsFromZone(state, playerId, nonlands.filter((c) => !c._impulseFree), "exile", null, false));
+  pushAll(actions, castActionsFromZone(state, playerId, nonlands.filter((c) => !c._impulseFree), "exile", null, false));
   // THE FREE PLAY (Urza, Lord High Artificer; Mind's Desire; Oracle's Vault): cast without paying its mana cost through the
   // builder's free mode (CR 118.9 — no other alternative cost, X is 0, additional costs paid). That mode exists for casts made
   // while a spell resolves and skips the timing gate; this is an ordinary cast, so the card is held to the timing a paid cast of
   // it needs first (Urza's ruling: a sorcery only in your main phase with the stack empty) — freeTimingOk above.
-  actions.push(...castActionsFromZone(state, playerId, nonlands.filter((c) => c._impulseFree && freeTimingOk(c)), "exile", null, true));
+  pushAll(actions, castActionsFromZone(state, playerId, nonlands.filter((c) => c._impulseFree && freeTimingOk(c)), "exile", null, true));
   // LANDS — play from exile if a land drop is available at sorcery speed (the same gates the hand play-land uses).
   if (lands.length && canCastSorcerySpeed(state, playerId)
       && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     for (const card of lands) {
-      actions.push(...withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" }));
+      pushAll(actions, withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" }));
     }
   }
   return actions;
@@ -4351,7 +4430,7 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     const allows = (filter, face) => castFromTopFilterAllows(filter, face, cardIsEveryCreatureType(state, face, playerId));
     const anyFaceAllowed = (filter) => allows(filter, top) || (spellMdfcFaceCards(top) || []).some((face) => allows(filter, face));
     const allowedFace = (filter) => (a) => allows(filter, a.faceCard || top);
-    if (perm.spellFilter && anyFaceAllowed(perm.spellFilter)) actions.push(...castActionsFromZone(state, playerId, [top], "library", null, false).filter(allowedFace(perm.spellFilter)));
+    if (perm.spellFilter && anyFaceAllowed(perm.spellFilter)) pushAll(actions, castActionsFromZone(state, playerId, [top], "library", null, false).filter(allowedFace(perm.spellFilter)));
     // BOLAS'S CITADEL (P·17 — CR 118.9): the LIFE-COST permission — pay life equal to the spell's mana value rather than its
     // mana cost. Built as a no-mana cast (so X is 0, CR 107.3b, and no other alternative cost stacks, CR 118.9a) and carried
     // as an altCost the dispatcher pays; a mana value of 0 pays nothing (and a card with no mana cost may still be cast,
@@ -4370,7 +4449,7 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     }
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     // LAND — play from the library top if the permission grants lands and a land drop is available.
-    actions.push(...withLandCopyPlays(state, top, { kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" }));
+    pushAll(actions, withLandCopyPlays(state, top, { kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" }));
   }
   return actions;
 }
@@ -5119,34 +5198,34 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
   }
 
   // Lands, spells, mana.
-  actions.push(...actionsPlayLand(state, playerId)); // playing a land is NOT casting a spell — never suppressed
+  pushAll(actions, actionsPlayLand(state, playerId)); // playing a land is NOT casting a spell — never suppressed
   // PLAY-LANDS-FROM-GRAVEYARD (CR 116.2a, Crucible of Worlds) — same zone-agnostic special action, sourced
   // from the graveyard under the static permission. Also never cast-suppressed, for the same reason.
-  actions.push(...actionsPlayLandFromGraveyard(state, playerId));
+  pushAll(actions, actionsPlayLandFromGraveyard(state, playerId));
   if (!cantCast) {
-    actions.push(...actionsCastSpell(state, playerId));
-    actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
-    actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.170d): cast a plotted card free
-    actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
-    actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62a): cast free at zero counters
-    actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
-    actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 116.2a / 601.3): cast/play the top library card while the permission static is active
-    actions.push(...actionsCastFreeByPermission(state, playerId)); // shelf D35 — cast without paying the mana cost (One with the Multiverse, Zaffai, Vision, Omniscience)
-    actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
-    actions.push(...actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
-    actions.push(...actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)
-    actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
-    actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
-    actions.push(...actionsCastEscapeFromGraveyard(state, playerId)); // ESCAPE, GRANTED (CR 702.138a, P·29 — Underworld Breach): mana cost + exile three other graveyard cards
-    actions.push(...actionsCastRetraceFromGraveyard(state, playerId)); // RETRACE, GRANTED (CR 702.81a — Six): its costs + discard a land card, on its controller's turn
-    actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
-    actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
-    actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
-    actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
-    actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
-    actions.push(...actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment/artifact half from hand at its own cost
-    actions.push(...actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment/artifact half from exile (a Town plays from exile in actionsPlayLand)
-    actions.push(...actionsCastNormalFaceFromHand(state, playerId)); // OMEN / PREPARATION (CR 720.3, 722.4): cast normally — the creature face at its own cost
+    pushAll(actions, actionsCastSpell(state, playerId));
+    pushAll(actions, actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
+    pushAll(actions, actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.170d): cast a plotted card free
+    pushAll(actions, actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
+    pushAll(actions, actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62a): cast free at zero counters
+    pushAll(actions, actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 601.3 / 305.2): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
+    pushAll(actions, actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 116.2a / 601.3): cast/play the top library card while the permission static is active
+    pushAll(actions, actionsCastFreeByPermission(state, playerId)); // shelf D35 — cast without paying the mana cost (One with the Multiverse, Zaffai, Vision, Omniscience)
+    pushAll(actions, actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
+    pushAll(actions, actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
+    pushAll(actions, actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)
+    pushAll(actions, actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
+    pushAll(actions, actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
+    pushAll(actions, actionsCastEscapeFromGraveyard(state, playerId)); // ESCAPE, GRANTED (CR 702.138a, P·29 — Underworld Breach): mana cost + exile three other graveyard cards
+    pushAll(actions, actionsCastRetraceFromGraveyard(state, playerId)); // RETRACE, GRANTED (CR 702.81a — Six): its costs + discard a land card, on its controller's turn
+    pushAll(actions, actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
+    pushAll(actions, actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
+    pushAll(actions, actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
+    pushAll(actions, actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
+    pushAll(actions, actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
+    pushAll(actions, actionsCastPermanentFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.3, 715.4): cast the creature/enchantment/artifact half from hand at its own cost
+    pushAll(actions, actionsCastPermanentFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3d): cast the creature/enchantment/artifact half from exile (a Town plays from exile in actionsPlayLand)
+    pushAll(actions, actionsCastNormalFaceFromHand(state, playerId)); // OMEN / PREPARATION (CR 720.3, 722.4): cast normally — the creature face at its own cost
   }
   // NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05 — "Each player can't cast more than one
   // noncreature spell each turn", CR 604.2): while ANY battlefield carries the static, a player who already cast a
@@ -5179,31 +5258,31 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
       if (actions[i].kind === "cast-spell" && actions[i].fromZone !== "hand") actions.splice(i, 1);
     }
   }
-  actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
-  actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.170a): exile from hand for the plot cost — a SPECIAL action, not casting
-  actions.push(...actionsPlotFromLibraryTop(state, playerId)); // shelf D38 (Fblthp, CR 702.170f): the same special action for the library's top card
-  actions.push(...actionsTurnManifestFaceUp(state, playerId)); // P·19 (CR 701.40b): turn a manifested creature card face up — a special action
+  pushAll(actions, actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
+  pushAll(actions, actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.170a): exile from hand for the plot cost — a SPECIAL action, not casting
+  pushAll(actions, actionsPlotFromLibraryTop(state, playerId)); // shelf D38 (Fblthp, CR 702.170f): the same special action for the library's top card
+  pushAll(actions, actionsTurnManifestFaceUp(state, playerId)); // P·19 (CR 701.40b): turn a manifested creature card face up — a special action
   // MANA ABILITIES stay legal under split second (CR 702.61a exempts them by name).
-  actions.push(...actionsTapForMana(state, playerId));
-  actions.push(...actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
+  pushAll(actions, actionsTapForMana(state, playerId));
+  pushAll(actions, actionsDoubleManaPool(state, playerId)); // DOUBLE-MANA-POOL (Doubling Cube): a no-stack mana ability that doubles the pool
   // …every OTHER activated ability does not. Crew (CR 702.122a), cycling (702.29a) and loyalty (606.1) are
   // all activated abilities, so they go dark with the rest while a split-second spell is on the stack.
   if (!splitSecondLock) {
     // Grand Abolisher / Myrel (`cantActivate`, see above): during the lock's turn the locked player is offered none of these four.
     if (!cantAct.cantActivate) {
-      actions.push(...actionsActivateAbility(state, playerId));
-      actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
-      actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
-      actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
+      pushAll(actions, actionsActivateAbility(state, playerId));
+      pushAll(actions, actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.122a): tap creatures totaling power ≥ N → the Vehicle animates until EOT
+      pushAll(actions, actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
+      pushAll(actions, actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
     }
-    actions.push(...actionsActivateHandSelfPut(state, playerId)); // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (any priority window)
-    actions.push(...actionsActivateLoyalty(state, playerId));
+    pushAll(actions, actionsActivateHandSelfPut(state, playerId)); // play-weighted #570 — "{N}: Put this card from your hand onto the battlefield." (any priority window)
+    pushAll(actions, actionsActivateLoyalty(state, playerId));
   }
 
   // Combat actions.
   const attack = actionsDeclareAttacker(state, playerId);
-  actions.push(...attack.actions);
-  actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
+  pushAll(actions, attack.actions);
+  pushAll(actions, actionsDeclareBlocker(state, playerId, attackerIds));
 
   const offered = castCostPasses(state, playerId, withPhyrexianPayment(state, playerId, withPayableConsumedCosts(state, playerId, actions)));
   // ATTACK REQUIREMENTS (CR 508.1d): while a creature that must attack can still be declared without paying a cost, the
@@ -5234,15 +5313,35 @@ function withPayableConsumedCosts(state, playerId, actions) {
   const listed = new Set();
   for (const s of sources) for (const id of [...(s.sacVictimIds || []), ...(s.gyExileIds || [])]) listed.add(id);
   if (!listed.size) return actions;
+  const planOf = paymentPlanMemo(state, playerId);
   return actions.filter((a) => {
     if (!PAID_ACTION_KINDS.has(a?.kind) || !a.cost || a.freeCast || a.altCost) return true;
     if (![...costReservedPermanentIds(a)].some((id) => listed.has(id))) return true;
-    return offeredPaymentPlan(state, playerId, a) !== null;
+    return planOf(a) !== null;
   });
 }
 
 /** The action kinds whose mana cost the dispatcher pays from a source derivation shared with the offer (offeredPaymentPlan). */
 const PAID_ACTION_KINDS = new Set(["cast-spell", "activate-ability", "activate-gy-recursion", "activate-gy-exile"]);
+
+/**
+ * ONE PAYMENT PLAN PER ACTION SHAPE IN A PASS (the target-cap round-2 recheck's R2-F2). The plan reads the action's cost, its cast
+ * card and its cost choices — never its targets (castPaymentSources, activationPaymentSources, graveyardActivationPaymentSources and
+ * costReservedPermanentIds read none; planPayment never sees the action) — so the casts of one card that differ only in their
+ * targets share one. Past the cap a one-slot spell is offered once per target, and the Phyrexian pass priced Squirrel Girl's Noxious
+ * Revival ({G/P}) once per graveyard card: a 645-permanent board's decision went from 758 to 2,328 ms. The key is the whole action
+ * with its own `targets`, `targetName` and `needsTargets` left out (nested fields kept), so two actions share a plan only when
+ * everything the plan could read is the same. A memo lives for one pass of one decision.
+ */
+let paymentPlanComputations = 0; // the plans the two passes computed (a memo miss) — read by tests through _internals
+function paymentPlanMemo(state, playerId) {
+  const memo = new Map();
+  return (a) => {
+    const key = JSON.stringify(a, function (k, v) { return this === a && (k === "targets" || k === "targetName" || k === "needsTargets") ? undefined : v; });
+    if (!memo.has(key)) { paymentPlanComputations++; memo.set(key, offeredPaymentPlan(state, playerId, a)); }
+    return memo.get(key);
+  };
+}
 
 /**
  * THE PLAN THE DISPATCHER WOULD PAY THIS ACTION WITH — its own sources (castPaymentSources / activationPaymentSources /
@@ -5275,10 +5374,11 @@ export function offeredPaymentPlan(state, playerId, a) {
  */
 function withPhyrexianPayment(state, playerId, actions) {
   if (!actions.some((a) => a?.cost?.phyrexian?.length)) return actions;
+  const planOf = paymentPlanMemo(state, playerId);
   const out = [];
   for (const a of actions) {
     if (!a?.cost?.phyrexian?.length || !PAID_ACTION_KINDS.has(a.kind) || a.freeCast || a.altCost) { out.push(a); continue; }
-    const plan = offeredPaymentPlan(state, playerId, a);
+    const plan = planOf(a);
     if (!plan) continue;
     out.push(plan.phyrexianLife > 0 ? { ...a, phyrexianLife: plan.phyrexianLife } : a);
   }
@@ -5417,4 +5517,5 @@ export const _internals = {
   canCastInstantSpeed,
   getZone,
   totalAvailableMana,
+  paymentPlanComputations: () => paymentPlanComputations, // the plans the payment passes computed so far (paymentPlanMemo's misses)
 };

@@ -85,9 +85,10 @@ function subsetSharesCreatureType(state, sub) {
 }
 
 // Bounds the cartesian blow-up of a multi-target spell (CR-spirit: a "deal 4
-// divided among any number of targets" would explode legalChoices + the UI). The
-// P2.5 modeled shapes have ≤1 targeting atom, so this never bites in practice; it's
-// a backstop so a future multi-target atom can't DoS the action list.
+// divided among any number of targets" would explode legalChoices + the UI). A product of
+// target slots up to this size is offered whole; past it, expandAtoms offers a covering
+// (THE OFFER OVER THE CAP, below) whose size grows with the slots' option counts, not their
+// product. Also the row cap of a multi-count subset list and of a modal mode-combination list.
 const MAX_CAST_EXPANSIONS = 64;
 
 // Sentinel option for an atom with an OPTIONAL TARGET ("up to one target …", CR 115.1b): when chosen
@@ -155,10 +156,33 @@ function kMultisets(n, k, limit = Infinity) {
   return out;
 }
 
+/**
+ * EVERY TARGET IN SOME SUBSET (2026-11-03): a subset list the cap cut short gets, for each target of the pool no offered subset
+ * names, the smallest legal subset that names it — the target with the pool's first others (`size` in all, in pool order). So a
+ * person can choose any legal target of an "up to N" slot whatever its place in the pool: before, past the 63rd an "up to one
+ * target creature" offered none of them (on a token board, every opponent's creature). At most one row per target is added.
+ */
+function withEveryTarget(out, tagged, size) {
+  const named = new Set(out.flatMap((sub) => sub.map((t) => t.id)));
+  for (let ix = 0; ix < tagged.length; ix++) {
+    if (named.has(tagged[ix].id)) continue;
+    const others = [];
+    for (let j = 0; j < tagged.length && others.length < size - 1; j++) if (j !== ix) others.push(j);
+    const sub = [...others, ix].sort((a, b) => a - b).map((j) => tagged[j]);
+    ADDED_SUBSETS.add(sub);
+    out.push(sub);
+  }
+  return out;
+}
+// The subsets withEveryTarget added past a cut list: castSlots sorts them after the list's own (so a slot's first 64 options, and the
+// product's first 64 rows, are the capped offer's — the target-cap review's F4: an "up to one" slot's no-target row had moved past them).
+const ADDED_SUBSETS = new WeakSet();
+
 // MULTI-COUNT TARGET (CR 601.2c "up to N target …") — every target-subset of size [minK..maxK] drawn from `tagged`
 // (each subset an array of atomIndex-tagged targets). Includes the EMPTY subset when minK is 0 (choosing zero is a
 // legal "up to" cast, CR 601.2c). Bounded by MAX_CAST_EXPANSIONS so a large graveyard/board can't DoS the cast list
-// (a subset of the legal combos is still offered — never a dropped clause, only fewer target-choices). Returns null
+// (a subset of the legal combos is still offered — never a dropped clause, only fewer target-choices); a list the cap cut
+// short then names every target in some subset (withEveryTarget). Returns null
 // iff no subset of the required minimum size exists (n < minK → the spell is uncastable, e.g. an exact "N target").
 function targetSubsets(tagged, minK, maxK, { largestFirst = false } = {}) {
   const n = tagged.length;
@@ -180,7 +204,7 @@ function targetSubsets(tagged, minK, maxK, { largestFirst = false } = {}) {
     for (let k = hi; k >= Math.max(lo, 1); k--) {
       for (const combo of kCombinations(n, k, MAX_CAST_EXPANSIONS - out.length)) {
         out.push(combo.map((ix) => tagged[ix]));
-        if (out.length >= MAX_CAST_EXPANSIONS) return out;
+        if (out.length >= MAX_CAST_EXPANSIONS) return withEveryTarget(out, tagged, Math.max(lo, 1));
       }
     }
     return out.length ? out : null;
@@ -191,7 +215,7 @@ function targetSubsets(tagged, minK, maxK, { largestFirst = false } = {}) {
     // (the post-push return below then fires on the last admitted row — same output, bounded memory).
     for (const combo of kCombinations(n, k, MAX_CAST_EXPANSIONS - out.length)) {
       out.push(combo.map((ix) => tagged[ix]));
-      if (out.length >= MAX_CAST_EXPANSIONS) return out; // cap the option blow-up (backstop)
+      if (out.length >= MAX_CAST_EXPANSIONS) return withEveryTarget(out, tagged, Math.max(lo, 1)); // cap the option blow-up (backstop)
     }
   }
   return out.length ? out : null;
@@ -308,13 +332,6 @@ function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors
 const GY_FROM_TARGET_PLAYER_SPEC = { targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true };
 
 /**
- * All legal target-combinations for a list of atoms — a capped cartesian product
- * across the atoms that need a target. Returns:
- *   - `[[]]`   when no atom needs a target (one cast, empty targets)
- *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
- *   - otherwise an array of flat, atomIndex-tagged target arrays.
- */
-/**
  * A required target with MORE candidates than the option cap: the players go first, so the cap never cuts the face
  * targets off a board full of creatures — "any target" beside 64 creatures offered no player at all (Blasting Station
  * on a Squirrel board, 2026-10-03). At or under the cap the list is returned as it is, order included.
@@ -324,8 +341,18 @@ function playersFirstOverCap(tagged) {
   return [...tagged.filter((t) => t.type === "player"), ...tagged.filter((t) => t.type !== "player")];
 }
 
-function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
+/**
+ * The TARGET SLOTS of a list of atoms — one per instance of "target" the cast announces (CR 601.2c): each slot's legal options in
+ * the order they are offered, before any combining. Returns:
+ *   - `null` when a required target has no legal option (the spell or ability can't be cast or put on the stack),
+ *   - otherwise `{ perAtom, pairAtomIdx, slotAtom }`: `perAtom[j]` slot j's options — a target, a multi-count subset (an array), or
+ *     DECLINE (an "up to one" target left unchosen); `slotAtom[j]` the atom index slot j belongs to (a two-target atom has two
+ *     slots with the same index); `pairAtomIdx` the atoms whose two slots must name distinct objects. No slot at all: `perAtom` empty.
+ */
+function castSlots(state, controllerId, atoms, sourceColors = [], ctx = null) {
   const perAtom = [];
+  const slotAtom = [];
+  const pushSlot = (options, atomIndex) => { perAtom.push(options); slotAtom.push(atomIndex); };
   // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
   // ONE such atom must be DISTINCT creatures (CR 701.14 / "another target creature"); enforced post-combine.
   const pairAtomIdx = [];
@@ -366,19 +393,20 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     if (atom.gyFromTargetPlayer) {
       const gyCards = enumerateTargets(state, controllerId, GY_FROM_TARGET_PLAYER_SPEC, sourceColors, ctx)
         .map((t) => ({ ...t, atomIndex: i }));
+      // The first MAX_CAST_EXPANSIONS options, as they always were; past them (`rest`), every other player's own options — each
+      // player's list bounded by targetSubsets. Before, the cap ended the list at the first player whose graveyard filled it: once
+      // the caster's own graveyard held seven cards (Dwell on the Past's up to four: 99 subsets), no other player was offered at all.
       const options = [];
+      const rest = [];
       for (const p of tagged) {
         const own = gyCards.filter((c) => c.controller === p.id);
         const subs = targetSubsets(own, atom.minTargets ?? 0, atom.maxTargets) || [[]];
-        for (const sub of subs) {
-          options.push([p, ...sub]);
-          if (options.length >= MAX_CAST_EXPANSIONS) break; // the standard option-blow-up backstop
-        }
-        if (options.length >= MAX_CAST_EXPANSIONS) break;
+        for (const sub of subs) (options.length < MAX_CAST_EXPANSIONS ? options : rest).push([p, ...sub]);
       }
       if (options.length === 0) return null;  // no candidate player at all → uncastable (players always exist in practice)
       options.sort((a, b) => b.length - a.length); // maximal shuffle-in first (stable — ties keep player order)
-      perAtom.push(options);
+      rest.sort((a, b) => b.length - a.length);
+      pushSlot(rest.length ? [...options, ...rest] : options, i);
       continue;
     }
     // MULTI-COUNT TARGET ("up to N target …"): this atom chooses a SUBSET of [minTargets..maxTargets] distinct legal
@@ -436,8 +464,11 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       // ALL-correct-side candidate per atomTargetIntent (enemy effects hit only enemies, own-side only
       // own), falling through smaller subsets to EMPTY only when no correct-side pick exists. Ties keep
       // targetSubsets' deterministic combination order → serialize-stable. A human still sees every subset.
-      subsets = subsets.slice().sort((a, b) => b.length - a.length);
-      perAtom.push(subsets);
+      // The subsets withEveryTarget added (a list the cap cut short) sort among themselves AFTER the list's own, so the slot's first
+      // options are the capped offer's in their old order (the empty subset of an "up to one" stays the 64th).
+      const bySize = (a, b) => b.length - a.length;
+      subsets = [...subsets.filter((s) => !ADDED_SUBSETS.has(s)).sort(bySize), ...subsets.filter((s) => ADDED_SUBSETS.has(s)).sort(bySize)];
+      pushSlot(subsets, i);
       continue;
     }
     // X-COUNT TARGET ("Exile X target creatures", Curse of the Swine): the target count IS the chosen X
@@ -455,20 +486,20 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       const pool = typeof ctx?.orderTargets === "function" ? ctx.orderTargets(tagged) : tagged;
       const subsets = targetSubsets(pool, x, x);
       if (subsets === null) return null;      // fewer than x legal targets → uncastable at this X
-      perAtom.push(subsets);
+      pushSlot(subsets, i);
       continue;
     }
     if (atom.optionalTarget) {
       // "up to one target …": MAY take a target or none. Offer each legal target PLUS a decline
       // option — so the cast is legal even with zero legal targets, and real targets come BEFORE
       // the decline so the trigger chooser / UI prefer an actual target over the no-op decline.
-      perAtom.push([...tagged, DECLINE]);
+      pushSlot([...tagged, DECLINE], i);
       // NOTE: optional PRIMARY (e.g. fight-pair "fights up to one …" — Smell Fear) falls through to the
       // SECONDARY block below so the MANDATORY fighter ("you control") is still enumerated. A declined
       // primary leaves only the fighter in the combo; applyFightPair no-ops a fighter with no enemy.
     } else {
       if (tagged.length === 0) return null;   // a required target has no legal pick
-      perAtom.push(playersFirstOverCap(tagged));
+      pushSlot(playersFirstOverCap(tagged), i);
     }
     // TWO-CHOSEN-TARGET (FIGHT-PAIR / DAMAGE-TARGET-POWER): also enumerate the SECONDARY target (the chosen
     // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.
@@ -480,32 +511,191 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
       // fighters come first, same ordering rule as the primary, so a chooser prefers an actual fight.
       // applyFightPair no-ops on a missing fighter, so a declined pick resolves clean.
       if (atom.secondaryOptionalTarget) {
-        perAtom.push([...secondary, DECLINE]);
+        pushSlot([...secondary, DECLINE], i);
         pairAtomIdx.push(i);
         continue;
       }
       if (secondary.length === 0) return null; // the fighter half has no legal pick → uncastable
-      perAtom.push(secondary);
+      pushSlot(secondary, i);
       pairAtomIdx.push(i);
     }
   }
+  return { perAtom, pairAtomIdx, slotAtom };
+}
+
+// ⭐ THE OFFER OVER THE CAP (2026-11-03). A player announces a target for each instance of "target" (CR 601.2c): any legal
+// choice in every slot, and any combination of them the rules allow. The offer is a list of whole casts, so a cast whose slots
+// multiply past MAX_CAST_EXPANSIONS can't list them all. It used to list the product's first 64 rows — the first slot varying
+// slowest, its options in seat order, the user's seat first whoever cast — so every later slot kept its options and the first kept
+// ⌈64 / the rest⌉: Twisted Fealty cast in a four-seat pod of six Bears each could steal only three of its caster's own Bears,
+// Hungry Flames never reached the fourth seat's creatures, and a one-slot spell beside 70 creatures (Swords to Plowshares on a
+// token board) reached only the first 64 — none of an opponent's past them.
+// Over the cap the offer is now a COVERING: those first 64 rows still come first, as they were, then every option of every
+// slot in a row with ALL the other slots at one of
+//   (1) one seat's first option there — a row per seat: the option's own seat first, then the seats in turn order from the caster;
+//   (2) the same object, where it is a legal choice there too (CR 115.3 — one object may be chosen once for each instance of
+//       "target"; the Wicked Role on the creature Twisted Fealty steals);
+//   (3) no target, where that slot may take none ("up to one").
+// A slot with no option of that kind takes its first option of the first seat (in that order) that has one — else its no-target
+// option, else its first. So every legal option
+// of every slot is offered (a one-slot cast lists all of its targets), beside each seat's first option; one cast shape's rows grow
+// with the slots' option counts — at most (seats + 2) × their sum, past the first 64 — never with their product. A cost choice made
+// beside the rows (a sacrifice victim, a card to discard) pairs every choice with the first 64 only and each added row once
+// (legalChoices.pairCostChoicesWithRows, isPastCapRow below): V × 64 + the added rows, where V × every row grew with the square of a
+// token board (the target-cap review's F1 — Blasting Station beside 360 Squirrels threw RangeError). What a person still
+// can't pick over the cap is any other combination: two slots each at an option that isn't its seat's first in its slot (Hungry
+// Flames at one seat's second Bear and another seat's planeswalker), or, with three slots or more, the other slots at different
+// seats. A slot-by-slot target prompt at cast would reach those; none exists (found-not-fixed). At or under the cap nothing
+// changed: the whole product, in the order it always had. Past the first 64 rows the seats come in one rule whoever casts — the
+// option's own, then turn order from the caster; deterministic (board, turn and slot order only).
+
+// THE ROWS THE COVERING ADDED (the target-cap review's F1, F2): every row past the capped product's first 64, by its target list's
+// identity (the array a cast's or an activation's `targets` carries — nothing is added to the action itself). A cost choice beside a
+// target list (legalChoices — one cast per sacrifice victim per row) pairs every choice with the capped offer's rows only, and each of
+// these once, beside the least valuable choice that can pay for it; the default AI prefers, among these, a row whose other targets sit on their
+// atom's side. A row cloned away from its array reads as one of the capped offer's (the old behaviour).
+const PAST_CAP_ROWS = new WeakSet();
+/** Is `targets` (a cast's target list) one of the rows the covering added past the capped offer's first 64? */
+export function isPastCapRow(targets) {
+  return Array.isArray(targets) && PAST_CAP_ROWS.has(targets);
+}
+
+// A seat-less option: DECLINE ("up to one" left unchosen) or an empty subset.
+const NO_TARGET = Symbol("no-target");
+const seatOfTarget = (t) => (t?.type === "player" ? t.id : (t?.controller ?? null));
+/** The seat an option belongs to: a player's own seat, a permanent's or card's or spell's controller; NO_TARGET for no target; null for a subset that spans seats. */
+function optionSeat(opt) {
+  if (opt === DECLINE) return NO_TARGET;
+  if (Array.isArray(opt)) {
+    if (opt.length === 0) return NO_TARGET;
+    const s = seatOfTarget(opt[0]);
+    return s != null && opt.every((t) => seatOfTarget(t) === s) ? s : null;
+  }
+  return seatOfTarget(opt);
+}
+const optionId = (opt) => (opt !== DECLINE && !Array.isArray(opt) && opt?.id != null ? opt.id : null);
+
+/** Is the product of the slots' option counts above `limit`? (Saturating — never multiplies past it.) */
+function productExceeds(perAtom, limit) {
+  let p = 1;
+  for (const options of perAtom) {
+    p *= options.length;
+    if (p > limit) return true;
+  }
+  return false;
+}
+
+/** The first `limit` index vectors of the slots' product in lexicographic order (the last slot fastest) — the rows the capped product offered. */
+function lexicographicPrefix(sizes, limit) {
+  const out = [];
+  const vec = sizes.map(() => 0);
+  while (out.length < limit) {
+    out.push(vec.slice());
+    let j = sizes.length - 1;
+    for (; j >= 0; j--) {
+      vec[j]++;
+      if (vec[j] < sizes[j]) break;
+      vec[j] = 0;
+    }
+    if (j < 0) break;
+  }
+  return out;
+}
+
+/** One cast's flat target list from an index vector: slot order, a subset spread, DECLINE adding nothing (the product's own build). */
+function comboOf(perAtom, vec) {
+  const combo = [];
+  for (let j = 0; j < perAtom.length; j++) {
+    const opt = perAtom[j][vec[j]];
+    if (opt === DECLINE) continue;
+    if (Array.isArray(opt)) combo.push(...opt);
+    else combo.push(opt);
+  }
+  return combo;
+}
+
+/**
+ * The covering of an over-cap product (see THE OFFER OVER THE CAP above), as index vectors into `perAtom`, first occurrence kept. A
+ * row whose two-target atom names one creature in both its slots is dropped by expandAtoms' DISTINCTNESS rule, and no option is
+ * lost with it: an option collides only with its own seat's first option in the other slot, so it still stands beside each other
+ * seat's first there — or, when one seat holds every option, the first 64 rows and the second option's own rows name it (the
+ * Clash of Titans witness).
+ */
+function coveringVectors(state, controllerId, perAtom) {
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const at = Math.max(0, order.indexOf(controllerId));
+  const seats = [...order.slice(at), ...order.slice(0, at)];
+  const firstBySeat = perAtom.map((options) => {
+    const m = new Map();
+    options.forEach((o, k) => { const s = optionSeat(o); if (s != null && !m.has(s)) m.set(s, k); });
+    return m;
+  });
+  const firstById = perAtom.map((options) => {
+    const m = new Map();
+    options.forEach((o, k) => { const id = optionId(o); if (id != null && !m.has(id)) m.set(id, k); });
+    return m;
+  });
+  const vectors = [];
+  const seen = new Set();
+  const add = (vec) => {
+    const key = vec.join(",");
+    if (seen.has(key)) return;
+    seen.add(key);
+    vectors.push(vec);
+  };
+  for (const vec of lexicographicPrefix(perAtom.map((o) => o.length), MAX_CAST_EXPANSIONS)) add(vec);
+  for (let i = 0; i < perAtom.length; i++) {
+    perAtom[i].forEach((o, k) => {
+      const own = optionSeat(o);
+      const seatOrder = seats.includes(own) ? [own, ...seats.filter((s) => s !== own)] : seats;
+      const fallback = (j) => {
+        for (const s of seatOrder) if (firstBySeat[j].has(s)) return firstBySeat[j].get(s);
+        return firstBySeat[j].get(NO_TARGET) ?? 0;
+      };
+      const id = optionId(o);
+      const profiles = [
+        ...seatOrder.map((s) => (j) => firstBySeat[j].get(s)),
+        ...(id != null ? [(j) => firstById[j].get(id)] : []),
+        (j) => firstBySeat[j].get(NO_TARGET),
+      ];
+      for (const pick of profiles) add(perAtom.map((_, j) => (j === i ? k : (pick(j) ?? fallback(j)))));
+    });
+  }
+  return vectors;
+}
+
+/**
+ * All legal target-combinations for a list of atoms — the cartesian product across the atoms that need a target, and over the
+ * cap its covering (THE OFFER OVER THE CAP, above). Returns:
+ *   - `[[]]`   when no atom needs a target (one cast, empty targets)
+ *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
+ *   - otherwise an array of flat, atomIndex-tagged target arrays.
+ */
+function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) {
+  const slots = castSlots(state, controllerId, atoms, sourceColors, ctx);
+  if (slots === null) return null;
+  const { perAtom, pairAtomIdx } = slots;
   if (perAtom.length === 0) return [[]];
 
   let combos = [[]];
-  for (const options of perAtom) {
-    const next = [];
-    for (const combo of combos) {
-      for (const opt of options) {
-        // opt is: DECLINE (add nothing) | a MULTI-COUNT subset (an array — spread its targets) | a single target.
-        next.push(opt === DECLINE ? [...combo] : Array.isArray(opt) ? [...combo, ...opt] : [...combo, opt]);
-        if (next.length >= MAX_CAST_EXPANSIONS) break;
+  if (productExceeds(perAtom, MAX_CAST_EXPANSIONS)) {
+    combos = coveringVectors(state, controllerId, perAtom).map((vec) => comboOf(perAtom, vec));
+    for (let k = MAX_CAST_EXPANSIONS; k < combos.length; k++) PAST_CAP_ROWS.add(combos[k]); // the rows the covering added (isPastCapRow)
+  } else {
+    for (const options of perAtom) {
+      const next = [];
+      for (const combo of combos) {
+        for (const opt of options) {
+          // opt is: DECLINE (add nothing) | a MULTI-COUNT subset (an array — spread its targets) | a single target.
+          next.push(opt === DECLINE ? [...combo] : Array.isArray(opt) ? [...combo, ...opt] : [...combo, opt]);
+        }
       }
-      if (next.length >= MAX_CAST_EXPANSIONS) break;
+      combos = next;
     }
-    combos = next;
   }
-  // DISTINCTNESS — drop any combo where a pair atom's two creatures are the same object (CR 701.14 — a
-  // creature can't fight itself; "another target creature" demands two distinct). Keeps every other combo.
+  // DISTINCTNESS — drop any combo where a pair atom's two creatures are the same object: every two-target form read names two
+  // distinct creatures — "another target creature", or one you control and one you don't (CR 115.3 lets one object fill each
+  // instance of "target" only as it fits that instance's criteria). Keeps every other combo.
   if (pairAtomIdx.length) {
     combos = combos.filter(combo => pairAtomIdx.every(idx => {
       const pair = combo.filter(t => t.atomIndex === idx);
@@ -738,5 +928,6 @@ export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) 
   });
 }
 
-// Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard.
-export const _internals = { kCombinations, targetSubsets, MAX_CAST_EXPANSIONS };
+// Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard; castSlots and DECLINE — a
+// cast's target slots before combining (castTargetCover.test.js checks every slot's every option is offered in some cast).
+export const _internals = { kCombinations, targetSubsets, MAX_CAST_EXPANSIONS, castSlots, DECLINE };

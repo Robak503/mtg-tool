@@ -311,8 +311,14 @@ describe("\"any target\" beside more than 64 creatures still offers the players"
     const state = pod({ user: [SG(), perm(STATION, "station"), ...squirrels(70)] });
     const targets = new Set(outletOffers(state, "Blasting Station").filter((a) => a.sacCreatureId === "sq000").map((a) => `${a.targets[0].type}:${a.targets[0].id}`));
     for (const id of ["user", "ai1", "ai2", "ai3"]) expect(targets.has(`player:${id}`)).toBe(true);
-    expect(targets.size).toBeGreaterThan(60); // the cap still holds (64, less the Squirrel being sacrificed)
-    expect(targets.size).toBeLessThanOrEqual(64);
+    // the cheapest victim, this Squirrel, beside the capped offer's 64 targets less itself (63) — every victim's base rows (the
+    // target-cap review's F1) — and beside each of the 11 targets past them, which go to the least valuable victim that pays (R2-F1)
+    expect(targets.size).toBe(74);
+    // so past the cap every legal target is offered in some activation (the offer over the cap, 2026-11-03): Squirrel Girl, the 70
+    // Squirrels and the four players — the target past the 64th once, beside a Squirrel token, never beside Squirrel Girl
+    const all = outletOffers(state, "Blasting Station");
+    expect(new Set(all.map((a) => a.targets[0].id)).size).toBe(75);
+    expect(all.filter((a) => a.targets[0].id === "sq069").map((a) => a.sacCreatureId)).toEqual(["sq000"]);
   });
 
   it("at or under the cap the order of the offered targets is unchanged", () => {
@@ -437,13 +443,16 @@ describe("boundaries", () => {
     expect(tokenLoopState(without, "user")).toMatchObject({ holdLoop: false, outlet: null });
   });
 
-  it("the option cap: 64 candidates keep their order, 65 put the players first", () => {
-    const firstTargets = (n) => outletOffers(pod({ user: [SG(), perm(STATION, "station"), ...squirrels(n)] }), "Blasting Station")
-      .filter((a) => a.sacCreatureId === "sq000").map((a) => a.targets[0].id);
+  it("the option cap: 64 candidates keep their order, 65 put the players first — and the 65th is offered once", () => {
+    const offers = (n) => outletOffers(pod({ user: [SG(), perm(STATION, "station"), ...squirrels(n)] }), "Blasting Station");
+    const firstTargets = (n) => offers(n).filter((a) => a.sacCreatureId === "sq000").map((a) => a.targets[0].id);
     // Squirrel Girl + n Squirrels + 4 players = n + 5 candidates (the Squirrel being sacrificed is dropped afterwards)
     const at = firstTargets(59);
     expect({ count: at.length, first: at[0], last: at.at(-1) }).toEqual({ count: 63, first: "sg", last: "ai3" });
     const over = firstTargets(60);
-    expect({ count: over.length, firstFour: over.slice(0, 4), fifth: over[4] }).toEqual({ count: 63, firstFour: ["user", "ai1", "ai2", "ai3"], fifth: "sg" });
+    expect({ count: over.length, firstFour: over.slice(0, 4), fifth: over[4], last: over.at(-1) }).toEqual({ count: 64, firstFour: ["user", "ai1", "ai2", "ai3"], fifth: "sg", last: "sq059" });
+    // past the cap the cut candidate is offered too (the offer over the cap, 2026-11-03 — before, never): once, beside the least
+    // valuable victim that pays (this Squirrel — R2-F1), not beside every victim (the target-cap review's F1)
+    expect(offers(60).filter((a) => a.targets[0].id === "sq059").map((a) => a.sacCreatureId)).toEqual(["sq000"]);
   });
 });

@@ -43,7 +43,7 @@ import { startingLoyalty } from "./gameState.js"; // the planeswalker attack pol
 import { lifePaymentContext } from "./manaModel.js"; // the planeswalker attack policy — a Phyrexian attack tax paid with life, as legalChoices.canPayAttackTax pays it
 import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, programContainsCountedCombatShield, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
-import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
+import { changeTargetAlternatives, atomForStackTarget, isPastCapRow } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom; isPastCapRow — a row the offer over the cap added (the multi-slot partner pick, the target-cap review's F2)
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
@@ -1136,6 +1136,11 @@ function chooseDisciplinedVariant(state, aiPlayerId, actions, pol = {}) {
     const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
     if (!target) return pol.spellTarget === "v1" ? null : pickTargetedSpell(state, aiPlayerId, actions, pol);
     chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
+    // PAST THE CAP (the target-cap review's F2, 2026-11-03): when the first cast aimed at that target is one of the rows the covering
+    // added (targeting.isPastCapRow — its other slots at the target's own seat first), take the first such cast whose other targets
+    // each sit on the side their atom is for (otherTargetsOnSide), else that first one. First Stage of Magic Design from the user's
+    // seat put its +3/+3 on the opponent whose Giant it burned. Inside the capped offer's rows nothing changes.
+    if (isPastCapRow(chosen?.targets)) chosen = actions.find((a) => a.targets?.[0]?.id === target.id && otherTargetsOnSide(state, aiPlayerId, a)) || chosen;
   }
   return chosen;
 }
@@ -1167,6 +1172,31 @@ function worthACard(state, perm) {
 const BODY_VALUE_PER_STAT = 0.8;
 const lower = (k) => String(k || "").toLowerCase();
 const isLandOnly = (state, perm) => permanentHasCardType(state, perm.id, "land") && !permanentIsCreature(state, perm.id);
+
+/**
+ * Does every target of `action` past its first sit on the side its atom is for (atomTargetIntent — removal and damage on an
+ * opponent's, a buff on its own; an ambiguous or unread side asks nothing)? The atoms are the cast's: a modal cast's chosen modes,
+ * concatenated as expandCastChoices tags them. The F2 partner read in chooseDisciplinedVariant (the generic targeted branch).
+ */
+function otherTargetsOnSide(state, aiPlayerId, action) {
+  const program = action.program;
+  const modes = program?.modal?.modes || [];
+  const cm = action.chosenMode;
+  const atoms = program?.structure !== "modal" ? (program?.atoms || [])
+    : Array.isArray(cm) ? cm.flatMap((k) => modes[k]?.atoms || []) : (modes[cm]?.atoms || []);
+  const enemies = new Set(opponentsOf(state, aiPlayerId));
+  const sideOf = (t) => {
+    if (t.type === "player") return t.id;
+    if (t.type === "spell" || t.type === "stackAbility") return (state.stack || []).find((o) => o.id === t.id)?.controller;
+    return t.controller;
+  };
+  return (action.targets || []).slice(1).every((t) => {
+    const intent = atomTargetIntent(atoms[spellTargetSlot(atoms, t)]);
+    if (intent === "enemy") return enemies.has(sideOf(t));
+    if (intent === "own") return sideOf(t) === aiPlayerId;
+    return true;
+  });
+}
 
 /** The atom index a target belongs to: its own atomIndex, or (a legacy single-effect cast) the first atom that takes a chosen target. */
 function spellTargetSlot(atoms, t) {
