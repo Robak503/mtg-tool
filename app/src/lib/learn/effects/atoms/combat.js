@@ -2153,6 +2153,16 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "permanent", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // TARGET COMMANDER keyword grant (play-weighted #1067 — Witch's Clinic: "Target commander gains lifelink until end of turn.").
+  // "Commander" names a permanent on the battlefield that is a commander (CR 903.3d) — any player's, of any type (a creature, an
+  // uncrewed Vehicle, a planeswalker that can be a commander): the permanent pool with the `commander` restriction, which reads the
+  // designation the card carries (CR 903.3 — it is no characteristic, so a token or clone copy of a commander is none, and a
+  // commander that becomes a copy of something else still is one).
+  pg = t.match(/^target commander gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", targetType: "permanent", restrictions: [{ kind: "commander" }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // ARTIFACT-OR-CREATURE keyword grant (SHELF-85 · Otharri O10 Reroute Systems "Target artifact or creature gains
   // indestructible until end of turn."; Loran's Escape is the other printing). The proven β-2 union pool
   // (enumerateTargets' creatureOrArtifact predicate — every pick tagged type:"permanent", the destroy/exile

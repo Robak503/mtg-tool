@@ -32,7 +32,7 @@ import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { bodyOnlyAuraHosts } from "./auraSpellHost.js"; // AURA_ETB's re-check for an Aura no modeled lane casts — the host list its cast was offered from (CR 608.2b)
 import { characteristicColors } from "./faceUp.js"; // the resolving Aura spell's colours — a double-faced spell is its front face's (CR 712.8c) (a leaf)
 import { auraEntryHasHost, enteringAuraHost, mayBeEnchantedBy } from "./auraEntry.js"; // mayBeEnchantedBy: AURA_ETB's re-check (CR 608.2b, 702.16c). A clone that enters as a copy of an Aura chooses what it enchants (CR 303.4f) — auraEntry reaches neither resolvers nor cloneCopy (checked 2026-10-16)
-import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
+import { isNativeManaAura, auraChoosesColorOnEnter, parseSoulbondBond, impositionEntersTapped } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) — the Aura spell's host re-check; SOULBOND (BLITZ SL-1) — the modeled bond reader
 import { equipmentBarredAsCreature, cannotEquipNow, permanentHasCardType, permanentHasTypeWord, permanentColors, permanentIsCreature, addContinuousEffect, withAbilityLoss, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — a soulbond creature that lost its abilities pairs with nothing) // + addContinuousEffect: the CREW resolver's layer-4 type (CR 702.122a); // + permanentHasTypeWord (the type-line audit — the clone re-check's Equipment) // CR 301.5c / 701.3b (cannotEquipNow — a source that is no Equipment right now) — a creature Equipment can't equip (the Equip resolver's guard); + permanentHasCardType (#511): the Aura host re-check reads layer-4 card types; + the colours the CR 608.2b re-checks judge protection against
 import { canBeTargetedBy, playerTargetableBy } from "./spellEffects.js"; // the ONE targetability predicate the Aura / Equip offers read — re-asked as those spells and abilities resolve (CR 608.2b, 608.3b)
 
@@ -206,7 +206,9 @@ export function enterPermanent(state, card, controller, opts = {}) {
   let lwTokenId = null;
   if (lwToken) {
     const { id: tokId, state: ts2 } = mintId(next, "perm");
-    const tokPerm = { ...createPermanent({ id: tokId, card: lwToken, controller, summoningSick: true }), enteredOnTurn: ts2.turn, timestamp: ts2.timestampCounter || 0 };
+    // An opponent's "creatures your opponents control enter tapped" applies to the Germ as it enters (CR 614.1d — pw25's blind review, found on the
+    // way: no token mint read it; the token seam tokens.fireTokenEnterTriggers reads it for every other mint, and this Germ is minted outside it).
+    const tokPerm = { ...createPermanent({ id: tokId, card: lwToken, controller, summoningSick: true, tapped: impositionEntersTapped(next, lwToken, controller) }), enteredOnTurn: ts2.turn, timestamp: ts2.timestampCounter || 0 };
     const ts3 = { ...ts2, timestampCounter: (ts2.timestampCounter || 0) + 1 };
     next = { ...ts3, players: { ...ts3.players, [controller]: { ...ts3.players[controller], battlefield: [...ts3.players[controller].battlefield, tokPerm] } } };
     next = attachPermanent(next, { equipId: permId, targetId: tokId });

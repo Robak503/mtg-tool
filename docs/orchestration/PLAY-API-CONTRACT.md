@@ -10,7 +10,19 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.16.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.17.0"`
+
+> **v1.17.0 (additive MINOR, 2026-11-03 — a new field on two existing action kinds; the play-weighted slice pw25, after pw24's
+> 1.16.0):** `"cast-spell"` and `"play-land"`: `muldrothaSlot: { sourceId, type }` — Muldrotha, the Gravetide's permission from the
+> graveyard for one permanent type (`"Artifact"`, `"Battle"`, `"Creature"`, `"Enchantment"`, `"Planeswalker"`, `"Land"`); a card of several
+> types is offered once per open type, and the offer taken spends that type — those offers differ only in that field, so a driver that
+> picks among them without reading it still picks which permission it spends. `"activate-ability"` for a seat a person plays
+> (`state.humanSeats`): a counted discard or counted exile from the graveyard is offered once per choice of cards (CR 602.2b, 601.2h;
+> bounded — the first 64 sets, then one per card in none; beside a list of targets, the full sets × targets product only while it stays
+> within 64, past that every set beside the first target that pays and every other target beside its least valuable set, per X), naming
+> them (`discardIds`; `exileGyIds` with `exileGyNames`); two graveyard cards of one name that another lane tells apart (a flashback
+> granted this turn, milled or put there from the battlefield this turn) are two choices; every other seat keeps the one least-valuable
+> set. No kind, decision or answer shape changed.
 
 > **v1.16.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw24):** each rides a kind a driver
 > already handles (§5: "new additive fields on decisions/actions/answers/state").

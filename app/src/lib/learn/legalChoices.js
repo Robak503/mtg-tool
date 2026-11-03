@@ -124,6 +124,7 @@ import { landEntryCopySpec, landCopyCandidates } from "./landEntryCopy.js"; // V
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { characteristicTypeLine, characteristicColors } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission; the colours of the spell being cast or the zone card whose ability it is, for protection (CR 702.16b) and the pitch costs (a leaf)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
+import { seatIsHuman } from "./auraEntry.js"; // a seat a person plays (state.humanSeats) — whose counted costs are theirs to choose (countedCostSets)
 import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell, RESOLVER_KEYS } from "./resolvers.js"; // + RESOLVER_KEYS: the crew offer skips a Vehicle whose crew ability is on the stack
 import { commanderColorIdentityOf } from "./commanderIdentity.js";
@@ -490,6 +491,77 @@ function leastValuableCardCmp(a, b) {
     _cmpStr(String(a.name || ""), String(b.name || "")) ||
     _cmpStr(String(a.id || ""), String(b.id || ""));
 }
+
+/**
+ * A COUNTED CARD COST AND WHO CHOOSES THE CARDS (pw25's blind review, F1 — "Discard N cards" / "Exile N cards from your graveyard" on an
+ * activated ability: Nezahal, Primal Tide, Anurid Brushhopper, Fleeting Spirit, Solphim, Zombie Infestation, Latulla, Fae of Wishes).
+ * Activating an ability follows the casting process (CR 602.2b) and its controller pays the total cost (CR 601.2h), so which cards pay
+ * it is theirs to choose. The sets of N cards one offer each may name, from `pool` (sorted least valuable first, leastValuableCardCmp):
+ *   · a seat no person plays: ONE set — the N least valuable, the house pick (unchanged; self-play is byte-identical);
+ *   · a seat a person plays (auraEntry.seatIsHuman): one set per distinct-name multiset of N (cards of one name pay identically — the
+ *     γ1h "Discard a card" convention), least valuable first, BOUNDED as the target cap bounds a cast's assignments: the first
+ *     COUNTED_COST_SETS multisets in that order, then one covering set for each card name still in none of them (that card with the
+ *     N − 1 least valuable others), so every card can pay. Past the cap a person can pay with any one card, but not with every
+ *     combination of N (found-not-fixed: it needs a pick-N-during-activation prompt).
+ * `keyOf` says which cards pay alike: the name for a hand card; for a graveyard card the name and the per-object state another lane
+ * reads (graveyardCardKey — the round-2 recheck's R2-F2).
+ * Returns arrays of cards; [] when the pool holds fewer than N.
+ */
+const COUNTED_COST_SETS = 64;
+function countedCostSets(state, playerId, pool, n, keyOf = (c) => c?.name ?? c?.id) {
+  if (!(n > 0) || pool.length < n) return [];
+  if (!seatIsHuman(state, playerId)) return [pool.slice(0, n)];
+  const groups = [];
+  const byName = new Map();
+  for (const c of pool) {
+    const key = keyOf(c);
+    if (!byName.has(key)) { byName.set(key, []); groups.push(byName.get(key)); }
+    byName.get(key).push(c);
+  }
+  const room = new Array(groups.length + 1).fill(0); // cards left from group i on (the DFS's dead-end prune)
+  for (let i = groups.length - 1; i >= 0; i--) room[i] = room[i + 1] + groups[i].length;
+  const counts = new Array(groups.length).fill(0);
+  const sets = [];
+  const used = new Set();
+  const walk = (gi, left) => {
+    if (sets.length >= COUNTED_COST_SETS) return;
+    if (left === 0) {
+      sets.push(groups.flatMap((g, i) => g.slice(0, counts[i])));
+      counts.forEach((c, i) => { if (c > 0) used.add(i); });
+      return;
+    }
+    if (room[gi] < left) return;
+    for (let c = Math.min(left, groups[gi].length); c >= 0 && sets.length < COUNTED_COST_SETS; c--) {
+      counts[gi] = c;
+      walk(gi + 1, left - c);
+    }
+    counts[gi] = 0;
+  };
+  walk(0, n);
+  for (let i = 0; i < groups.length; i++) {
+    if (used.has(i)) continue;
+    const card = groups[i][0];
+    const others = pool.filter((c) => c !== card).slice(0, n - 1);
+    const set = pool.filter((c) => c === card || others.includes(c));
+    sets.push(set);
+    for (const c of set) used.add(groups.findIndex((g) => g.includes(c)));
+  }
+  return sets;
+}
+/**
+ * WHICH GRAVEYARD CARDS PAY ALIKE (pw25's round-2 recheck, R2-F2): two cards of one name are one choice only while no lane can tell
+ * them apart. A graveyard card can carry per-object state another lane reads — a flashback granted this turn (`flashbackGrant`,
+ * Snapcaster Mage's grant, which the flashback lane counts only on the turn it was granted), milled this turn (`state.milledThisTurn`
+ * — Raul's lane, the milled-this-turn reanimation) and put there from the battlefield this turn (`state.fromBattlefieldThisTurn` —
+ * Continue?) — so the key holds them too, and a person may exile the ungranted Lightning Bolt and keep the granted one (CR 601.2h: the
+ * player pays with objects). A hand card carries none of these; a discard keeps the name alone.
+ */
+const graveyardCardKey = (state) => (c) => {
+  const granted = c?.flashbackGrant && c.flashbackGrant.turn === state.turn ? JSON.stringify(c.flashbackGrant.cost ?? null) : "";
+  const milled = state.milledThisTurn?.[c?.id] === state.turn ? "milled" : "";
+  const fromBattlefield = state.fromBattlefieldThisTurn?.[c?.id] === state.turn ? "from-battlefield" : "";
+  return `${c?.name ?? c?.id}\u0000${granted}\u0000${milled}\u0000${fromBattlefield}`;
+};
 function isSorcerySpeed(card) {
   const type = typeLineOf(card);
   // Sorcery-speed = anything that ISN'T an Instant and doesn't have FLASH (CR 702.8a — "You may cast this spell any time you
@@ -3042,14 +3114,15 @@ function actionsActivateAbility(state, playerId) {
       // (FN-safe; no corpus carrier prints it — the census found none).
       if (ab.exileGyCount && ab.sacX) continue;
       // COUNTED DISCARD COST ("Discard two cards" — Solphim, Mayhem Dominus; Latulla, Keldon Overseer's {X} form; 2026-10-17): the
-      // N least valuable hand cards, frozen on the offer (leastValuableCardCmp — the count-of-N cost policy the spell side's
-      // "discard two cards" uses) and carried by the shared action push (the {X} lane's actions too); fewer than N in hand → the cost
-      // can't be paid → not offered. The sacX lane builds actions that carry no discard, so the two together are refused.
-      let discardCountIds = null;
+      // sets of N hand cards it may be paid with (countedCostSets — for a seat no person plays the N least valuable, frozen on the one
+      // offer; for a person's seat one offer per distinct-name set, bounded — pw25's review, F1, CR 602.2b, 601.2h), each carried by
+      // the shared action push (the {X} lane's actions too); fewer than N in hand → the cost can't be paid → not offered. The sacX lane
+      // builds actions that carry no discard, so the two together are refused.
+      let discardCountSets = [null];
       if (ab.discardCount) {
         const hand = player.hand || [];
         if (hand.length < ab.discardCount || ab.sacX) continue;
-        discardCountIds = [...hand].sort(leastValuableCardCmp).slice(0, ab.discardCount).map((c) => c.id);
+        discardCountSets = countedCostSets(state, playerId, [...hand].sort(leastValuableCardCmp), ab.discardCount).map((set) => set.map((c) => c.id));
       }
       // γ1h (BLITZ DC-1) — a "Discard a card" cost (Rummaging Goblin / the granted looter interiors): the
       // PLAYER picks WHICH hand card to pitch. Expand one action per DISTINCT-named hand card (copies are
@@ -3422,9 +3495,25 @@ function actionsActivateAbility(state, playerId) {
        }
        }
       }
-      // ONE ROW'S ACTION for a victim set, a variant and a discard — or, for "Sacrifice X", one per X — or none when that choice
-      // can't pay for that row (its own target, too few left for a counted cost). Returns whether it emitted.
-      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch) => {
+      // THE COUNTED COSTS' CHOICES FOR ONE ROW (countedCostSets): each counted-discard set beside each counted-exile set, discard
+      // outer — the exile's drawn from the graveyard less this row's own targets (the γ1d no-op guard, one zone over: a card the effect
+      // targets can't also pay); one null pair without either cost; none when the row leaves too few to exile (that row can't pay,
+      // another target may). Memoized by the graveyard cards the row's targets take out of the pool (most rows take none).
+      const countedByTaken = new Map();
+      const countedChoicesFor = (ch) => {
+        const targetIds = ab.exileGyCount ? new Set(ch.targets.map((t) => t.id)) : null;
+        const taken = targetIds ? exileGyPool.filter((g) => targetIds.has(g.id)).map((g) => g.id).join("\u0000") : "";
+        if (!countedByTaken.has(taken)) {
+          const exileGySets = ab.exileGyCount
+            ? countedCostSets(state, playerId, exileGyPool.filter((g) => !targetIds.has(g.id)), ab.exileGyCount.count, graveyardCardKey(state)).map((set) => set.map((g) => g.id))
+            : [null];
+          countedByTaken.set(taken, discardCountSets.flatMap((discardCountIds) => exileGySets.map((exileGyIds) => ({ discardCountIds, exileGyIds }))));
+        }
+        return countedByTaken.get(taken);
+      };
+      // ONE ROW'S ACTION for a victim set, a variant, a discard and one counted choice — or, for "Sacrifice X", one per X — or none
+      // when that choice can't pay for that row (its own target, too few left for a counted cost). Returns whether it emitted.
+      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch, { discardCountIds, exileGyIds }) => {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
@@ -3451,16 +3540,9 @@ function actionsActivateAbility(state, playerId) {
             if (pick.length < ab.sacCount.count) return false;
             sacCountIds = pick.map((v) => v.id);
           }
-          // LANDS-4 — pick the N graveyard cards to exile for an "Exile N [<type>] cards from your graveyard"
-          // cost, EXCLUDING any graveyard card this combo targets (the γ1d no-op guard, one zone over). Too few
-          // left after the targets → this combo can't pay → skip it (another target may still be legal).
-          let exileGyIds = null;
-          if (ab.exileGyCount) {
-            const targetIds = new Set(ch.targets.map((t) => t.id));
-            const pick = exileGyPool.filter((g) => !targetIds.has(g.id)).slice(0, ab.exileGyCount.count);
-            if (pick.length < ab.exileGyCount.count) return false;
-            exileGyIds = pick.map((g) => g.id);
-          }
+          // LANDS-4 — the N graveyard cards to exile for an "Exile N [<type>] cards from your graveyard" cost arrive as this call's
+          // counted choice (countedChoicesFor — the N least valuable for a seat no person plays; one per distinct set, bounded, for a
+          // person's seat — pw25's review, F1), never a card this row targets; a row that leaves too few has no choice to call with.
           // γ1e — "Sacrifice X <subtype>" (Grim Hireling): the PLAYER chooses X. Expand ONE action per legal X
           // (1..available), each paying exactly X fungible victims and threading xValue:X into the effect (the
           // "-X/-X" reads ctx.xValue). Victims exclude any the effect TARGETS (a sacrificed Treasure the ability
@@ -3523,6 +3605,9 @@ function actionsActivateAbility(state, playerId) {
             : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
             : discardCountIds ? `Discard ${(player.hand || []).filter((c) => discardCountIds.includes(c.id)).map((c) => c.name).join(", ")}: ${ab.effectClause}`
             : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause;
+          // A person's seat sees WHICH graveyard cards each exile offer pays with (its offers differ only in them); every other seat's
+          // one offer keeps its shape.
+          const exileGyNames = exileGyIds && seatIsHuman(state, playerId) ? exileGyIds.map((id) => (player.graveyard || []).find((g) => g.id === id)?.name ?? null) : null;
           actions.push({
             kind: "activate-ability",
             playerId,
@@ -3556,6 +3641,7 @@ function actionsActivateAbility(state, playerId) {
             ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
             ...(discardCountIds ? { discardIds: discardCountIds } : {}), // the N frozen hand cards a "Discard two cards" cost pays (the dispatcher re-verifies each)
             ...(exileGyIds ? { exileGyIds, exileGyCount: ab.exileGyCount } : {}), // LANDS-4 — the N graveyard cards to exile (cost); the dispatcher re-verifies each
+            ...(exileGyNames ? { exileGyNames } : {}), // a person's seat: the exiled cards by name (actionLabel.activationCostText)
             ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,
@@ -3566,13 +3652,45 @@ function actionsActivateAbility(state, playerId) {
           });
           return true;
       };
+      // THE COUNTED SETS ARE ONE MORE COST-CHOICE DIMENSION OF THE NEST (pw25's round-2 recheck, R2-F1 — the target cap's bound, as
+      // pairCostChoicesWithRows pairs victims): beside one victim set, one X and one discard, the rows the capped offer had take every
+      // counted choice while rows × choices stays within COUNTED_COST_SETS offers. Past that, the first row that pays takes every choice,
+      // each other row the least valuable choice that pays for it — rows + choices − 1 — and then one offer more for each card some
+      // row's choices pay with and no offer does yet (a card the first row targets is in none of its sets: Cabal Surgeon's creature
+      // card). So a person reaches every target and every set, but not every combination of the two (the pick-N prompt — found-not-
+      // fixed). Before, every set stood beside every row: Grim Lavamancer beside a midgame pod offered a person 832 activations, beside
+      // 150 Squirrels per opponent 29,120 (a 44 MB decision). One choice (a seat no person plays, or no counted cost) is the nest exactly
+      // as it was.
+      const emitCappedRows = (set, variant, discardVictim) => {
+        const rows = variant.choices.filter((ch) => !isPastCapRow(ch.targets));
+        const widest = rows.reduce((most, ch) => Math.max(most, countedChoicesFor(ch).length), 0);
+        if (rows.length * widest <= COUNTED_COST_SETS) {
+          for (const ch of rows) for (const counted of countedChoicesFor(ch)) emitRow(set, variant, discardVictim, ch, counted);
+          return;
+        }
+        const paysWith = ({ discardCountIds, exileGyIds }) => [...(discardCountIds || []), ...(exileGyIds || [])];
+        const reached = new Set();
+        let everyChoiceDone = false;
+        for (const ch of rows) {
+          let emitted = false;
+          for (const counted of countedChoicesFor(ch)) {
+            if (!emitRow(set, variant, discardVictim, ch, counted)) continue;
+            for (const id of paysWith(counted)) reached.add(id);
+            emitted = true;
+            if (everyChoiceDone) break; // past the first row that pays: its least valuable choice only
+          }
+          if (emitted) everyChoiceDone = true;
+        }
+        for (const ch of rows) for (const counted of countedChoicesFor(ch)) {
+          if (paysWith(counted).every((id) => reached.has(id))) continue;
+          if (emitRow(set, variant, discardVictim, ch, counted)) for (const id of paysWith(counted)) reached.add(id);
+        }
+      };
       // A COST CHOICE BESIDE A TARGET LIST PAST THE CAP (pairCostChoicesWithRows, one nest over): every victim set beside the rows the
-      // capped offer had — the base's rows, in its order — and each row the covering added once, beside the least valuable victim set
-      // and discard that pays for it (the order below). Before, every victim set stood beside every row: a token board's outlet offered
-      // victims × targets, and Blasting Station beside 360 Squirrels threw RangeError (the target-cap review's F1).
-      for (const set of victimSets) for (const variant of set.variants) for (const discardVictim of discardVictims) {
-        for (const ch of variant.choices) if (!isPastCapRow(ch.targets)) emitRow(set, variant, discardVictim, ch);
-      }
+      // capped offer had — the base's rows, in its order — and each row the covering added once, beside the least valuable victim set,
+      // discard and counted choice that pays for it (the order below). Before, every victim set stood beside every row: a token board's
+      // outlet offered victims × targets, and Blasting Station beside 360 Squirrels threw RangeError (the target-cap review's F1).
+      for (const set of victimSets) for (const variant of set.variants) for (const discardVictim of discardVictims) emitCappedRows(set, variant, discardVictim);
       // The second pass tries the victim sets and the discards least valuable first (the round-2 recheck's R2-F1 —
       // pairCostChoicesWithRows): a row past the cap is shot by sacrificing a Squirrel token, not the Squirrel Girl standing first.
       // Each dimension is all victims or all null (absent), so a null compares equal; ties keep the nest's order (a stable sort).
@@ -3593,7 +3711,7 @@ function actionsActivateAbility(state, playerId) {
           placed: for (const set of rankedSets) {
             const variant = set.variants.find((v) => v.x === x);
             if (!variant) continue;
-            for (const discardVictim of rankedDiscards) if (emitRow(set, variant, discardVictim, ch)) break placed;
+            for (const discardVictim of rankedDiscards) for (const counted of countedChoicesFor(ch)) if (emitRow(set, variant, discardVictim, ch, counted)) break placed;
           }
         }
       }
@@ -4357,6 +4475,71 @@ function actionsCastDragonCreatureFromGraveyard(state, playerId) {
   return castActionsFromZone(state, playerId, eligible, "graveyard", null, false)
     .filter((a) => isDragonCreatureSpell(a.faceCard || eligible.find((c) => c.id === a.cardId)))
     .map((a) => ({ ...a, dragonGyCastSourceId: source.id }));
+}
+
+/**
+ * MULDROTHA, THE GRAVETIDE (play-weighted #1100 — "During each of your turns, you may play a land and cast a permanent spell of each
+ * permanent type from your graveyard. (If a card has multiple permanent types, choose one as you play it.)"; CR 110.4, 305.2, 601.3).
+ * Each source grants, on each of its controller's turns, ONE land play and ONE cast of each permanent type — artifact, battle, creature,
+ * enchantment, planeswalker (CR 110.4) — from its controller's graveyard; each permission is latched per source and type by the
+ * dispatcher (`${sourceId}_muldrotha_${type}`, cleared at the untap step like every once-latch), so a new Muldrotha this turn grants
+ * them again (its ruling). The land play is the player's land drop (CR 305.2 — its ruling: none without a land play left) at its normal
+ * timing (CR 116.2a); the casts are full casts through the SHARED builder (costs, alternative costs, targets and timing as from the
+ * hand — its rulings), and each is offered once per open type the spell has AS IT IS CAST (its ruling: "Use the type of the card as
+ * it's played or cast"; a bestowed card is an Aura enchantment spell, CR 702.103b) — the choice of which type it counts as is which
+ * offer the player takes. Faces as the hand lanes cast them: an adventurer's permanent half (its Adventure is no permanent spell), an
+ * omen or preparation card's normal face, a native modal DFC's front, a native-tier spell // spell modal DFC's faces (the builder's own);
+ * a spell // spell modal DFC that is not native (Valki, God of Lies // Tibalt; Esika // The Prismatic Bridge) is offered as its front
+ * face's types only — its back face, legal to cast too (CR 712.11b, 712.11c), is not offered (a safe under-offer). A land face of a
+ * modal DFC or a Town is played as a land. A land another permission already plays from this graveyard (Crucible of Worlds —
+ * its offers are the same play-land actions without the latch) is not offered again under Muldrotha's.
+ */
+const MULDROTHA_SPELL_TYPES = ["Artifact", "Battle", "Creature", "Enchantment", "Planeswalker"];
+function actionsMuldrothaFromGraveyard(state, playerId, { lands }) {
+  if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
+  const player = state.players[playerId];
+  if (!(player?.graveyard || []).length) return [];
+  const lossy = boardHasAbilityLoss(state);
+  const sources = (player.battlefield || []).filter((p) => parseStaticAbilities((lossy ? withAbilityLoss(state, p) : p.card)).some((d) => d.muldrothaGraveyardPermission));
+  if (!sources.length) return [];
+  const open = (src, type) => !state.onceTriggersFiredThisTurn?.[`${src.id}_muldrotha_${type}`];
+  const actions = [];
+  if (lands) {
+    const landSources = sources.filter((src) => open(src, "Land"));
+    if (landSources.length && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
+      const crucible = playLandFromGraveyardPermission(state, playerId);
+      for (const card of player.graveyard) {
+        const plays = isModalDfc(card) ? mdfcLandFaces(card).map((face) => ({ kind: "play-land", playerId, cardId: card.id, name: face.name, faceCard: face, fromZone: "graveyard" }))
+          : isLandAdventure(card) ? [{ kind: "play-land", playerId, cardId: card.id, name: permanentFaceCard(card).name, faceCard: permanentFaceCard(card), fromZone: "graveyard" }]
+            : isLand(card) && !crucible ? withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "graveyard" })
+              : [];
+        for (const a of plays) for (const src of landSources) actions.push({ ...a, muldrothaSlot: { sourceId: src.id, type: "Land" } });
+      }
+    }
+    return actions;
+  }
+  const rows = [];
+  for (const card of player.graveyard) {
+    // The faces the hand lanes cast (each re-enters the builder as one face, never the combined card); everything else as itself.
+    const face = isAdventureCard(card) ? permanentFaceCard(card)
+      : normalFaceCard(card) || (isModalDfc(card) && isNativeTier(classifyCard(card)) ? mdfcFaceCards(card)?.[0] : null);
+    const casts = face ? castActionsFromZone(state, playerId, [face], "graveyard", null, false).map((a) => ({ ...a, faceCard: face }))
+      : castActionsFromZone(state, playerId, [card], "graveyard", null, false);
+    for (const a of casts) {
+      // The spell as it is cast (CR 712.11c — the face that will be face up on the stack): a bestowed card is an Aura enchantment spell.
+      const typeLine = a.bestow ? "Enchantment — Aura" : characteristicTypeLine(a.faceCard || card);
+      const types = MULDROTHA_SPELL_TYPES.filter((t) => new RegExp(`\\b${t}\\b`).test(typeLine) && sources.some((src) => open(src, t)));
+      if (types.length) rows.push({ a, types });
+    }
+  }
+  // A spell of several types is offered once per type; the type FEWEST other graveyard cards could use comes first (the AI's cast
+  // picker takes a card's first offer — an artifact creature uses the creature permission when an artifact waits behind it).
+  const demand = (type, cardId) => new Set(rows.filter((r) => r.a.cardId !== cardId && r.types.includes(type)).map((r) => r.a.cardId)).size;
+  for (const { a, types } of rows) {
+    const ordered = types.length > 1 ? [...types].sort((x, y) => demand(x, a.cardId) - demand(y, a.cardId) || MULDROTHA_SPELL_TYPES.indexOf(x) - MULDROTHA_SPELL_TYPES.indexOf(y)) : types;
+    for (const type of ordered) for (const src of sources) if (open(src, type)) actions.push({ ...a, muldrothaSlot: { sourceId: src.id, type } });
+  }
+  return actions;
 }
 
 /**
@@ -5211,6 +5394,7 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
   // PLAY-LANDS-FROM-GRAVEYARD (CR 116.2a, Crucible of Worlds) — same zone-agnostic special action, sourced
   // from the graveyard under the static permission. Also never cast-suppressed, for the same reason.
   pushAll(actions, actionsPlayLandFromGraveyard(state, playerId));
+  pushAll(actions, actionsMuldrothaFromGraveyard(state, playerId, { lands: true })); // MULDROTHA (play-weighted #1100): the land play its permission grants, a land drop like any other
   if (!cantCast) {
     pushAll(actions, actionsCastSpell(state, playerId));
     pushAll(actions, actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
@@ -5224,6 +5408,7 @@ function buildLegalActions(state, playerId, { declaredAttackers } = {}) {
     pushAll(actions, actionsCastPermittedFromGraveyard(state, playerId)); // shelf D30 — a "you may cast that card this turn" permission (Emry)
     pushAll(actions, actionsCastSelfFromGraveyard(state, playerId)); // shelf D31 — "you may cast this card from your graveyard as long as …" (The Indomitable)
     pushAll(actions, actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
+    pushAll(actions, actionsMuldrothaFromGraveyard(state, playerId, { lands: false })); // MULDROTHA (play-weighted #1100): one cast of each permanent type from your graveyard, per source, each of your turns
     pushAll(actions, actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
     pushAll(actions, actionsCastEscapeFromGraveyard(state, playerId)); // ESCAPE, GRANTED (CR 702.138a, P·29 — Underworld Breach): mana cost + exile three other graveyard cards
     pushAll(actions, actionsCastRetraceFromGraveyard(state, playerId)); // RETRACE, GRANTED (CR 702.81a — Six): its costs + discard a land card, on its controller's turn

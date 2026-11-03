@@ -2220,7 +2220,11 @@ export function applyDelayedBlink(state, atom, ctx) {
   const done = [];
   // NON-TARGETED MASS (Ghostway "exile each creature you control"): enumerate the controller's creatures at
   // resolution — there are no chosen targets. A snapshot of ids taken BEFORE any exile, so the loop is stable.
-  const targets = atom.eachYouControl
+  // ITSELF (Nezahal, Primal Tide; Aetherling — `atom.self`): the ability's source, by the permanent id that made it. A source that
+  // left the battlefield before this resolves is gone or a new object with a new id (CR 400.7), so nothing is exiled or scheduled.
+  const targets = atom.self
+    ? (ctx.sourceId && findPermanent(state, ctx.sourceId) ? [{ id: ctx.sourceId }] : [])
+    : atom.eachYouControl
     ? (state.players?.[ctx.controller]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id)).map((p) => ({ id: p.id })) // the creatures there NOW (the type-line audit)
     : (ctx.targets || []);
   for (const t of targets) {
@@ -2233,7 +2237,7 @@ export function applyDelayedBlink(state, atom, ctx) {
     const hostController = perm.attachedTo ? findPermanent(next, perm.attachedTo)?.controller ?? null : null;
     const side = hostController ? ` ${hostController === owner ? "own" : "enemy"}` : "";
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
-    next = applyScheduleDelayed(next, { delayedClause: `[blink-return ${cardId} ${owner} ${atom.withCounter ? "counter" : "plain"}${side}]`, fireStep: "end", fireScope: "any" }, ctx);
+    next = applyScheduleDelayed(next, { delayedClause: `[blink-return ${cardId} ${owner} ${atom.withCounter ? "counter" : "plain"}${atom.returnTapped ? " tapped" : ""}${side}]`, fireStep: "end", fireScope: "any" }, ctx);
     done.push(cardId);
   }
   return logEvent(next, { kind: "spell-effect", effect: "delayed-blink", controller: ctx.controller, targets: done });
@@ -2244,8 +2248,10 @@ export function applyDelayedBlink(state, atom, ctx) {
  * is an exiled Aura's side (applyDelayedBlink); a sentinel without one — any card that wasn't attached, an older save — reads
  * as before. */
 export function blinkReturnClauseParser(clause) {
-  const m = String(clause || "").trim().match(/^\[blink-return (\S+) (\S+) (counter|plain)(?: (own|enemy))?\]$/i);
-  if (m) return { op: "blink-return", cardId: m[1], ownerId: m[2], withCounter: /^counter$/i.test(m[3]), ...(m[4] ? { auraSideHint: m[4].toLowerCase() } : {}) };
+  // `tapped` (Nezahal, Primal Tide — "Return it to the battlefield tapped …"): the card returns tapped (CR 110.5b). A sentinel without
+  // it returns the card untapped, as before.
+  const m = String(clause || "").trim().match(/^\[blink-return (\S+) (\S+) (counter|plain)( tapped)?(?: (own|enemy))?\]$/i);
+  if (m) return { op: "blink-return", cardId: m[1], ownerId: m[2], withCounter: /^counter$/i.test(m[3]), ...(m[4] ? { tapped: true } : {}), ...(m[5] ? { auraSideHint: m[5].toLowerCase() } : {}) };
   return null;
 }
 
@@ -2254,7 +2260,7 @@ export function blinkReturnClauseParser(clause) {
  * chooses what it enchants as it returns, or stays exiled with nothing to enchant (CR 303.4f/g — enterCardFromZone). */
 export function applyBlinkReturn(state, atom, ctx) {
   if (!state.players?.[atom.ownerId]) return logEvent(state, { kind: "spell-effect", effect: "blink-return", returned: null, controller: ctx.controller });
-  const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId, auraSideHint: atom.auraSideHint || null });
+  const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId, tapped: !!atom.tapped, auraSideHint: atom.auraSideHint || null });
   let next = r.state;
   if (r.entered && atom.withCounter && r.permanentId) {
     next = addCounter(next, { permanentId: r.permanentId, type: "+1/+1", amount: 1, placedBy: atom.ownerId }); // it returns under its owner's control, who puts it (CR 122.6a)

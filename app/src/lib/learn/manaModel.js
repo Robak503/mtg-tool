@@ -3455,7 +3455,9 @@ export function manaSources(state, playerId) {
     const usableWhileSick = prod.requiresTap === false;
     // summoningSickNow (NV-1, CR 302.6): layer-aware — printed creatures read the stamped flag exactly
     // as before; a MASS-ANIMATED land played this turn is newly gated (its {T} mana ability is a sick
-    // creature's); a Treasure/stolen non-creature keeps its old never-gated verdict.
+    // creature's); so is an animated noncreature TOKEN created this turn (2026-11-03 — the token mints now stamp `enteredOnTurn`, so a
+    // Treasure Vihaan animated the turn it was made is a sick creature). A noncreature that entered on an earlier turn, or a stolen one,
+    // is not gated by this read (summoningSickNow reads the entry turn, not the control change — the reported lenience).
     if ((isCreature ? !!perm.summoningSick : summoningSickNow(state, perm)) && !usableWhileSick
         && !permanentHasKeyword(state, perm.id, "Haste")
         && !abilitiesAsThoughHasteFor(state, perm.controller)) continue; // SG-18 (Shang-Chi): abilities as though haste

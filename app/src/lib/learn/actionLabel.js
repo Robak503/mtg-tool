@@ -30,6 +30,8 @@ export function castVariantClauses(o) {
   if (o.bestow) out.push("bestow");
   if (o.emerge) out.push(o.sacCreatureName ? `emerge: sacrifice ${o.sacCreatureName}` : "emerge");
   if (o.flashbackCast) out.push("flashback");
+  // MULDROTHA (play-weighted #1100): which permanent-type permission the graveyard cast spends — the choice a card of several types makes.
+  if (o.muldrothaSlot?.type) out.push(`from the graveyard as its ${String(o.muldrothaSlot.type).toLowerCase()}`);
   if (o.escapeName) out.push(o.escapeName);
   if (o.altName) out.push(o.altCost?.evoke ? `evoke: ${o.altName}` : o.altName);
   // Bolas's Citadel's library-top cast carries its life payment as an altCost with no altName (P·17).
@@ -71,7 +73,7 @@ function castTargetText(o) {
 /** The three parts a hand-card play's label is built from: the verb and the face played, the target, the variant clauses. */
 export function playLabelParts(o) {
   return {
-    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}${o.kind === "play-land" && o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`, // VESUVA — the land it enters as
+    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}${o.kind === "play-land" && o.muldrothaSlot ? " from the graveyard" : ""}${o.kind === "play-land" && o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`, // VESUVA — the land it enters as; MULDROTHA's land play
     target: o.kind === "cast-spell" ? castTargetText(o) : null,
     clauses: castVariantClauses(o),
   };
@@ -109,7 +111,8 @@ export function activationCostText(o, seat = "user") {
   const tapN = o.tapCountIds?.length || 0;
   if (tapN) parts.push(o.tapCountNoun ? `tap ${tapN} untapped ${o.tapCountNoun}` : `tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`); // a filtered cost prints its own noun ("artifacts", "Zombies")
   const exileN = o.exileGyIds?.length || 0;
-  if (exileN) parts.push(`exile ${exileN} card${exileN === 1 ? "" : "s"} from ${seatPossessive(seat)} graveyard`);
+  // A person's seat is offered one exile set per choice of cards (legalChoices.countedCostSets), so its label names them.
+  if (exileN) parts.push(Array.isArray(o.exileGyNames) && o.exileGyNames.length ? `exile ${o.exileGyNames.join(", ")} from ${seatPossessive(seat)} graveyard` : `exile ${exileN} card${exileN === 1 ? "" : "s"} from ${seatPossessive(seat)} graveyard`);
   if (o.payLife > 0) parts.push(`pay ${o.payLife} life`);
   if (o.phyrexianLife > 0) parts.push(`pay ${o.phyrexianLife} life for its Phyrexian mana`); // 2026-10-17 — the symbols paid with life
   if (o.payEnergy > 0) parts.push(`pay ${"{E}".repeat(o.payEnergy)}`);
@@ -145,7 +148,7 @@ function kindLabel(o, seat) {
       const { head, target, clauses } = playLabelParts(o);
       return `${head}${target ? ` → ${target}` : ""}${clauses.length ? ` (${clauses.join("; ")})` : ""}`;
     }
-    case "play-land": return `Play ${o.name}${o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`; // VESUVA (play-weighted #923) — the land drop that enters as a copy
+    case "play-land": return `Play ${o.name}${o.muldrothaSlot ? " from the graveyard" : ""}${o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`; // VESUVA (play-weighted #923) — the land drop that enters as a copy; MULDROTHA's land play
     case "declare-attacker": {
       // The player's own attacks never aim at "user"; an opponent's attack on the player (a log line) reads "Attack you".
       const at = o.targetName || o.defenderName || (o.defenderId === "user" ? "you" : SEAT_LABELS[o.defenderId]) || "";

@@ -1526,6 +1526,15 @@ export function matchDelayedBlink(oracle) {
   if (/^exile each creature you control\. return those cards to the battlefield under their owner's control at the beginning of the next end step$/.test(t)) {
     return { atoms: [{ op: "delayed-blink", targetType: null, withCounter: false, eachYouControl: true }] };
   }
+  // ITSELF (play-weighted #1114 — Nezahal, Primal Tide: "Discard three cards: Exile Nezahal. Return it to the battlefield tapped
+  // under its owner's control at the beginning of the next end step."; Aetherling, Stenn, Fleeting Spirit, Anurid Brushhopper the
+  // untapped form): the ability's own source, no target. The source is exiled as the ability resolves if it is still the object that
+  // made it (a source that left the battlefield in response is a new object or gone, CR 400.7 — nothing is exiled and nothing comes
+  // back), and the card returns at the next end step under its owner's control (CR 603.7), tapped when printed so (CR 110.5b).
+  const self = t.match(/^exile this creature\. return it to the battlefield( tapped)? under its owner's control at the beginning of the next end step$/);
+  if (self) {
+    return { atoms: [{ op: "delayed-blink", targetType: null, withCounter: false, self: true, ...(self[1] ? { returnTapped: true } : {}) }] };
+  }
   return null;
 }
 

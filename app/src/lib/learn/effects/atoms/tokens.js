@@ -8,8 +8,9 @@ import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, ch
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { enteringAuraHost, isRoleCard } from "../../auraEntry.js"; // CR 303.4f — what a token copy of an Aura enchants as it is created, asked of a seat a person plays (a leaf zones.js already imports)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 707.5) — a token copy of it enters only on a discarded land card; a leaf over gameState / triggers / staticAbilityParser
+import { impositionEntersTapped } from "../../staticAbilityParser.js"; // an opponent's "<types> your opponents control enter tapped" (CR 614.1d) — read for every created token at the enter seam
 import { chosenCardTypeOnEnter } from "../../chosenCardType.js"; // CLOUD KEY (CR 707.5 + 614.12a) — a token copy makes the copied "as this enters" card-type choice; a leaf over choicePolicy only
-import { addContinuousEffect, enteringTypeWords } from "../../layers.js"; // + enteringTypeWords: a token entering with counters is judged by its types as it enters (CR 614.12) // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
+import { addContinuousEffect, enteringTypeWords, copiableBaseOf, boardHasAbilityLoss, withAbilityLoss } from "../../layers.js"; // + enteringTypeWords: a token entering with counters is judged by its types as it enters (CR 614.12) // MINTED-TOKEN HASTE (shelf D26) — "It gains haste." after a token copy is a lasting layer-6 grant (layers imports no atoms — cycle-free)
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenStaticAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
@@ -170,6 +171,31 @@ export function fireTokenEnterTriggers(state, mintedIds) {
         }
       }
     }
+  }
+  // ENTERED THIS TURN (2026-11-03, play-weighted #1101 — Ocelot Pride: "for each token you control that entered this turn"): a created
+  // token enters the battlefield (CR 111.1, 603.6a), so it carries the `enteredOnTurn` stamp every card's entry writes (zones.js,
+  // resolvers.enterPermanent) — before this, no mint wrote it, and every "entered this turn" reader (a target restriction, a static's
+  // "as long as it entered this turn", summoningSickNow's animated-permanent read, a Sakashima's Protege copy pool) read a token
+  // created this turn as never having entered. Stamped here, the seam the token mints of effects/atoms pass (create-token, the named
+  // tokens, both copy resolvers, amass, fabricate, mobilize, manifest — and the batch's replacement extras); a stamp already written (a
+  // manifested card's) is kept. The tokens made outside it enter through resolvers.enterPermanent, which stamps them and reads the
+  // opponents' enter-tapped statics there: the living weapon / For Mirrodin! Germ, and a resolved copy of a permanent spell, which
+  // becomes a token (CR 707.10f — Double Major).
+  // AN OPPONENT'S "ENTER TAPPED" (pw25's blind review, found on the way — Blind Obedience, Authority of the Consuls, Thalia, Heretic
+  // Cathar, Kismet, Frozen Aether, Imposing Sovereign: "<types> your opponents control enter tapped"; CR 614.1d, 614.12): a replacement
+  // that applies to a token entering like any permanent (staticAbilityParser.impositionEntersTapped, the read a land drop and a card's
+  // entry already make — enterReplacements). The token mints never read it, so a created Wolf or Treasure entered untapped under one.
+  // Read here, for every permanent the event made, on the board it entered (the batch is one creator's, never an opponent of its own
+  // members); a token that already entered tapped (tapped and attacking, a copy's entry replacements) is left as it is. Setting it is
+  // entering tapped, not becoming tapped (no becomes-tapped event). The token is read through the ability view (one board test per
+  // scan — the ability-loss source lint); the read is its type line, which a loss leaves alone.
+  const lossy = boardHasAbilityLoss(next);
+  for (const id of ids) {
+    const found = findPermanent(next, id);
+    if (!found?.permanent) continue;
+    const stamp = found.permanent.enteredOnTurn == null && next.turn != null;
+    const tap = !found.permanent.tapped && impositionEntersTapped(next, lossy ? withAbilityLoss(next, found.permanent) : found.permanent.card, found.controller);
+    if (stamp || tap) next = updatePermanentSafe(next, id, (p) => ({ ...p, ...(stamp ? { enteredOnTurn: next.turn } : {}), ...(tap ? { tapped: true } : {}) }));
   }
   for (const id of ids) {
     const found = findPermanent(next, id);
@@ -729,6 +755,69 @@ function resolveCopySource(state, atom, ctx) {
   return null;
 }
 
+/**
+ * ONE TOKEN COPY of one creation event — the mint both copy resolvers share (applyCreateTokenCopy's copies of one source,
+ * applyCreateTokenCopyEach's one copy of each of several). `copiable` is the snapshot (snapshotCopiedCard); `asCreated` the board as the
+ * creation began (the board an Aura copy chooses its host on and the entry replacements read — never another token this event makes);
+ * `rolesTaken` the hosts earlier Role copies of this event took (shared across the event); `auraKey` the deterministic id an Aura copy's
+ * host question is asked under. Returns `{ state, mintedId }` — mintedId null when the copy isn't created.
+ */
+function mintOneTokenCopy(state, { copiable, copyIsAura, copyIsRole, auraKey, asCreated, rolesTaken, atom, ctx }) {
+  let next = state;
+  let hostId = null;
+  if (copyIsAura) {
+    const choice = enteringAuraHost(asCreated, { ...copiable, id: auraKey }, ctx.controller, copyIsRole ? { excludeIds: rolesTaken } : {});
+    if (!choice.hostId) {
+      next = logEvent(next, { kind: "aura-token-not-created", cardName: copiable.name, controller: ctx.controller,
+        reason: choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled" });
+      return { state: next, mintedId: null };
+    }
+    hostId = choice.hostId;
+    if (copyIsRole) rolesTaken.push(hostId);
+  }
+  // A COPY OF MOX DIAMOND (discardLandToEnter.js — CR 707.5, 614.1a): the copied entry replacement applies as the token would
+  // enter — its controller discards a land card, or it is put into its owner's graveyard instead, where a token ceases to exist
+  // (CR 704.5d): not created. One land per copy (a doubled copy asks twice, on the live hand).
+  if (entersByDiscardingLand(copiable)) {
+    const r = applyDiscardLandToEnter(next, ctx.controller, copiable);
+    next = r.state;
+    if (!r.enters) return { state: next, mintedId: null };
+  }
+  const minted = mintId(next, "tok");
+  next = minted.state;
+  // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
+  // stripped by snapshotCopiedCard. Per-token unique id.
+  const card = { ...copiable, id: `tok-${minted.id}`, token: true };
+  // CR 707.5 — a token that's a copy becomes the copy AS it enters, so the copied "as this enters" abilities take effect: a copy
+  // of Cloud Key makes its own card-type choice (CR 614.12a). It never inherits the original's: that choice sets no
+  // characteristic, so it is not a copiable value (CR 707.2).
+  const perm = { ...createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.entersTapped }), ...chosenCardTypeOnEnter(next, card, ctx.controller) };
+  const player = next.players[ctx.controller];
+  let entered = perm;
+  // COMBAT-STATE rider (CR 508 — "enters … attacking"): a permanent characteristic of the ENTRY, not the
+  // copied card. Recorded on the permanent so combat reads it; never written to the card (which would leak
+  // into the copiable values). Only the clean tapped/attacking riders reach here (parser-gated).
+  if (atom.entersAttacking) entered = { ...entered, attacking: true };
+  // MYRIAD'S COPIES (effects/atoms/myriad.js, 2026-11-03): `myriadToken` stamps the copy (the legend rule's house pick reads it), and
+  // `withEnterReplacements` runs it through the entry replacements as it enters — the copied creature's "enters with" counters and "as
+  // this enters" choices (CR 707.5, 614.1c; the myriad rulings) — on the board as the creation began, before the lethal check
+  // sees it. The replacer is registered by myriad.js (enterReplacements reaches this module, so it can't be imported here). The
+  // copy-each resolver passes it too; every other copy effect passes neither flag and mints as before.
+  if (atom.myriadToken) entered = { ...entered, myriadToken: true };
+  let entrySettle = null;
+  if (atom.withEnterReplacements) {
+    if (!tokenCopyEntryReplacer) throw new Error("create-token-copy: the entry replacer is unregistered — load effects/atoms/myriad.js (the engine always does)");
+    const r = tokenCopyEntryReplacer.apply(asCreated, entered, {});
+    entered = r.perm;
+    entrySettle = r.settle;
+  }
+  next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
+  if (entrySettle) next = tokenCopyEntryReplacer.settle(next, entered, entrySettle);
+  // attachPermanent keeps both sides of the link and is where a control Aura takes its creature (a copied Control Magic).
+  if (hostId) next = attachPermanent(next, { equipId: minted.id, targetId: hostId });
+  return { state: next, mintedId: minted.id };
+}
+
 export function applyCreateTokenCopy(state, atom, ctx) {
   let next = state;
   const sourcePerm = resolveCopySource(next, atom, ctx);
@@ -788,61 +877,13 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   const asCreated = next;
   const rolesTaken = [];
   for (let i = 0; i < count; i++) {
-    let hostId = null;
-    if (copyIsAura) {
-      // One question per copy (a doubled copy is two Auras to place): the copiable values carry no id of their own, so a
-      // person's answer is keyed by the source and the copy's index in this call (deterministic, so the re-run after an answer
-      // asks the same way, and two copy effects in one step never share a key).
-      const choice = enteringAuraHost(asCreated, { ...copiable, id: `${sourcePerm.id ?? sourcePerm.card?.id}#${i}` }, ctx.controller, copyIsRole ? { excludeIds: rolesTaken } : {});
-      if (!choice.hostId) {
-        next = logEvent(next, { kind: "aura-token-not-created", cardName: copiable.name, controller: ctx.controller,
-          reason: choice.modeled ? "nothing it can enchant (CR 303.4g)" : "its enchant ability is not modeled" });
-        continue;
-      }
-      hostId = choice.hostId;
-      if (copyIsRole) rolesTaken.push(hostId);
-    }
-    // A COPY OF MOX DIAMOND (discardLandToEnter.js — CR 707.5, 614.1a): the copied entry replacement applies as the token would
-    // enter — its controller discards a land card, or it is put into its owner's graveyard instead, where a token ceases to exist
-    // (CR 704.5d): not created. One land per copy (a doubled copy asks twice, on the live hand).
-    if (entersByDiscardingLand(copiable)) {
-      const r = applyDiscardLandToEnter(next, ctx.controller, copiable);
-      next = r.state;
-      if (!r.enters) continue;
-    }
-    const minted = mintId(next, "tok");
-    next = minted.state;
-    // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
-    // stripped by snapshotCopiedCard. Per-token unique id.
-    const card = { ...copiable, id: `tok-${minted.id}`, token: true };
-    // CR 707.5 — a token that's a copy becomes the copy AS it enters, so the copied "as this enters" abilities take effect: a copy
-    // of Cloud Key makes its own card-type choice (CR 614.12a). It never inherits the original's: that choice sets no
-    // characteristic, so it is not a copiable value (CR 707.2).
-    const perm = { ...createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.entersTapped }), ...chosenCardTypeOnEnter(next, card, ctx.controller) };
-    const player = next.players[ctx.controller];
-    let entered = perm;
-    // COMBAT-STATE rider (CR 508 — "enters … attacking"): a permanent characteristic of the ENTRY, not the
-    // copied card. Recorded on the permanent so combat reads it; never written to the card (which would leak
-    // into the copiable values). Only the clean tapped/attacking riders reach here (parser-gated).
-    if (atom.entersAttacking) entered = { ...entered, attacking: true };
-    // MYRIAD'S COPIES (effects/atoms/myriad.js, 2026-11-03): `myriadToken` stamps the copy (the legend rule's house pick reads it), and
-    // `withEnterReplacements` runs it through the entry replacements as it enters — the copied creature's "enters with" counters and "as
-    // this enters" choices (CR 707.5, 614.1c; the myriad rulings) — on the board as the creation began, before the lethal check below
-    // sees it. The replacer is registered by myriad.js (enterReplacements reaches this module, so it can't be imported here); every
-    // other copy effect passes neither flag and mints as before.
-    if (atom.myriadToken) entered = { ...entered, myriadToken: true };
-    let entrySettle = null;
-    if (atom.withEnterReplacements) {
-      if (!tokenCopyEntryReplacer) throw new Error("create-token-copy: the entry replacer is unregistered — load effects/atoms/myriad.js (the engine always does)");
-      const r = tokenCopyEntryReplacer.apply(asCreated, entered, {});
-      entered = r.perm;
-      entrySettle = r.settle;
-    }
-    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
-    if (entrySettle) next = tokenCopyEntryReplacer.settle(next, entered, entrySettle);
-    // attachPermanent keeps both sides of the link and is where a control Aura takes its creature (a copied Control Magic).
-    if (hostId) next = attachPermanent(next, { equipId: minted.id, targetId: hostId });
-    mintedIds.push(minted.id);
+    // One question per copy of an Aura (a doubled copy is two Auras to place): the copiable values carry no id of their own, so a
+    // person's answer is keyed by the source and the copy's index in this call (deterministic, so the re-run after an answer asks the
+    // same way, and two copy effects in one step never share a key).
+    const one = mintOneTokenCopy(next, { copiable, copyIsAura, copyIsRole, auraKey: `${sourcePerm.id ?? sourcePerm.card?.id}#${i}`, asCreated, rolesTaken, atom, ctx });
+    next = one.state;
+    if (one.mintedId == null) continue;
+    mintedIds.push(one.mintedId);
     if (atom.myriadToken) mintedGroups.push(Math.floor(i / multiplier));
   }
   // MINTED-TOKEN REFERENT (shelf D26 — Kiki-Jiki, Tempestra): "It gains haste. Sacrifice it at the beginning of the next end
@@ -1400,6 +1441,18 @@ function createTokenClauseParserCore(clause) {
  * ETB (CR 603.6a): every minted copy fires its own + every watcher's enter triggers via the shared
  * fireTokenEnterTriggers seam, then the lethal SBA runs (a 0/0 copy dies) — the same ordering as every other
  * token mint. ZERO source tokens ⇒ ZERO copies (a clean no-op, never a fabricated body).
+ *
+ * ONE CREATION EVENT, minted by the shared per-copy mint (mintOneTokenCopy — 2026-11-03, play-weighted #1101 Ocelot Pride): each copy
+ * enters through the entry replacements on the board as the creation began (its copied "enters with" counters and "as this enters"
+ * choices, CR 707.5, 614.1c — Ocelot Pride's ruling: "Any 'As [this permanent] enters the battlefield' or '[This permanent] enters the
+ * battlefield with' abilities of the tokens will also work"); a copy of an Aura token chooses what it enchants as it is created, or isn't
+ * created (CR 303.4f, 303.4g); a source's copiable values are the ones a layer-1 copy effect gave it, if any (CR 707.3 —
+ * layers.copiableBaseOf; Ocelot Pride's ruling: "If the original token is copying something else, the token copy you create will use the
+ * copiable values of the original token").
+ *
+ * `atom.enteredThisTurn` (Ocelot Pride — "for each token you control that entered this turn, create a token that's a copy of it"): only
+ * the tokens whose `enteredOnTurn` stamp is this turn (every enter path writes it) — wherever they entered from, under whoever's control,
+ * as long as the controller controls them now. Its ruling: the copies don't target.
  */
 export function applyCreateTokenCopyEach(state, atom, ctx) {
   let next = state;
@@ -1407,27 +1460,22 @@ export function applyCreateTokenCopyEach(state, atom, ctx) {
   if (!player) return logEvent(next, { kind: "spell-effect", effect: "create-token-copy-each", count: 0, controller: ctx.controller });
   // CR 608.2 — snapshot the source tokens ONCE, off the pre-mint battlefield, so a minted copy is never itself
   // re-copied (the copies are created simultaneously). Each source's copiable card is taken now (CR 707.2).
-  const sources = (player.battlefield || []).filter((perm) => perm?.card?.token);
-  const copiables = sources.map((perm) => snapshotCopiedCard(perm, undefined, []));
+  const sources = (player.battlefield || []).filter((perm) => perm?.card?.token && (!atom.enteredThisTurn || (perm.enteredOnTurn ?? -1) === next.turn));
+  const asCreated = next;
+  const copiables = sources.map((perm) => snapshotCopiedCard(copiableBaseOf(asCreated, perm), undefined, []));
   const doubler = tokenMultiplier(next, ctx.controller); // Wave-3a (CR 616) — same for every copy this resolution
   const mintedIds = [];
-  for (const copiable of copiables) {
+  const rolesTaken = [];
+  copiables.forEach((copiable, s) => {
+    const copyType = String(copiable.type || copiable.type_line || "").split(" // ")[0];
+    const copyIsAura = /\bAura\b/.test(copyType);
+    const copyIsRole = copyIsAura && isRoleCard(copiable);
     for (let i = 0; i < doubler; i++) {
-      // A copy of a Mox Diamond token: its copied entry replacement (discardLandToEnter.js, CR 707.5) — no land card, no token.
-      if (entersByDiscardingLand(copiable)) {
-        const r = applyDiscardLandToEnter(next, ctx.controller, copiable);
-        next = r.state;
-        if (!r.enters) continue;
-      }
-      const minted = mintId(next, "tok");
-      next = minted.state;
-      const card = { ...copiable, id: `tok-${minted.id}`, token: true };
-      const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
-      const pl = next.players[ctx.controller];
-      next = { ...next, players: { ...next.players, [ctx.controller]: { ...pl, battlefield: [...pl.battlefield, perm] } } };
-      mintedIds.push(minted.id);
+      const one = mintOneTokenCopy(next, { copiable, copyIsAura, copyIsRole, auraKey: `${sources[s].id}#${i}`, asCreated, rolesTaken, atom: { withEnterReplacements: true }, ctx });
+      next = one.state;
+      if (one.mintedId != null) mintedIds.push(one.mintedId);
     }
-  }
+  });
   // ETB (CR 603.6a) — each minted copy fires its own + every watcher's enter triggers (the copy is token:true,
   // so a nontoken-gated watcher is a no-op on it). Then the lethal SBA (a 0/0 copy dies), after the ETB enqueue.
   next = fireTokenEnterTriggers(next, mintedIds);

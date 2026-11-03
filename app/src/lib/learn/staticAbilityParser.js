@@ -3945,6 +3945,15 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── A LAND AND A PERMANENT SPELL OF EACH PERMANENT TYPE FROM YOUR GRAVEYARD (play-weighted #1100 — Muldrotha, the Gravetide; CR 110.4,
+  // 305.2, 601.3): "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your
+  // graveyard." A coverage MARKER (no affects/op) enforced by legalChoices' actionsMuldrothaFromGraveyard — one land play and one cast
+  // per permanent type, per source, each turn (the latches the dispatcher sets). Exact printed sentence only (its reminder is stripped).
+  if (/^during each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard$/.test(c)) {
+    out.push({ muldrothaGraveyardPermission: true });
+    return;
+  }
+
   // ── SELF GRAVEYARD CAST (shelf D31 — The Indomitable, Gravecrawler; CR 113.6b + 601.3): "You may cast this card from your
   // graveyard as long as <condition>." An ability that works FROM the graveyard: a coverage MARKER enforced by legalChoices'
   // actionsCastSelfFromGraveyard, which offers the card from its owner's graveyard while the condition holds as the cast

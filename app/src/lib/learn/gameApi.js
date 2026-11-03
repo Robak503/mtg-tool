@@ -432,7 +432,21 @@ export function observe(state, seat) {
 //   - state: a delayed-trigger record's `watchCombatDamage` (Hunter's Insight), a removeKeyword's `cantHave` and a targetShield's
 //     `hexproof` (Arcane Lighthouse), a permanent's `enteredViaAbilityOf` (Kodama) and `becameAura` (Necromancy).
 //   No kind, decision or answer shape changed; apart from the exerted attack above, a driver that ignores the fields plays as before.
-export const PLAY_API_VERSION = "1.16.0";
+// 1.17.0 (additive MINOR — a new field on two existing action kinds, 2026-11-03, the play-weighted slice pw25, after
+//   pw24's 1.16.0):
+//   - "cast-spell" and "play-land": `muldrothaSlot: { sourceId, type }` (Muldrotha, the Gravetide — a cast or land play from the
+//     graveyard under that permanent's permission for one permanent type: "Artifact", "Battle", "Creature", "Enchantment",
+//     "Planeswalker" or "Land"; a card of several types is offered once per open type, and the offer taken spends that type). Those
+//     offers differ ONLY in the field: a driver that picks among them without reading it still picks which permission it spends.
+//   - "activate-ability" for a seat a person plays (state.humanSeats): a counted discard ("Discard N cards") or a counted exile from the
+//     graveyard ("Exile N cards from your graveyard") is offered once per choice of cards (pw25's blind review, F1 — CR 602.2b, 601.2h;
+//     bounded: the first 64 sets, then one per card in none; beside a list of targets the full sets × targets product only while it
+//     stays within 64, past that every set beside the first target that pays and every other target beside its least valuable set,
+//     per X — the round-2 recheck, R2-F1), each naming its cards (`discardIds`; `exileGyIds` with `exileGyNames`). Two graveyard
+//     cards of one name that another lane tells apart (a flashback granted this turn, milled or put there from the battlefield this
+//     turn) are two choices. Every other seat is offered the one least-valuable set, as before.
+//   No kind, decision or answer shape changed.
+export const PLAY_API_VERSION = "1.17.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

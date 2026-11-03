@@ -130,6 +130,9 @@ const TOKEN_COPY_TARGET_KEYWORD_RE = /^create a token that(?:'s| is) a copy of t
 // Arbiter, CREED whole-card). "that permanent" is the per-iteration token referent (resolved by the resolver,
 // never first-legal-target picked).
 const TOKEN_COPY_EACH_RE = /^for each token you control, create a token that(?:'s| is) a copy of that permanent$/;
+// TOKEN-COPY-EACH, the tokens that entered this turn (play-weighted #1101 — Ocelot Pride): "for each token you control that entered this
+// turn, create a token that's a copy of it." The same resolver with its `enteredThisTurn` filter.
+const TOKEN_COPY_EACH_ENTERED_RE = /^for each token you control that entered this turn, create a token that's a copy of it$/;
 // Layer-enforceable, layer-GRANTABLE combat keywords (mirrors cloneCopy.js RIDER_KEYWORDS exactly — granting
 // one to a copy behaves like a printed instance). Kept as a local literal so this leaf imports nothing new.
 const GRANTABLE_KEYWORDS = new Set([
@@ -203,6 +206,9 @@ export function tokenCopyParser(clause) {
   // per-source resolver, NOT the single-source applyCreateTokenCopy.
   if (TOKEN_COPY_EACH_RE.test(t)) {
     return { op: "create-token-copy-each", targetType: null };
+  }
+  if (TOKEN_COPY_EACH_ENTERED_RE.test(t)) {
+    return { op: "create-token-copy-each", targetType: null, enteredThisTurn: true };
   }
   const km = t.match(TOKEN_COPY_TARGET_KEYWORD_RE);
   if (km) {

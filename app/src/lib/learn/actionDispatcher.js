@@ -155,6 +155,12 @@ function applyPassPriority(state) {
   return passPriority(state);
 }
 
+/** MULDROTHA, THE GRAVETIDE's permissions (play-weighted #1100): the once-per-turn latch of one source's permission for one permanent
+ *  type (`${sourceId}_muldrotha_${type}` in onceTriggersFiredThisTurn — legalChoices.actionsMuldrothaFromGraveyard reads it). */
+function withMuldrothaLatch(state, slot) {
+  return { ...state, onceTriggersFiredThisTurn: { ...(state.onceTriggersFiredThisTurn || {}), [`${slot.sourceId}_muldrotha_${slot.type}`]: true } };
+}
+
 function applyPlayLand(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -311,6 +317,8 @@ function applyPlayLand(state, action) {
       },
     },
   };
+  // MULDROTHA (play-weighted #1100): a land played under its permission spends the source's land play for this turn.
+  if (action.muldrothaSlot?.sourceId && action.muldrothaSlot.type === "Land" && fromZone === "graveyard") next = withMuldrothaLatch(next, action.muldrothaSlot);
   next = logEvent(next, {
     kind: "play-land",
     playerId: action.playerId,
@@ -2387,6 +2395,9 @@ function applyCastSpellMaybeDiscover(state, action) {
       onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.dragonGyCastSourceId}_dragonGyCast`]: true },
     };
   }
+  // MULDROTHA (play-weighted #1100): the cast spends the source's permission for the permanent type the cast chose — the same per-source
+  // latch shape, keyed by type (legalChoices.actionsMuldrothaFromGraveyard), cleared at untap.
+  if (action.muldrothaSlot?.sourceId && action.muldrothaSlot.type) return withMuldrothaLatch(next, action.muldrothaSlot);
   // FREE CAST ONCE PER TURN (shelf D35 — One with the Multiverse, Zaffai, Vision): the same per-source once-latch, cleared at untap.
   if (action.freeCastOnceSourceId) {
     return {

@@ -989,6 +989,60 @@ self-made Aura, exert.**
   "target creature can't block this turn" (Ahn-Crop Crasher) a creature a defending player controls, where the trigger's chooser aims
   it too (`gameEngine.chooseTriggerTargets`, the "exerted" event only).
 
+**The play-weighted pw25 readers (2026-11-03) — a commander target, a self delayed blink, the tokens that entered this turn, Muldrotha.**
+- **"Target commander"** (Witch's Clinic — CR 903.3, 903.3d): the permanent keyword grant (`effects/atoms/combat.js`) on the permanent
+  pool with the `commander` restriction (`creatureRestrictions.creatureSatisfiesRestrictions` — `card.isCommander === true`, the
+  designation the seat build stamps; a clone's and a token copy's card has it stripped, a layer-1 become-copy leaves the card alone).
+  `spellEffects.addPermanents` lets a double-faced commander into that pool (it reads no type line for it; every other permanent pool
+  still skips DFCs). The default AI takes it precombat for its own commander that would attack (`pickTargetedActivation`'s lifelink arm,
+  gated on the commander restriction).
+- **A self delayed blink** (`templateMatchers.matchDelayedBlink`'s `self` arm → `zones.applyDelayedBlink` — Nezahal, Primal Tide;
+  Aetherling, Fleeting Spirit, Anurid Brushhopper, Ghost Council of Orzhova, Djinn of the Fountain's mode; Stenn's line reads, the card
+  stays body-only on its "As Stenn enters" choice): "Exile this creature. Return it to the battlefield
+  [tapped] under its owner's control at the beginning of the next end step." The source by the permanent id that made the ability (one
+  that left is gone or a new object, CR 400.7 — nothing exiled, nothing scheduled); the `[blink-return …]` sentinel gained an optional
+  `tapped` token (`applyBlinkReturn` → `enterCardFromZone`'s `tapped`). The default AI never activates it (no tap or mana cost).
+- **A created token enters this turn** (`tokens.fireTokenEnterTriggers`): every mint passes this seam, which now writes the token's
+  `enteredOnTurn` (a card's entry already did — zones.js, resolvers.enterPermanent). Before it, every "entered this turn" reader
+  (creatureRestrictions' `enteredThisTurn`, the "as long as it entered this turn" statics, `layers.summoningSickNow`'s animated-permanent
+  read, the crewed Vehicle's sickness, the damage replacements' source scope, Sakashima's Protege's pool) read a token created this turn
+  as never having entered.
+- **An opponent's "enter tapped" on a created token** (the same seam; CR 614.1d, 614.12 — the blind review's found-on-the-way): the seam
+  reads `staticAbilityParser.impositionEntersTapped` for every permanent the event made (Blind Obedience, Authority of the Consuls,
+  Thalia, Heretic Cathar, Kismet, Frozen Aether, Imposing Sovereign), as a land drop and a card's entry already did — each static read
+  through its source's own ability view (a Sovereign turned into a Frog taps nothing). Every mint of effects/atoms passes it, so a
+  manifested card (face down, not a token) now enters tapped under a creature static too; the tokens `resolvers.enterPermanent` makes
+  outside the seam (the living weapon Germ, a resolved copy of a permanent spell — CR 707.10f) read it there.
+- **Who picks a counted cost's cards** (`legalChoices.countedCostSets` — the blind review's F1; CR 602.2b, 601.2h): an activated
+  ability's "Discard N cards" (`discardIds`) and "Exile N cards from your graveyard" (`exileGyIds`) are offered to a seat a person
+  plays (`auraEntry.seatIsHuman` — `state.humanSeats`, stamped below Expert) once per distinct-name set of N, least valuable first,
+  bounded like the target cap (the first `COUNTED_COST_SETS` = 64 sets, then one covering set per card name in none); every other seat
+  keeps the one least-valuable set (self-play byte-identical). A person's exile offers carry `exileGyNames` (the label). A graveyard
+  card is keyed by its name AND the per-object state another lane reads (`graveyardCardKey` — a flashback granted this turn, milled or
+  put there from the battlefield this turn; the round-2 recheck's R2-F2). Beside a target list the sets are one more cost-choice
+  dimension of the activation nest (`emitCappedRows`, R2-F1): the full rows × sets product while it stays within 64; past that every set
+  beside the first row that pays, each other row beside its least valuable set (rows + sets − 1 per X), and one offer more for a card no
+  offer pays with yet; past-cap rows take the least valuable set that pays. Past either cap a person can pay with any one card and reach
+  every target, but not every combination — a pick-N-during-activation prompt would close it. NOT yet routed through
+  it (the same frozen pick): the cast-side "discard N" and "exile N" additional costs, the graveyard-recursion riders (GR-1, GR-2), the
+  class sacrifice "Sacrifice N <class>", the counted tap and "Sacrifice X" (the first X).
+- **Copy each token, one event** (`tokens.applyCreateTokenCopyEach` — Second Harvest; Ocelot Pride's `enteredThisTurn` filter): the copies
+  are minted by the per-copy mint the single copy resolver uses (`mintOneTokenCopy` — an Aura copy chooses its host or isn't created, a
+  Mox Diamond copy asks for its land, a Cloud Key copy chooses), each through the entry replacements on the board as the creation began
+  (`withEnterReplacements`, CR 707.5, 614.1c), from each source's copiable values (`layers.copiableBaseOf`, CR 707.3), then ONE
+  `fireTokenEnterTriggers`. (The single-source `applyCreateTokenCopy` still applies entry replacements only for myriad — the reported gap.)
+- **The city's blessing as an instruction reads it** (`runProgram`'s condition gate, CR 702.131b — "any time"): before a "then if you have
+  the city's blessing" atom is judged, `ascend.grantCitysBlessings` runs once more, so a permanent an earlier instruction of the same
+  resolution made the tenth counts (Ocelot Pride's ruling). The SBA cadence grant is otherwise unchanged.
+- **Muldrotha's graveyard permissions** (`legalChoices.actionsMuldrothaFromGraveyard`, the `muldrothaGraveyardPermission` static marker;
+  CR 110.4, 305.2, 601.3): per source, per turn of its controller, one land play (the land drop, sorcery timing; a modal DFC's or a Town's
+  land face; a plain land Crucible of Worlds already offers is not offered twice) and one cast of each permanent type through the shared
+  builder (the hand lanes' faces: an adventurer's permanent half, an omen's normal face, a native modal DFC's front). Each cast is offered
+  once per open type it has as cast (a bestowed card is an Aura enchantment spell, CR 702.103b), carrying `muldrothaSlot: { sourceId,
+  type }`; the dispatcher latches `${sourceId}_muldrotha_${type}` (the cast's tail in `applyCastSpellMaybeDiscover`, the land play's in
+  `applyPlayLand`). A spell of several types offers the type fewest other graveyard cards need first; the default AI resolves these casts'
+  cards in `pickCastAction` (the third graveyard lane it reads, after retrace and Conduit of Worlds).
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone

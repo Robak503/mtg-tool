@@ -1112,7 +1112,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // a back-face-played MDFC (Akoum Warrior cast as the land Akoum Teeth) would mis-match. Skip
         // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
         // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
-        if (tl.includes(" // ")) continue;
+        // A COMMANDER pool (Witch's Clinic's "target commander") reads no type line — the plain permanent predicate and the
+        // designation the card carries (CR 903.3) — so a double-faced commander is in it whichever face is up.
+        if (tl.includes(" // ") && !(pred === PERMANENT_PREDICATES.permanent && restrictions.some((r) => r?.kind === "commander"))) continue;
         // ANOTHER (CR 109.5) on a PERMANENT pool (SHELF-85 S6, 2026-09-04 — Peacewalker Colossus "another target Vehicle
         // you control"): the same source exclusion the creature pools honor; a missing ctx.sourceId doesn't exclude.
         if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;

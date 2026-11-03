@@ -33,6 +33,12 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // the perm's enteredOnTurn stamp (written by every enter path) must equal the CURRENT turn. An
       // unstamped permanent (a pre-stamp fixture) never qualifies — FN-safe, never a wrongly-legal target.
       if ((perm.enteredOnTurn ?? -1) !== state.turn) return false;
+    } else if (r.kind === "commander") {
+      // A COMMANDER (CR 903.3d — "target commander": a permanent on the battlefield that is a commander, Witch's Clinic): the
+      // designation is an attribute of the card, not a characteristic (CR 903.3), stamped at seat build (`card.isCommander`). A copy
+      // of a commander is none — a clone's and a token copy's card has it stripped — and a commander that becomes a copy of something
+      // else still is one (a layer-1 copy effect leaves the card alone).
+      if (perm.card?.isCommander !== true) return false;
     } else if (r.kind === "notSource") {
       // "ANOTHER" (CR 109.5) — "untap another target permanent" (Formidable Speaker) may not target the
       // source permanent itself. ctx.sourceId is threaded from the activated ability's expandCastChoices; a

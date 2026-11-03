@@ -57,6 +57,7 @@ const returnLandPoolMatch = (cost, p, state = null) => (state && boardSetsTypes(
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { createPermanent } from "../gameState.js"; // a hypothetical entering permanent (diesAsItEnters — the AI's Kodama put)
 import { applyEnterReplacements } from "../enterReplacements.js"; // its entry replacements as it would enter (enterReplacements reaches no runProgram)
+import { grantCitysBlessings } from "../ascend.js"; // CR 702.131b — the blessing as a "then if you have the city's blessing" instruction reads it (Ocelot Pride); interveningIf already imports ascend, so no new cycle
 import { addContinuousEffect, boardSetsTypes, permanentHasTypeWord } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 import { canPayWardCost } from "../ward.js"; // the ward-cost affordability the soft-counter settle and autoPickSoftCounterPay read (ward.js never reaches runProgram)
@@ -370,6 +371,12 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     // board queries, so a real game state yields true/false here; a defensive null (never expected) is treated
     // as not-met → SKIP (the false-negative-safe direction — a rider is dropped, never fabricated; CREED).
     if (atom.condition) {
+      // THE CITY'S BLESSING AS THIS INSTRUCTION READS IT (CR 702.131b — "Any time you control ten or more permanents … you get the city's
+      // blessing"; play-weighted #1101, Ocelot Pride's ruling: "If the creature token created by Ocelot Pride's last ability is your tenth
+      // permanent, you'll get the city's blessing before the ability would check to see if you have the city's blessing"). The engine
+      // grants it at the state-based-action cadence (ascend.js); an earlier instruction of this resolution may have made the tenth
+      // permanent, so the grant runs once more here, before the read.
+      if (/^you have the city['’]s blessing$/.test(String(atom.condition))) next = grantCitysBlessings(next);
       // UNLESS (Shoreline Looter, 2026-09-05): a negated rider runs only when the condition is DEFINITELY false; a
       // null read (never expected) still skips — the rider is dropped, never fabricated, in both polarities (CREED).
       const read = evaluateInterveningIf(next, atom.condition, controller, context);

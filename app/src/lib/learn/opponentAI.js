@@ -1687,8 +1687,9 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // the AI's own graveyard, which cardFromHand does not read (no other graveyard cast reaches the AI through it — found-not-fixed);
     // these two lanes alone are resolved there. A retrace's land discard is a land card the AI has left after its land drop
     // (pickAction plays the land first).
+    // MULDROTHA (play-weighted #1100): a cast under its permission names a card in the AI's own graveyard too, scored as a hand cast is.
     const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId, actions[0].fromPlayerId)
-      || ((actions[0].retraceCast || actions[0].resolutionCast) && actions[0].fromZone === "graveyard" ? (state.players[aiPlayerId]?.graveyard || []).find((c) => c.id === cardId) || null : null);
+      || ((actions[0].retraceCast || actions[0].resolutionCast || actions[0].muldrothaSlot) && actions[0].fromZone === "graveyard" ? (state.players[aiPlayerId]?.graveyard || []).find((c) => c.id === cardId) || null : null);
     if (!card) continue; // card vanished
     // PLAY-HINTS (default-off — docs/orchestration/PLAY-HINTS-LEDGER.md): pol.playHints threads the
     // ledger map (or `true` for pure derivation). lookupPlayHint is TOTAL — ledger entry first, derived
@@ -2692,6 +2693,17 @@ function pickTargetedActivation(state, aiPlayerId, actions, pol = {}) {
         continue;
       }
       const kws = atom.grantKeywords || [];
+      // LIFELINK ON ITS OWN ATTACKING COMMANDER (play-weighted #1067 — Witch's Clinic: "Target commander gains lifelink until end of
+      // turn."): taken precombat only, for its own commander creature that would attack this combat with power 1 or more and has no
+      // lifelink yet — the life comes from the damage it deals (CR 702.15b). Never an opponent's commander, and never a creature that
+      // stays home (the grant ends with the turn and would buy nothing).
+      if (precombat && dp === 0 && dt === 0 && kws.length === 1 && kws[0] === "Lifelink" && ownCreature
+        && (atom.restrictions || []).some((r) => r?.kind === "commander")) {
+        const lp = powerOf(perm.id);
+        if (lp < 1 || !attackers.has(perm.id) || permanentHasKeyword(state, perm.id, "Lifelink") || tapCostsAttacker(lp)) continue;
+        push(2, lp, t);
+        continue;
+      }
       if (!precombat || dp !== 0 || dt !== 0 || kws.length !== 1 || kws[0] !== "Haste" || !ownCreature) continue;
       if (!perm.summoningSick || perm.tapped || permanentHasKeyword(state, perm.id, "Haste")
         || (permanentHasKeyword(state, perm.id, "Defender") && !permanentHasKeyword(state, perm.id, "attacksIgnoringDefender"))) continue;
