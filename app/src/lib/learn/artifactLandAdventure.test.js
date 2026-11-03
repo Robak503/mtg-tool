@@ -171,8 +171,12 @@ describe("the metric — both halves modeled flips native-mixed; an unmodeled ha
     expect(verdict(ALTAR)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
     expect(verdict(GLAMDRING)).toEqual({ card: "body-only", permanentNative: false, adventureNative: false });
     expect(verdict(PRECIOUS)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
-    expect(verdict(LANTERN)).toEqual({ card: "body-only", permanentNative: false, adventureNative: true });
     expect(verdict(MANUAL)).toEqual({ card: "body-only", permanentNative: true, adventureNative: false });
+  });
+  // GRADUATED 2026-11-03 (the play-weighted slice pw26) out of the parked list: Ghost Lantern // Bind Spirit — its artifact half's "put a
+  // +1/+1 counter on equipped creature" reads now (the equipped referent — tarriansSoulcleaver.test.js plays it), so both halves are modeled.
+  it("⭐ graduated — Ghost Lantern // Bind Spirit: both halves modeled", () => {
+    expect(verdict(LANTERN)).toEqual({ card: "native-mixed", permanentNative: true, adventureNative: true });
   });
   // GRADUATED 2026-10-20 out of the parked list: the artifact half's "Whenever equipped creature attacks, double its power until end of
   // turn." reads now (the equipped attacker's pronoun — equippedAttackerPronoun.test.js plays it), so both halves are modeled.

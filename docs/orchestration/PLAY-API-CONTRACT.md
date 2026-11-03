@@ -10,7 +10,21 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.17.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.18.0"`
+
+> **v1.18.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw26, after pw25's 1.17.0):** each rides a kind a driver already handles (§5: "new additive fields on
+> decisions/actions/answers/state").
+> - `"protection-color"` may carry `grantText` — the colour of a grant that is not protection (Skrelv, Defector Mite: "gains toxic 1 and
+>   hexproof from the color you choose until end of turn, and can't be blocked by creatures of that color this turn"); its `candidates`
+>   are the five colours and their `threats` only what targets the creature (CR 702.11d). The answer is the same `{ kind, color }`.
+> - `"discard"` may carry `conniveN` (Spymaster's Vault — the nonland cards a connive N has discarded so far, CR 701.50e).
+> - A recorded target may carry `slotPlayer` (Grasp of Fate — the opponent whose "target" it fills, CR 601.2c). For a triggered ability
+>   whose only targets are one per opponent (Grasp of Fate, Bronzebeak Foragers, Celebrate the Mountain-king), `"trigger-target"` is raised
+>   once per opponent with a real choice, in turn order — each time that player's legal targets and "No target" — answered as before; the
+>   waiting stack object carries `awaitingTargets.perOpponent` `{ slots, at, chosen }` between the answers.
+> - state: a layer-6 addKeyword `"toxic"` with `toxicAmount`, a `cantBeBlockedByColor` effect with `color` (Skrelv); an ability-source
+>   record's `attachedTo` (Tarrian's Soulcleaver, Ghost Lantern — CR 608.2h).
+> - Save format **v15** (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[14]`).
 
 > **v1.17.0 (additive MINOR, 2026-11-03 — a new field on two existing action kinds; the play-weighted slice pw25, after pw24's
 > 1.16.0):** `"cast-spell"` and `"play-land"`: `muldrothaSlot: { sourceId, type }` — Muldrotha, the Gravetide's permission from the

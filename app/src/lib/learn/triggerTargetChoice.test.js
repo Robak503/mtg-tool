@@ -191,7 +191,7 @@ describe("controls — unchanged on both trees", () => {
     const withPerson = flushTriggers(enter(s0(["user"]), "aichupa"), { chooseTargets: chooseTriggerTargets });
     const without = flushTriggers(enter(s0(null), "aichupa"), { chooseTargets: chooseTriggerTargets });
     const strip = ({ humanSeats: _h, ...rest }) => rest;
-    expect(withPerson.stack.map((o) => o.targets.map((t) => t.id))).toEqual([["ubear"]]);
+    expect(withPerson.stack.map((o) => o.targets.map((t) => t.id))).toEqual([["ugiant"]]); // the more valuable creature (GRADUATED by pw26 — its blind review's F3)
     expect(strip(withPerson)).toEqual(without);
   });
 
@@ -200,6 +200,6 @@ describe("controls — unchanged on both trees", () => {
     const flushed = flushTriggers(enter(s0, "chupa"), { chooseTargets: chooseTriggerTargets });
     const resolved = resolveTopOfStack(flushed);
     expect({ targets: flushed.stack.map((o) => o.targets.map((t) => t.id)), pending: flushed.pendingChoice ?? null, aiBoard: names(resolved, "ai") })
-      .toEqual({ targets: [["bear"]], pending: null, aiBoard: ["Hill Giant"] });
+      .toEqual({ targets: [["giant"]], pending: null, aiBoard: ["Grizzly Bears"] }); // the more valuable creature (GRADUATED by pw26 — its blind review's F3)
   });
 });

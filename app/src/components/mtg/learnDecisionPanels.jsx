@@ -3320,8 +3320,9 @@ export function ProtectionColorPanel({ decision, onChoose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner icon="🛡️" title={`Choose a color${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}>
-        {target} gains protection from the color you choose until end of turn: nothing of that color can target it, deal damage to
-        it, enchant or equip it, or block it.
+        {decision.grantText
+          ? `${target} ${decision.grantText}.`
+          : `${target} gains protection from the color you choose until end of turn: nothing of that color can target it, deal damage to it, enchant or equip it, or block it.`}
       </ChoiceBanner>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
         {(decision.candidates || []).map((c) => {

@@ -504,7 +504,7 @@ describe("migrate", () => {
         decisionLog: [] },
       checksum: "sha256:stale-but-unused-after-verify",
     };
-    expect([typeof MIGRATIONS[13], typeof MIGRATIONS[14]]).toEqual(["function", "undefined"]); // the v13 → v14 step exists and is the last (CONTRACT-MIG)
+    expect(typeof MIGRATIONS[13]).toBe("function"); // the v13 → v14 step exists (CONTRACT-MIG; graduated by pw26's v14 → v15 — no longer the last)
     expect(MIGRATIONS[13](JSON.parse(JSON.stringify(v13)))).toEqual({ ...v13, schemaVersion: 14 }); // no land face in play: the version only
     const upgraded = migrate(JSON.parse(JSON.stringify(v13)));
     expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v13.session.state });
@@ -526,7 +526,7 @@ describe("migrate", () => {
     const v14 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v14.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v14)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 14, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // graduated (pw26): carried on to the current version
     const resumed = { ...back.session.state, pendingChoice: undefined };
     const exertOffers = legalActionsForPlayer(resumed, "user").filter((a) => a.kind === "declare-attacker" && a.permanentId === "cel").map((a) => !!a.exert);
     const fired = checkCombatDamageTriggers(resumed, [{ kind: "combat-damage-player", attackerId: "hg", attackingPlayer: "user", defender: "ai", amount: 3 }]).pendingTriggers || [];
@@ -545,10 +545,75 @@ describe("migrate", () => {
     const before = { cmc: land(v13).card.cmc, mv: permanentManaValue(v13.session.state, land(v13)) };
     const back = migrate(JSON.parse(JSON.stringify(v13)));
     const expected = JSON.parse(JSON.stringify(v13));
-    expected.schemaVersion = 14;
+    expected.schemaVersion = CURRENT_SCHEMA_VERSION; // graduated (pw26): migrate carries it on to the current version
     land(expected).card.cmc = 0;
     expect({ before, after: { cmc: land(back).card.cmc, mv: permanentManaValue(back.session.state, land(back)), printed: land(back).printedCard.cmc }, doc: back })
       .toEqual({ before: { cmc: 7, mv: 7 }, after: { cmc: 0, mv: 0, printed: 7 }, doc: expected });
+  });
+  // CONTRACT-MIG (the play-weighted slice pw26): a v15 game may carry a pending discard's `conniveN` (Spymaster's Vault), a protection-color
+  // pause's `grantText` and the Skrelv atom it runs, a toxic grant's `toxicAmount` and a `cantBeBlockedByColor` effect (Skrelv, Defector
+  // Mite), a target's `slotPlayer` (Grasp of Fate) and an ability-source record's `attachedTo` (Tarrian's Soulcleaver). An earlier save has
+  // none, and absent means what every earlier game says, so v14 → v15 stamps the version only. The round trip: each survives save → JSON →
+  // migrate and still plays — the connive's last discard places the tallied counters in one placement, the toxic grant and the colour
+  // evasion still read, and "equipped creature" still finds the creature a departed Equipment was attached to.
+  it("carries a v14 save forward to v15 (stamp-only; a v15 game's pw26 shapes round-trip, the connive tally and the grants still read)", async () => {
+    const { resolveDiscardChoice } = await import("../learn/effects/runProgram.js");
+    const { grantedToxicAmount, permanentUnblockableByColors } = await import("../learn/layers.js");
+    const { equippedTargets } = await import("../learn/effects/atoms/shared.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v14 = {
+      schemaVersion: 14, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v14", serializable: true,
+      session: { id: "learn-v14", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 6, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([typeof MIGRATIONS[14], typeof MIGRATIONS[15]]).toEqual(["function", "undefined"]); // the v14 → v15 step exists and is the last (CONTRACT-MIG)
+    expect(MIGRATIONS[14](JSON.parse(JSON.stringify(v14)))).toEqual({ ...v14, schemaVersion: 15 }); // the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v14)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v14.session.state });
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, enteredOnTurn: 1, ...extra });
+    const bears = perm("bears", { name: "Grizzly Bears", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" });
+    const hand = [{ id: "h0", name: "Hill Giant", type: "Creature — Giant", oracle: "" }, { id: "h1", name: "Forest", type: "Basic Land — Forest", oracle: "" }];
+    const state = { ...v14.session.state, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", turnOrder: ["user", "ai"], mode: "standard",
+      players: { user: { ...empty, battlefield: [bears, perm("grasp", { name: "Grasp of Fate", type: "Enchantment", oracle: "" })], hand },
+        ai: { ...empty, battlefield: [perm("aigiant", { name: "Hill Giant", type: "Creature — Giant", power: "3", toughness: "3", oracle: "" }, { controller: "ai" })] } },
+      continuousEffects: [
+        { id: "ce-1", layer: 6, op: { layerOp: "addKeyword", keyword: "toxic", toxicAmount: 1 }, affects: { mode: "fixed", permanentIds: ["bears"] }, duration: { kind: "endOfTurn", turn: 6 }, source: { kind: "resolution", permanentId: null, cardName: "Skrelv, Defector Mite" }, timestamp: 2 },
+        { id: "ce-2", layer: 6, op: { layerOp: "cantBeBlockedByColor", color: "R" }, affects: { mode: "fixed", permanentIds: ["bears"] }, duration: { kind: "endOfTurn", turn: 6 }, source: { kind: "resolution", permanentId: null, cardName: "Skrelv, Defector Mite" }, timestamp: 3 },
+      ],
+      pendingTriggers: [{ id: "pt-1", controller: "user", source: { permanentId: "cleaver", name: "Tarrian's Soulcleaver" }, descriptor: { event: "permanentLeaves", effectClause: "put a +1/+1 counter on equipped creature" },
+        context: { abilitySourceLki: { permanentId: "cleaver", controller: "user", isCreature: false, colors: [], types: ["Artifact"], keywords: [], power: 0, attachedTo: "bears" } } }],
+      // Grasp of Fate's enters trigger below the resolving Vault ability, its one target chosen for its slot's opponent (`slotPlayer`).
+      stack: [{ id: "stk-1", kind: "triggered-ability", controller: "user", source: { permanentId: "grasp", name: "Grasp of Fate" }, cost: null,
+        targets: [{ type: "permanent", id: "aigiant", controller: "ai", atomIndex: 0, slotPlayer: "ai" }],
+        payload: { resolver: "effect-program", params: { controller: "user", sourceId: "grasp", context: { sourceId: "grasp" },
+          program: { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: [{ op: "exile", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "opponent" }, { kind: "auraEntryModeled" }], minTargets: 0, maxTargets: 1, untilSourceLeaves: true, perOpponent: true }], modal: null, xSpell: false, unparsedTail: null },
+          targets: [{ type: "permanent", id: "aigiant", controller: "ai", atomIndex: 0, slotPlayer: "ai" }] } } }],
+      pendingChoice: { kind: "discard", controller: "user", remaining: 1, candidates: hand.map((c) => ({ id: c.id, name: c.name })), queue: [{ playerId: "user", remaining: 1 }],
+        sourceName: "Spymaster's Vault", connive: null, conniveN: { permanentId: "bears", controller: "user", nonland: 1 } } };
+    const v15 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v15.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v15)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 15, state });
+    const settled = resolveDiscardChoice(back.session.state, "h0");
+    const lki = back.session.state.pendingTriggers[0].context.abilitySourceLki;
+    expect({
+      counters: settled.players.user.battlefield[0].counters["+1/+1"] ?? 0, pending: settled.pendingChoice ?? null,
+      toxic: grantedToxicAmount(back.session.state, "bears"), unblockableBy: [...permanentUnblockableByColors(back.session.state, "bears")],
+      equipped: equippedTargets(back.session.state, { sourceId: "cleaver", abilitySourceLki: lki }).map((t) => t.id),
+    }).toEqual({ counters: 2, pending: null, toxic: 1, unblockableBy: ["R"], equipped: ["bears"] });
+    // A person's Grasp of Fate between its two questions (the review of pw26, F2): ai's slot answered (`chosen`), ai2's asked next.
+    const { raiseTriggerTargetChoice } = await import("../learn/gameEngine.js");
+    const t = (id, controller) => ({ type: "permanent", id, controller, atomIndex: 0, slotPlayer: controller });
+    const waiting = { ...state, pendingChoice: undefined, pendingTriggers: [], humanSeats: ["user"],
+      players: { ...state.players, ai2: { ...empty, battlefield: [perm("ai2sol", { name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}." }, { controller: "ai2" })] } },
+      stack: [{ ...state.stack[0], targets: [], payload: { ...state.stack[0].payload, params: { ...state.stack[0].payload.params, targets: [] } },
+        awaitingTargets: { candidates: [{ targets: [t("ai2sol", "ai2")] }, { targets: [] }], abilityText: "When this enchantment enters, …",
+          perOpponent: { slots: [[{ targets: [t("aigiant", "ai")] }, { targets: [] }], [{ targets: [t("ai2sol", "ai2")] }, { targets: [] }]], at: 1, chosen: [t("aigiant", "ai")] } } }] };
+    const backWaiting = migrate(JSON.parse(JSON.stringify({ ...v15, session: { ...v15.session, state: waiting } }))).session.state;
+    expect(backWaiting).toEqual(waiting);
+    expect(raiseTriggerTargetChoice(backWaiting).pendingChoice?.candidates.map((c) => c.targets.map((x) => x.id))).toEqual([["ai2sol"], []]);
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

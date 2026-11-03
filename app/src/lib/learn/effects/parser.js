@@ -73,6 +73,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClausePa
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser, matchOpponentsDrawThenYouPerDrawer } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
+import { matchChosenColorToxicShield } from "./atoms/chosenColorShield.js"; // SKRELV (play-weighted #1123) — "Choose a color. … that color …" as one atom
 import { discardClauseParser, lookAtHandClauseParser, matchEachOtherPlayerDiscardsThenYouDrawPerCard } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause + Syphon Mind's per-card draw (#1046)
 import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 603.7) — fires from the delayed-trigger drain
 import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Biomancer's Familiar (CR 701.46a)
@@ -3142,6 +3143,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // instruction discarded ("for each card discarded this way" — see atoms/hand.js).
   const sym = matchEachOtherPlayerDiscardsThenYouDrawPerCard(oracle);
   if (sym && KNOWN.has(sym.atom.op)) return makeProgram({ confidence: "high", atoms: [sym.atom], xSpell: false, unparsedTail: null });
+  // ===== CHOOSE A COLOUR, THEN THAT COLOUR'S TOXIC, HEXPROOF AND EVASION (#1123 — Skrelv, Defector Mite) ===== one atom: the second and third
+  // sentences read the first's choice (see atoms/chosenColorShield.js).
+  const ccs = matchChosenColorToxicShield(oracle);
+  if (ccs && KNOWN.has(ccs.atom.op)) return makeProgram({ confidence: "high", atoms: [ccs.atom], xSpell: false, unparsedTail: null });
   // ===== THE SECOND HAND CAST WINS, ELSE SEVENTH FROM THE TOP (#979 — Approach of the Second Sun) ===== one atom: "Otherwise" reads the
   // first sentence's condition (see atoms/life.js).
   const aps = matchApproachWinOrTuck(oracle);

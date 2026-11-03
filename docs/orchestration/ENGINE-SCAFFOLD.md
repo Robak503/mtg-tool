@@ -496,7 +496,7 @@ natively; Aven
 Liberator's turned-face-up trigger is not detected at all. The other "choose a color" protection cards (Apostle's Blessing's "artifacts or the color of your
 choice", Brave the Elements, Knight of Dawn's self-grant …) are not native and never reach the atom (Midvast Protector is
 body-only and Sejiri Steppe land-partial — neither is credited native, so no false credit). Witness:
-`protectionColorChoice.test.js`; panel `ProtectionColorPanel`.
+`protectionColorChoice.test.js`; panel `ProtectionColorPanel`. The same pause asks Skrelv, Defector Mite's colour (2026-11-03 — the op `chosen-color-toxic-shield`, with `grantText`; the pw26 readers).
 
 **Protection: a departed source's last known information, and protection from colorless** (2026-10-21, CR 608.2b — "If the
 source of an ability has left the zone it was in, its last known information is used during this process"; CR 113.7a, 105.2c,
@@ -744,8 +744,8 @@ it) reads "with <keywords> and '<quoted static>'": the keywords through `parseTo
 keyword line first. `splitClauses` splits "<lead> and create <token>" at its FIRST " and " when the token half carries its own
 (two colours, a keyword list, a quoted ability) and the lead has none, handing the token half over whole as the sentence-initial
 keep-whole does. "each player draws <n> and loses <m> life" takes its subject twice (the draws, then the losses — the Sign in
-Blood fold's untargeted twin). The with-keyword creature selector reads `toxic` beside `flying` (nothing grants toxic, so
-`permanentHasKeyword`'s printed read is the whole test). Martial Coup's matcher (`parser.matchTokensThenDestroyOthersAtX`) takes a
+Blood fold's untargeted twin). The with-keyword creature selector reads `toxic` beside `flying` (until 2026-11-03 nothing granted toxic, so
+`permanentHasKeyword`'s printed read was the whole test; Skrelv, Defector Mite's resolved grant is a layer-6 `toxic` keyword it now sees too — the pw26 readers). Martial Coup's matcher (`parser.matchTokensThenDestroyOthersAtX`) takes a
 leading "You gain X life." and a token that carries `tokenOracle`.
 
 **Leaves-the-battlefield watchers look back in time (CR 603.10a — deaths 2026-10-01, P·34; leaves 2026-10-18).** A watcher that
@@ -1042,6 +1042,68 @@ self-made Aura, exert.**
   type }`; the dispatcher latches `${sourceId}_muldrotha_${type}` (the cast's tail in `applyCastSpellMaybeDiscover`, the land play's in
   `applyPlayLand`). A spell of several types offers the type fewest other graveyard cards need first; the default AI resolves these casts'
   cards in `pickCastAction` (the third graveyard lane it reads, after retrace and Conduit of Worlds).
+
+**The play-weighted pw26 readers (2026-11-03) — connive N, one target per opponent, a coven permission, the equipped-creature counter,
+a chosen colour's toxic, hexproof and evasion.**
+- **Connive N** (`effects/atoms/connive.js` `applyConniveN` — CR 701.50e; Spymaster's Vault: "Target creature you control connives X,
+  where X is the number of creatures that died this turn"): the parser reads "target creature you control connives x, where x is the
+  number of <count>" when the count is a shared `parseCountSource` one (`countFor`; any other "connives X" stays unmatched — Raffine's
+  "attacking creatures", Mask of the Schemer's damage). X is read as it resolves (CR 608.2h). The controller draws X, then discards X:
+  a hand no bigger than X goes whole, counted at once; otherwise the shared discard chain asks card by card with a `conniveN`
+  `{ permanentId, controller, nonland }` tally on the pause (`pendingChoice.setPendingDiscardChoice` → `runProgram.resolveDiscardChoice`
+  adds each settled nonland card), and the chain's end (`hand.advanceDiscardChain`) puts that many +1/+1 counters on the creature in
+  ONE placement (`connive.applyConniveCounter(…, amount)` — Hardened Scales adds one, not one per card). X = 0 draws and discards
+  nothing. "Nonland" is the discarded card's FRONT face (`connive.conniveDiscardIsNonland`, CR 712.8a), the one read for plain connive
+  too (before, the combined "Sorcery // Land" type line of a modal DFC read as a land and got no counter). The chain still fires the
+  discard triggers per card, as every multi-card discard here does. The default AI never activates a connive ability (neither
+  `SAFE_ABILITY_OPS` nor `pickTargetedActivation` names the op).
+- **One target per opponent** (`removal.js`'s detain frame — Grasp of Fate: "for each opponent, exile up to one target nonland
+  permanent that player controls until this enchantment leaves the battlefield"): the inner "exile up to one target <noun> an opponent
+  controls" read through the bare frame, stamped `perOpponent` and `untilSourceLeaves`. `targeting.castSlots` gives a `perOpponent` atom
+  one slot per opponent (`opponentsOf`, turn order from the controller), each "up to one" of THAT player's legal targets or none, every
+  option stamped `slotPlayer` (CR 601.2c — each "target" its own instance). The CR 608.2b re-check (`resolutionTargetVerdicts`) and a
+  change of target (`changeTargetAlternatives`, CR 115.7) hold a `slotPlayer` target to that player's permanents (a Giant passed to
+  another opponent before it resolves stays). A PERSON is asked ONE OPPONENT AT A TIME (the review of pw26, F2 — the combined rows past
+  64 were the covering, which can't offer most combinations): `targeting.perOpponentTriggerSlots` gives a program whose only targets are
+  a `perOpponent` atom's slots one row list per opponent with a real choice (that player's legal targets, then "No target");
+  `gameEngine.personTargetAsk` puts the first on the waiting object's `awaitingTargets` with `perOpponent: { slots, at, chosen }`, and
+  `settleTriggerTargetChoice` re-asks the same trigger-target pause for the next slot until the last answer sets every target together
+  (then the target events and ward run, as for any answer). No new prompt. The AI's flush never asks: its rows combine as any multi-slot
+  cast's do, and it takes the most valuable row (below). Bronzebeak Foragers' and Celebrate the Mountain-king's triggers read and ask
+  the same way (their other lines don't read, so neither is credited).
+- **A coven permission** (`staticAbilityParser` — Augur of Autumn: "Coven — As long as you control three or more creatures with
+  different powers, you may cast creature spells from the top of your library"; the label has no rules meaning, CR 207.2c): the
+  play-from-top permission marked `coven`, which `playFromTopPermission` grants only when its caller's `covenHolds()` says so —
+  `legalChoices.controlsThreeDifferentPowers` (the controller's creatures as they are now, `permanentIsCreature` + `creaturePower`;
+  three distinct values — the rulings). A caller passing no test gets nothing from it. The cast's own timing applies (a flash
+  creature on top in an opponent's turn — the ruling).
+- **Another artifact or creature put into a graveyard, and "equipped creature"** (Tarrian's Soulcleaver; Ghost Lantern): the PiG scope
+  `artifactOrCreatureAnyPiG` (triggers.js — any player's, graveyard exit only, never the source) and the add-counter referent
+  `target: "equipped"` (`counters.js` → `shared.equippedTargets`): the Equipment's `attachedTo` as it resolves, or — the Equipment gone —
+  the creature it was attached to as it last existed (CR 608.2h): `gameState.stampAbilitySourceLki` adds `attachedTo` to the
+  ability-source record of a stack object or waiting trigger that reads it (`programReadsSourceAttachment`, the clause regex), and
+  `recordLeaveEvent` puts it on the departed watcher's `sourceLki` (Shatterstorm taking the Soulcleaver with the artifacts it saw —
+  CR 603.10a). Unattached → nothing.
+- **A chosen colour's toxic, hexproof and evasion** (`effects/atoms/chosenColorShield.js` — Skrelv, Defector Mite; one atom for the three
+  sentences): the colour is asked of a person by the protection-color pause (`protectionChoice.protectionColorQuestion` answers this op
+  too, with `grantText` — the panel and the wire carry it, the log says the colour alone — and names only the targeting threats, the
+  ones hexproof stops, CR 702.11d); any other seat takes `protectionColorPick` over those threats, else the board read. Until end of
+  turn on the target: a layer-6 addKeyword `toxic` with `toxicAmount` (`layers.grantedToxicAmount`, summed in timestamp order like
+  `keywordInstanceCount`; combatResolution adds it to the printed toxic — cumulative, CR 702.164b; `grantKindOf` counts a toxic grant
+  as a keyword grant, so a newer "loses all abilities" removes it — the review of pw26, F1, CR 613.1f, 613.7), Veil of Summer's target shield
+  with `colors: [chosen]` and `hexproof` and no source permanent (its "your opponents" are the creature's current controller's, CR 702.11d), and `cantBeBlockedByColor` (`layers.permanentUnblockableByColors`, read first in
+  `combatEvasion`'s blocker check, CR 509.1b). The default AI never activates it.
+- **A granted hexproof shield is an ability** (`layers.permanentTargetShields` — the review of pw26, F1; CR 702.11d, 613.1f, 613.7): a
+  `hexproof: true` target shield granted to a permanent (Skrelv's, Veil of Summer's, Dawn's Truce's) is dropped when a "loses all
+  abilities" newer than it applies (the same `grantCutByLoss` as every keyword grant). A "can't be the target of …" shield (Canopy
+  Cover's) is its Aura's effect and stays; a self shield is a printed static the loss already drops.
+- **The AI's removal trigger aims at the biggest threat** (`gameEngine.chooseTriggerTargets` — the review of pw26, F3): without
+  policy-eval, for a trigger with no modes whose every correct-side row takes only opponents' PERMANENTS with a removing atom (destroy,
+  exile, bounce, tuck — enemy intent), the row whose permanents it would really remove are worth the most (`permanentValue`, the
+  policy-eval branch's measure; ties to the first) is taken — Grasp of Fate takes Craterhoof Behemoth over Arcane Signet, Ravenous
+  Chupacabra a Hill Giant over Grizzly Bears; a destroy scores nothing on an indestructible permanent (CR 702.12b — Darksteel Colossus is
+  passed over). A modal trigger (which mode is not a target's value — Aether Channeler's Bird), a row aiming at a spell (a spell scores
+  nothing — Venser, Shaper Savant still returns the spell on the stack) or at a player keeps the first correct-side row, as before.
 
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
@@ -2677,7 +2739,7 @@ above is its partner choice: the option's own seat first means a creature and th
 opponent. When that first row is one the covering added, it takes instead the first such row whose other
 targets sit on their atom's side (`otherTargetsOnSide`, `atomTargetIntent` — a +3/+3 on its own creature,
 not the burned opponent's: the review's F2); inside the capped rows nothing changed. Witnesses:
-`castTargetCover.test.js`, `castChooserCover.test.jsx`, `castCostChoiceCover.test.js`.
+`castTargetCover.test.js`, `castChooserCover.test.jsx`, `castCostChoiceCover.test.js`. A `perOpponent` atom (Grasp of Fate — one "up to one" slot per opponent, its options bound by `slotPlayer`) feeds the same combine (the pw26 readers, §4.5).
 
 **A pw21 lane (2026-11-02).** A FREE PLAY IS AN ORDINARY CAST: `actionsPlayImpulseFromExile` holds a `_impulseFree` card (yours —
 Urza, Mind's Desire; an opponent's — Dauthi Voidwalker) to the timing a paid cast of it needs before the free builder (which skips

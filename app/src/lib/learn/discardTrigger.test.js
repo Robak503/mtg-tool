@@ -180,7 +180,9 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
     // an additional cost", CR 702.81a) and manaModel.commitManaTap's "Discard your hand" (Lion's Eye Diamond) — manaModel.js joins the
     // scanned files with it, the first mana-ability discard. Tripwire fired; `unwired` stayed empty — each move is followed by
     // checkDiscardTriggers within the window. Count moves, invariant holds.
-    expect(sites).toBe(17);      // if this changes, a discard site was added or removed — read the diff
+    // 17 → 18 on 2026-11-03 (the play-weighted slice pw26): connive.applyConniveN's forced whole-hand discard (connive N — Spymaster's
+    // Vault, CR 701.50e). Tripwire fired; `unwired` stayed empty — the move is followed by checkDiscardTriggers. Count moves, invariant holds.
+    expect(sites).toBe(18);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

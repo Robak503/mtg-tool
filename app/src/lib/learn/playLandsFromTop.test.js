@@ -133,10 +133,10 @@ describe("classification — the staples this unblocks", () => {
     expect(classifyCard(COURSER)).toMatch(/^native/);
   });
 
-  it("Augur of Autumn stays PARKED — its coven cast-from-top half is unmodeled", () => {
-    // The whole-card law: the lands half is understood, the conditional creature-cast half is not.
+  it("Augur of Autumn — GRADUATED by pw26 (2026-11-03): its coven cast-from-top half reads (augurOfAutumn.test.js plays it)", () => {
+    // The whole-card law: the lands half and now the coven-gated creature-cast half (staticAbilityParser's `coven` permission).
     expect(classifyCard({ id: "c-aa", name: "Augur of Autumn", type: "Creature — Human Druid", mana: "{1}{G}{G}", power: 2, toughness: 3,
       oracle: "You may look at the top card of your library any time.\nYou may play lands from the top of your library.\nCoven — As long as you control three or more creatures with different powers, you may cast creature spells from the top of your library." }))
-      .toBe("body-only");
+      .toBe("native-static");
   });
 });

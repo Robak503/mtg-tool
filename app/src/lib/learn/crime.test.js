@@ -109,9 +109,12 @@ describe("⭐ the other two sites — an activated ability, a triggered ability 
   it("⭐ a triggered ability that targets an opponent's creature is a crime — the opponent's Patrolling Peacemaker proliferates", () => {
     const s = table({ hand: [CHUPACABRA], mana: { B: 4 }, theirs: [perm("ab", BEAR, "ai"), perm("peace", PEACEMAKER, "ai", { counters: { "+1/+1": 2 } })] });
     const out = drain(dispatchAction(s, castsOf(s, "user", "h0")[0]));
-    const row = { crime: crimeOf(out, "user"), bearDied: !out.players.ai.battlefield.some((p) => p.id === "ab"), peacemakerCounters: counters(out, "ai", "peace") };
+    // GRADUATED by pw26 (its blind review's F3): the automatic chooser aims the removal at the more valuable creature — the Peacemaker (4/4
+    // with its counters) over the Bears — and the Peacemaker's proliferate, triggered by the crime, resolves before the destroy does.
+    const proliferated = (out.log || []).some((e) => e.kind === "spell-effect" && e.effect === "proliferate" && e.controller === "ai");
+    const row = { crime: crimeOf(out, "user"), bearDied: !out.players.ai.battlefield.some((p) => p.id === "ab"), peacemakerDied: !out.players.ai.battlefield.some((p) => p.id === "peace"), proliferated };
     console.log(`WITNESS crimeByTrigger ${JSON.stringify(row)}`);
-    expect(row).toEqual({ crime: true, bearDied: true, peacemakerCounters: 3 });
+    expect(row).toEqual({ crime: true, bearDied: false, peacemakerDied: true, proliferated: true });
   });
 });
 

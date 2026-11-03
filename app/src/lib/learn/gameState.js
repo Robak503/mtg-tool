@@ -1560,6 +1560,18 @@ const ABILITY_SOURCE_COUNTERS_RE = /"kind":"namedCountersOnSource"/;
 export function programReadsSourceCounters(program) {
   return program != null && ABILITY_SOURCE_COUNTERS_RE.test(JSON.stringify(program));
 }
+/**
+ * THE SOURCE'S ATTACHMENT (the play-weighted program — Tarrian's Soulcleaver, Ghost Lantern: "put a +1/+1 counter on equipped creature";
+ * CR 608.2h: an Equipment that has left the battlefield is read as it last existed — the creature it was attached to then). A program
+ * reads it through the `target: "equipped"` referent (effects/atoms/shared.equippedTargets). Such an ability gets the record too, with
+ * `attachedTo`, and the reader answers from it for that id only. A trigger still waiting to be put on the stack is recognized by its
+ * effect clause ("… on equipped creature"); a watcher that left with what it saw carries it on its leave record (recordLeaveEvent).
+ */
+const ABILITY_SOURCE_ATTACHMENT_RE = /"target":"equipped"/;
+export function programReadsSourceAttachment(program) {
+  return program != null && ABILITY_SOURCE_ATTACHMENT_RE.test(JSON.stringify(program));
+}
+const SOURCE_ATTACHMENT_CLAUSE_RE = /\bcounters? on equipped creature\b/i;
 const SOURCE_POWER_CLAUSE_RE = /\bthis (?:creature|permanent)['’]s power\b/i;
 /** The permanent `permanentId` as a damage source, read off `state` (null when it is not on the battlefield). + its power (a creature's,
  * layer-aware; 0 for a noncreature — CR 208.3), for an ability that counts its source's power. */
@@ -1622,19 +1634,23 @@ function stampAbilitySourceLki(state, permanentId) {
   const wants = (o) => {
     const params = o?.payload?.params;
     return params?.sourceId === permanentId && !params.context?.abilitySourceLki
-      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program) || programReadsSourceCounters(params.program) || abilityHasChosenTargets(params.targets));
+      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program) || programReadsSourceCounters(params.program) || programReadsSourceAttachment(params.program) || abilityHasChosenTargets(params.targets));
   };
   const pendingWants = (t) => t?.source?.permanentId === permanentId && !t.context?.abilitySourceLki
-    && SOURCE_POWER_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""));
+    && (SOURCE_POWER_CLAUSE_RE.test(String(t.descriptor?.effectClause || "")) || SOURCE_ATTACHMENT_CLAUSE_RE.test(String(t.descriptor?.effectClause || "")));
   const stackHit = stack.some(wants);
   const pendingHit = pendingTriggers.some(pendingWants);
   if (!stackHit && !pendingHit) return state;
   const record = abilitySourceRecord(state, permanentId);
   if (!record) return state;
   // + its counters, only when an ability waiting on the stack counts them (so every other record is unchanged, field for field).
-  const abilitySourceLki = stackHit && stack.some((o) => wants(o) && programReadsSourceCounters(o.payload.params.program))
+  const withCounters = stackHit && stack.some((o) => wants(o) && programReadsSourceCounters(o.payload.params.program))
     ? { ...record, counters: { ...(findPermanent(state, permanentId)?.permanent?.counters || {}) } }
     : record;
+  // + what it was attached to, only when an ability of it reads "equipped creature" (CR 608.2h — the same field-for-field rule).
+  const readsAttachment = (stackHit && stack.some((o) => wants(o) && programReadsSourceAttachment(o.payload.params.program)))
+    || (pendingHit && pendingTriggers.some((t) => pendingWants(t) && SOURCE_ATTACHMENT_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""))));
+  const abilitySourceLki = readsAttachment ? { ...withCounters, attachedTo: findPermanent(state, permanentId)?.permanent?.attachedTo ?? null } : withCounters;
   return {
     ...state,
     ...(stackHit ? { stack: stack.map((o) => (wants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...(o.payload.params.context || {}), abilitySourceLki } } } } : o)) } : {}),
@@ -1749,6 +1765,12 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   if (before && SOURCE_POWER_CLAUSE_RE.test(String(permanent.card.oracle || permanent.card.oracle_text || ""))) {
     const lki = abilitySourceRecord(before, permanent.id);
     if (lki) ev.sourceLki = lki;
+  }
+  // + an Equipment whose ability reads "equipped creature" (Tarrian's Soulcleaver): the creature it was attached to as it left, for a
+  // watcher of it that triggers by looking back (Shatterstorm taking it with the artifacts it saw — CR 603.10a, 608.2h).
+  if (before && SOURCE_ATTACHMENT_CLAUSE_RE.test(String(permanent.card.oracle || permanent.card.oracle_text || ""))) {
+    const lki = ev.sourceLki || abilitySourceRecord(before, permanent.id);
+    if (lki) ev.sourceLki = { ...lki, attachedTo: findPermanent(before, permanent.id)?.permanent?.attachedTo ?? null };
   }
   // EARTHBEND-RETURN (CR 603.7): carry the animated land's flag + destination zone so triggers.checkLeavesTriggers
   // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a

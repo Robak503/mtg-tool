@@ -132,10 +132,16 @@ describe("⭐⭐ LAW 6 — the trigger-target chooser converts (slice 3)", () =>
     return { s, program, candidates };
   };
 
-  it("⛔ SEEN-TO-FAIL control: flag OFF picks the FIRST correct-side candidate (the small token)", () => {
+  it("⛔ SEEN-TO-FAIL control: flag OFF, a non-removal trigger (tap target creature) picks the FIRST correct-side candidate (the small token)", () => {
+    const { s, candidates } = setup();
+    const tap = parseEffectClause("tap target creature", "Instant", { hasX: false });
+    const pick = chooseTriggerTargets(candidates, { state: s, trigger: { controller: "user" }, program: tap });
+    expect(pick?.targets?.[0]?.id).toBe("SM"); // enumeration order, threat-blind
+  });
+  it("flag OFF, an enemy removal (GRADUATED by pw26 — its blind review's F3): the chooser already aims at the BIG threat", () => {
     const { s, program, candidates } = setup();
     const pick = chooseTriggerTargets(candidates, { state: s, trigger: { controller: "user" }, program });
-    expect(pick?.targets?.[0]?.id).toBe("SM"); // enumeration order, threat-blind — the wrong pick
+    expect(pick?.targets?.[0]?.id).toBe("BIG");
   });
 
   it("⭐⭐ flag ON: the evaluator aims the removal at the BIG threat", () => {
@@ -155,7 +161,7 @@ describe("⭐⭐ LAW 6 — the trigger-target chooser converts (slice 3)", () =>
     const offPick = chooseTriggerTargets(withOwn, { state: s2, trigger: { controller: "user" }, program });
     const onPick = chooseTriggerTargets(withOwn, { state: { ...s2, usePolicyEval: true }, trigger: { controller: "user" }, program });
     expect({ off: offPick?.targets?.[0]?.id, on: onPick?.targets?.[0]?.id, forced: [!!offPick?.forced, !!onPick?.forced] })
-      .toEqual({ off: "SM", on: "BIG", forced: [false, false] }); // never friendly fire while an enemy target is legal
+      .toEqual({ off: "BIG", on: "BIG", forced: [false, false] }); // never friendly fire while an enemy target is legal (off: the removal ranking, pw26 F3)
   });
 
   // CR 603.3d — with ONLY own creatures legal, the mandatory removal is forced onto one of them, and the flag decides which:

@@ -97,7 +97,7 @@ import {
   modalChooseOneRoutable,
   atomTargetIntent,
 } from "./effects/parser.js";
-import { expandTriggerChoices } from "./effects/targeting.js"; // expandTriggerChoices — a trigger's offer with its source's colours (protection, CR 702.16b)
+import { expandTriggerChoices, perOpponentTriggerSlots } from "./effects/targeting.js"; // expandTriggerChoices — a trigger's offer with its source's colours (protection, CR 702.16b)
 import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep, applySuspendUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
@@ -2252,12 +2252,34 @@ export function chooseTriggerTargets(candidates, info) {
   // included ("any number" — Brago). The flicker gain decides instead.
   const flicker = pickFlickerCandidate(state, controller, safe, program);
   if (flicker) return flicker;
-  if (!policyEvalEnabledFor(state, controller)) return safe[0];
   const candValue = (c) => (c.targets || []).reduce((s, t) => {
     if (t.type === "player" || t.type === "spell") return s;
     const lk = findPermanent(state, t.id);
     return s + (lk ? permanentValue(lk.permanent, state) : 0);
   }, 0);
+  if (!policyEvalEnabledFor(state, controller)) {
+    // REMOVAL AIMS AT THE BIGGEST THREAT (the review of pw26, F3 — Grasp of Fate, Banishing Light, Bronzebeak Foragers): for a trigger
+    // with no modes, when every target of every row is an opponent's permanent, taken by a removing atom (destroy, exile, bounce, tuck —
+    // enemy intent), the row whose permanents it would really remove are worth the most (permanentValue — the policy-eval branch's own
+    // measure) is taken, ties to the first: Craterhoof Behemoth over Arcane Signet. A destroy removes nothing from an indestructible
+    // permanent (CR 702.12b), so that target scores nothing. Ranking only, among the correct-side rows (THE CREED). Any other trigger keeps
+    // the first correct-side row, as before: a modal one (which mode is not a target's value — Aether Channeler's Bird), one whose row
+    // aims at a spell (a spell scores nothing here — Hullbreaker Horror's spell bounce) or at a player.
+    const enemyRemoval = (c) => (c.targets || []).every((t) => {
+      const atom = atomsFor(c)[t.atomIndex];
+      return t.type !== "spell" && t.type !== "player" && REMOVING_OPS.has(atom?.op) && atomTargetIntent(atom) === "enemy";
+    });
+    const removedValue = (c) => (c.targets || []).reduce((sum, t) => {
+      const lk = findPermanent(state, t.id);
+      if (!lk) return sum;
+      if (atomsFor(c)[t.atomIndex]?.op === "destroy" && permanentHasKeyword(state, t.id, "Indestructible")) return sum;
+      return sum + permanentValue(lk.permanent, state);
+    }, 0);
+    if (program?.structure !== "modal" && safe.some((c) => (c.targets || []).length > 0) && safe.every(enemyRemoval)) {
+      return safe.reduce((best, c) => (removedValue(c) > removedValue(best) ? c : best), safe[0]);
+    }
+    return safe[0];
+  }
   return safe.reduce((best, c) => (candValue(c) > candValue(best) ? c : best), safe[0]);
 }
 
@@ -2558,9 +2580,7 @@ export function flushTriggers(state, { chooseTargets } = {}) {
       cost: null,
       payload: built.payload,
       // Waiting for its controller (a person) to choose: the engine's own legal choices, kept on the object the answer settles.
-      ...(built.ask
-        ? { awaitingTargets: { candidates: built.ask.candidates, abilityText: trigger.descriptor?.sourceText ?? null, ...(built.ask.allowNone ? { allowNone: true } : {}) } }
-        : {}),
+      ...(built.ask ? { awaitingTargets: personTargetAsk(s, trigger, built) } : {}),
     });
     if (asking) personAbilities.push({ id, controller: trigger.controller, abilityText: trigger.descriptor?.sourceText ?? null });
   }
@@ -2664,6 +2684,22 @@ export function raiseTriggerOrderChoice(state) {
       ...(o.awaitingTargets ? { targetsNext: true } : {}),
     })),
   });
+}
+
+/**
+ * The `awaitingTargets` record of a triggered ability a person chooses the targets of: the flush's legal choices — or, for an ability
+ * whose only targets are one per opponent (perOpponentTriggerSlots — Grasp of Fate; the review of pw26, F2), ONE OPPONENT AT A TIME:
+ * `candidates` the first opponent's rows (each of that player's legal targets, then "No target"), `perOpponent` `{ slots, at, chosen }`
+ * the slots and the targets chosen so far. settleTriggerTargetChoice re-asks until the last slot is answered; the question is the same
+ * trigger-target pause each time. The AI's flush never asks, so its pick is unchanged.
+ */
+function personTargetAsk(state, trigger, built) {
+  const base = { candidates: built.ask.candidates, abilityText: trigger.descriptor?.sourceText ?? null, ...(built.ask.allowNone ? { allowNone: true } : {}) };
+  const params = built.payload?.params || {};
+  const ctx = { ...(params.context || trigger.context || {}), sourceId: params.context?.sourceId ?? trigger.context?.sourceId ?? trigger.source?.permanentId ?? null };
+  const slots = perOpponentTriggerSlots(state, trigger.controller, params.program, ctx);
+  if (!slots || slots.length === 0) return base;
+  return { ...base, candidates: slots[0], perOpponent: { slots, at: 0, chosen: [] } };
 }
 
 /**
@@ -2774,7 +2810,15 @@ export function settleTriggerTargetChoice(state, candidateId) {
   }
   const choice = typeof candidateId === "string" && /^\d+$/.test(candidateId) ? candidates[Number(candidateId)] : undefined;
   if (!choice) return state;
-  const targets = choice.targets || [];
+  // ONE OPPONENT AT A TIME (personTargetAsk — the review of pw26, F2): this answer fills one slot; with slots left the ability keeps waiting
+  // with the next opponent's rows (the driver asks again), and the last answer puts every slot's target on it together.
+  const po = obj.awaitingTargets.perOpponent;
+  if (po && po.at + 1 < (po.slots || []).length) {
+    const chosenSoFar = [...(po.chosen || []), ...(choice.targets || [])];
+    const waiting = { ...obj, awaitingTargets: { ...obj.awaitingTargets, candidates: po.slots[po.at + 1], perOpponent: { ...po, at: po.at + 1, chosen: chosenSoFar } } };
+    return logEvent(replaced(waiting), { kind: "trigger-target-slot-chosen", source, controller: obj.controller, targets: (choice.targets || []).map((t) => t.id) });
+  }
+  const targets = po ? [...(po.chosen || []), ...(choice.targets || [])] : (choice.targets || []);
   const params = obj.payload?.params || {};
   const chosen = {
     ...rest,

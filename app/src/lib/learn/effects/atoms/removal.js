@@ -1177,6 +1177,20 @@ export function destroyExileClauseParser(clause) {
     // permanent an opponent controls until this AURA leaves the battlefield"): the Aura noun joins the alternation — the
     // detain link is keyed on the source permanent's id, so an Aura source returns the card on ANY exit exactly like an
     // enchantment source (its host dying takes the Aura with it, CR 704.5m → the return fires).
+    // ONE TARGET PER OPPONENT (the play-weighted program — Grasp of Fate #1151: "For each opponent, exile up to one target nonland permanent
+    // that player controls until this enchantment leaves the battlefield."): the same detain, its target slot repeated for each opponent —
+    // `perOpponent` (effects/targeting.castSlots: one "up to one" slot per opponent, each of that player's permanents only, the target
+    // bound to its player and re-checked so as it resolves, CR 601.2c, 608.2b). The noun is the bare frame's, read through it ("… an
+    // opponent controls" — the opponent scope the slots narrow per player).
+    const pom = t.match(/^for each opponent, exile up to one target (nonland permanent|creature|artifact|enchantment|artifact or enchantment) that player controls until this (?:enchantment|creature|artifact|permanent) leaves the battlefield$/);
+    if (pom) {
+      const inner = destroyExileClauseParser(`exile up to one target ${pom[1]} an opponent controls`);
+      if (inner && inner.op === "exile" && inner.targetType && inner.maxTargets === 1 && (inner.minTargets ?? 1) === 0 && !inner.untilSourceLeaves
+          && (inner.restrictions || []).some((r) => r.kind === "controller" && r.who === "opponent")) {
+        return { ...inner, untilSourceLeaves: true, perOpponent: true, restrictions: [...(inner.restrictions || []), { kind: "auraEntryModeled" }] };
+      }
+      return null;
+    }
     const dtm = t.match(/^exile (.+?) until this (?:enchantment|creature|artifact|permanent|aura) leaves the battlefield$/);
     if (dtm) {
       let body = dtm[1];

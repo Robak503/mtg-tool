@@ -530,8 +530,25 @@ export const atomTargets = (state, atom, ctx) => {
   // triggeringPermanentTargets; kept distinct from "thatCreature" so no creature-scoped effect can reach it.
   if (atom.target === "thatPermanent") return triggeringPermanentTargets(state, ctx);
   if (atom.target === "enchanted") return enchantedTargets(state, ctx);
+  if (atom.target === "equipped") return equippedTargets(state, ctx);
   return ctx.targets || [];
 };
+
+/**
+ * EQUIPPED CREATURE — the creature THIS Equipment is attached to, as a target list (Tarrian's Soulcleaver's and Ghost Lantern's "put a
+ * +1/+1 counter on equipped creature"; CR 301.5). Resolved off the live state: the source on the battlefield → its `attachedTo` (none
+ * when unattached → [], a clean no-op). The source has LEFT the battlefield → the creature it was attached to as it last existed there
+ * (CR 608.2h — the ability-source record gameState.stampAbilitySourceLki writes as it leaves, `attachedTo`; Shatterstorm taking the
+ * Equipment with the artifacts it saw). Either way the creature must still be on the battlefield and a creature now (layer-aware).
+ */
+export function equippedTargets(state, ctx) {
+  const sourceLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const lki = ctx.abilitySourceLki?.permanentId === ctx.sourceId ? ctx.abilitySourceLki : null;
+  const hostId = sourceLk ? sourceLk.permanent?.attachedTo : (lki?.attachedTo ?? null);
+  if (!hostId) return [];
+  const hostLk = findPermanent(state, hostId);
+  return hostLk && permanentIsCreature(state, hostId) ? [{ type: "creature", id: hostId, controller: hostLk.controller }] : [];
+}
 
 /**
  * AURA-OWN-ENCHANTED — the creature THIS Aura is attached to, as a target list (for an activated ability

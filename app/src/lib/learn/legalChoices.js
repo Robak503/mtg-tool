@@ -4591,8 +4591,21 @@ function actionsCastFreeByPermission(state, playerId) {
   return actions;
 }
 
+/**
+ * COVEN (Augur of Autumn's permission; CR 207.2c — an ability word, so its rule is the text after it): does `playerId` control three or
+ * more creatures with different powers? Each creature as it is now (permanentIsCreature, creaturePower — layer-aware); the rulings: each
+ * power must differ from the others (a 1/1, a 2/1 and another 2/1 are two different powers, not three).
+ */
+function controlsThreeDifferentPowers(state, playerId) {
+  const powers = new Set();
+  for (const p of state.players?.[playerId]?.battlefield || []) {
+    if (permanentIsCreature(state, p.id)) powers.add(creaturePower(p, state));
+  }
+  return powers.size >= 3;
+}
+
 function actionsPlayFromTopOfLibrary(state, playerId) {
-  const perm = playFromTopPermission(state, playerId);
+  const perm = playFromTopPermission(state, playerId, { covenHolds: () => controlsThreeDifferentPowers(state, playerId) });
   if (!perm) return [];
   const player = state.players[playerId];
   const top = (player.library || [])[0];

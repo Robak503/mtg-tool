@@ -515,7 +515,7 @@ export function setPendingHandToLibraryTopChoice(state, { controller, remaining,
   };
 }
 
-export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null, perDiscardDraw = null }) {
+export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null, perDiscardDraw = null, conniveN = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "discard-pending", controller, remaining, count: candidates.length, sourceName });
   return {
@@ -534,6 +534,10 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
       // THE PER-CARD DRAW (Syphon Mind, play-weighted #1046) — `{ controller, count }`, the cards this chain has discarded so
       // far; absent on every other discard (hand.advanceDiscardChain). Plain JSON — serialize-safe.
       ...(perDiscardDraw ? { perDiscardDraw } : {}),
+      // CONNIVE N (CR 701.50e — Spymaster's Vault) — `{ permanentId, controller, nonland }`: the conniving permanent and the nonland
+      // cards this chain has discarded so far; the chain's end puts that many +1/+1 counters on it in one placement
+      // (hand.advanceDiscardChain). Absent on every other discard. Plain JSON — serialize-safe.
+      ...(conniveN ? { conniveN } : {}),
     },
   };
 }
@@ -807,8 +811,10 @@ export function setPendingTriggerOrderChoice(state, { controller, batch, candida
  * protected permanent; `suggested` ("threat" | "board") marks the automatic chooser's pick, `suggestedId`. `cardName` names the
  * protected permanent(s). `step` — `{ atom, ctx }`, the grant the settler runs with the answer — and `resume` (attached by
  * runProgram) stay engine-internal. No decline. Plain JSON.
+ * + `grantText` (Skrelv, Defector Mite — the play-weighted program, #1123): what the colour gives when it is not protection ("gains toxic 1
+ * and hexproof from the color you choose …"); absent for every protection grant, which the panel words itself.
  */
-export function setPendingProtectionColorChoice(state, { controller, cardName = null, candidates = [], suggestedId = null, sourceName = null, step = null, resume = undefined }) {
+export function setPendingProtectionColorChoice(state, { controller, cardName = null, candidates = [], suggestedId = null, sourceName = null, step = null, resume = undefined, grantText = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "protection-color-pending", controller, cardName, suggestedId, sourceName });
   return {
@@ -820,6 +826,7 @@ export function setPendingProtectionColorChoice(state, { controller, cardName = 
       candidates,
       suggestedId,
       sourceName,
+      ...(grantText ? { grantText } : {}),
       ...(step ? { step } : {}),
       ...(resume !== undefined ? { resume } : {}),
     },

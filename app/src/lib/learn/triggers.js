@@ -2257,6 +2257,12 @@ function classifyCondition(condRaw, cardName, cardType) {
     // into a graveyard). Bare "an artifact" ONLY: a controlled/filtered variant is handled above or parks.
     if (pigSubj === "an artifact")
       return { event: "permanentLeaves", scope: "artifactAnyPiG", whose: "any" };
+    // "another artifact or creature is put into a graveyard from the battlefield" (the play-weighted program — Tarrian's Soulcleaver
+    // #1182): ANY player's artifact or creature, never the source itself ("another", CR 109.5), graveyard exit only (CR 700.4 — a
+    // token is put into a graveyard before it ceases to exist, CR 111.7). The any-controller union of artifactAnyPiG and the creature
+    // scopes; checkLeavesTriggers' look-back (CR 603.10a) lets permanents that leave with the source trigger it.
+    if (pigSubj === "another artifact or creature")
+      return { event: "permanentLeaves", scope: "artifactOrCreatureAnyPiG", whose: "any" };
     // "a creature you control" PiG (the dies-equivalent LTB wording — fires on a graveyard exit only).
     if (pigSubj === "a creature you control")
       return { event: "permanentLeaves", scope: "creatureYouControlPiG", whose: "any" };
@@ -7309,6 +7315,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // self-includes: an artifact-typed watcher (Summoning Station) firing on its OWN death is CR-correct.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && /Artifact/.test(scopeTypeStr(state, triggeringPermanent));
+    case "artifactOrCreatureAnyPiG":
+      // Tarrian's Soulcleaver — "another artifact or creature is put into a graveyard from the battlefield": any player's (no controller
+      // gate), graveyard exit only, never the source itself ("another"); the types as the permanent last existed (an artifact creature
+      // is one permanent — one event).
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.id !== sourcePermanent.id
+        && (isCreaturePerm(triggeringPermanent, state) || /Artifact/.test(scopeTypeStr(state, triggeringPermanent)));
     case "landYouControlPiG":
       // SHELF-85 Phase 2 · T4 (Titania) — "a land you control is put into a graveyard from the battlefield": the LAND
       // analog of the artifact / enchantment PiG scopes. Graveyard exit only (leftToGraveyard) + controller gate; the

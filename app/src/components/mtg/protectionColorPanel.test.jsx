@@ -75,6 +75,18 @@ describe("ProtectionColorPanel", () => {
     ]).toEqual(["Choose protection from red (Mother of Runes)", "Choose protection from colorless (Giver of Runes)", "Choose protection from blue"]);
   });
 
+  it("Skrelv, Defector Mite's colour (the play-weighted program, #1123): the banner says what the colour gives — not protection — the wire keeps it, and the log names the colour alone", () => {
+    const skrelv = {
+      ...decision, sourceName: "Skrelv, Defector Mite",
+      grantText: "gains toxic 1 and hexproof from the color you choose until end of turn, and can't be blocked by creatures of that color this turn",
+    };
+    const html = render(skrelv).replace(/&#x27;/g, "'"); // the markup escapes the apostrophe
+    expect(html).toContain("Grizzly Bears gains toxic 1 and hexproof from the color you choose until end of turn, and can't be blocked by creatures of that color this turn.");
+    expect(html).not.toContain("gains protection from");
+    expect(decisionViewForWire(skrelv).grantText).toBe(skrelv.grantText);
+    expect(logActionText({ kind: "protection-color-choice", color: "R", sourceName: "Skrelv, Defector Mite", notProtection: true })).toBe("Choose red (Skrelv, Defector Mite)");
+  });
+
   it("the hook posts the colour with the kind echo; anything but one colour letter posts null", () => {
     expect([
       protectionColorChoicePayload("R"),

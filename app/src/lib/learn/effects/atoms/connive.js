@@ -21,9 +21,14 @@
  *   - The conniving permanent left the battlefield before resolution → the draw + discard STILL
  *     happen for the trigger's controller (CR 701.50c last-known information); the counter simply
  *     can't be placed (applyAddCounter's absent-referent no-op).
- *   - "connive N" / "connives X" (variable draw-discard counts) are NOT modeled — no printed fixed-N
- *     form exists in the corpus (verified 2026-07-17: every non-plain form is "connives X, where X…"),
- *     and the parser deliberately leaves them unmatched → LOW → Arbiter (a SAFE false-negative).
+ *   - CONNIVE N (CR 701.50e — the play-weighted program, Spymaster's Vault): "target creature you control connives X, where X
+ *     is <a count>" — X read as the ability resolves (CR 608.2h, countForSpec); the controller draws X, discards X cards of their
+ *     choice (the discard chain with `remaining: X` and a `conniveN` tally), then puts ONE placement of a +1/+1 counter per
+ *     nonland card discarded on the conniving permanent (CR 701.50e: "then puts a number of +1/+1 counters …" — one event, so a
+ *     Hardened Scales adds one, not one per card). X = 0 draws and discards nothing. The other "connives X" forms (Raffine's
+ *     attacking target, Mask of the Schemer's damage amount) stay unmatched → LOW → Arbiter (their count sources don't parse).
+ *   - "NONLAND" is the discarded card's FRONT face (CR 712.8a — a modal double-faced card in hand has only its front face's
+ *     characteristics: Shatterskull Smashing discarded is an instant, a nonland card). `conniveDiscardIsNonland` is the one read.
  *
  * Subject resolution mirrors applyExplore exactly: "self" → ctx.sourceId; "thatCreature" →
  * ctx.triggeringPermanentId; "targetCreature" → the chosen ctx.targets creature (Mob Lookout's
@@ -36,8 +41,19 @@ import { moveCardToZone, findPermanent, logEvent } from "../../gameState.js";
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — a connive discard is a discard
 import { applyDrawEffect } from "../../spellEffects.js"; // THE shared draw path — fires the card-drawn/second-draw watchers (CR 121.2; the hand.js handCardMatches edge, cycle-safe)
 import { setPendingDiscardChoice } from "../../pendingChoice.js";
-import { isLandCard } from "./shared.js";
+import { countForSpec } from "./shared.js";
 import { applyAddCounter } from "./counters.js";
+import { parseCountSource } from "../parseHelpers.js";
+
+/**
+ * Is a card discarded to connive a NONLAND card (CR 701.50a)? Read off its FRONT face (CR 712.8a — a card in hand has only its front
+ * face's characteristics): "Sorcery // Land" is a nonland card, "Land // Land" (a Pathway) and "Land" are lands.
+ */
+export function conniveDiscardIsNonland(card) {
+  const faces = card?.card_faces;
+  const raw = Array.isArray(faces) && faces.length > 0 ? String(faces[0]?.type_line || faces[0]?.type || "") : String(card?.type || card?.type_line || "");
+  return !/\bLand\b/.test(raw.split("//")[0]);
+}
 
 /**
  * The CR 701.50a counter step, shared by the inline forced-discard path (below) and the interactive
@@ -47,11 +63,11 @@ import { applyAddCounter } from "./counters.js";
  * (the permanent left the battlefield mid-process) is applyAddCounter's clean no-op — never a
  * fabricated counter, never a skipped draw/discard.
  */
-export function applyConniveCounter(state, permanentId, placerId) {
-  if (!permanentId || !placerId) return state;
+export function applyConniveCounter(state, permanentId, placerId, amount = 1) {
+  if (!permanentId || !placerId || !(amount > 0)) return state;
   return applyAddCounter(
     state,
-    { op: "add-counter", counterType: "+1/+1", amount: 1, target: "thatCreature" },
+    { op: "add-counter", counterType: "+1/+1", amount, target: "thatCreature" },
     { controller: placerId, targets: [], triggeringPermanentId: permanentId },
   );
 }
@@ -70,6 +86,7 @@ export function applyConnive(state, atom, ctx) {
   if (!state.players?.[controller]) {
     return logEvent(state, { kind: "spell-effect", effect: "connive", controller, drew: false });
   }
+  if (atom.countFor) return applyConniveN(state, atom, ctx, subjectId, controller);
   // (1) Draw a card (CR 701.50a — the draw always happens, even if the permanent has left). Through the
   // SHARED applyDrawEffect so the card-drawn / second-draw watchers fire (CR 121.2 — Kang's and Madame
   // Masque's own "draw your second card each turn" triggers must count connive's draw).
@@ -88,7 +105,7 @@ export function applyConnive(state, atom, ctx) {
     next = moveCardToZone(next, { playerId: controller, fromZone: "hand", toZone: "graveyard", cardId: c.id });
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller, discarded: 1, forced: true });
     next = checkDiscardTriggers(next, controller, [c.id]);
-    if (!isLandCard(c)) next = applyConniveCounter(next, subjectId, controller);
+    if (conniveDiscardIsNonland(c)) next = applyConniveCounter(next, subjectId, controller);
     return next;
   }
   // A REAL choice: pause on the shared "discard" pending-choice kind (the driver pauses a human,
@@ -102,6 +119,38 @@ export function applyConnive(state, atom, ctx) {
     queue: [{ playerId: controller, remaining: 1 }],
     sourceName: ctx.cardName || null,
     connive: { permanentId: subjectId, controller },
+  });
+}
+
+/**
+ * CONNIVE N (CR 701.50e) — "connives X, where X is <count>": X is read as the ability resolves (CR 608.2h). The controller draws X,
+ * then discards X cards: a hand no bigger than X goes whole without a question; otherwise the discard chain asks card by card (a
+ * person picks, an AI seat's autopilot sheds its least valuable) carrying the `conniveN` tally of nonland cards discarded, and the
+ * chain's end (hand.advanceDiscardChain) puts that many +1/+1 counters on the conniving permanent in ONE placement. Connive 0 draws
+ * and discards nothing and places nothing; the permanent still connives (CR 701.50b).
+ */
+function applyConniveN(state, atom, ctx, subjectId, controller) {
+  const n = Math.max(0, Math.floor(Number(countForSpec(state, ctx, atom.countFor)) || 0));
+  let next = n > 0 ? applyDrawEffect(state, { controller, amount: n }) : state;
+  next = logEvent(next, { kind: "spell-effect", effect: "connive", controller, permanentId: subjectId, drew: n > 0, amount: n });
+  const hand = (next.players[controller]?.hand || []).filter((c) => !c.token);
+  if (n === 0 || hand.length === 0) {
+    return logEvent(next, { kind: "spell-effect", effect: "connive-discard", controller, discarded: 0 });
+  }
+  if (hand.length <= n) {
+    // FORCED — the whole hand goes (no card left to keep); counted and placed at once.
+    for (const c of hand) next = moveCardToZone(next, { playerId: controller, fromZone: "hand", toZone: "graveyard", cardId: c.id });
+    next = logEvent(next, { kind: "spell-effect", effect: "discard", controller, discarded: hand.length, forced: true });
+    next = checkDiscardTriggers(next, controller, hand.map((c) => c.id));
+    return applyConniveCounter(next, subjectId, controller, hand.filter(conniveDiscardIsNonland).length);
+  }
+  return setPendingDiscardChoice(next, {
+    controller,
+    remaining: n,
+    candidates: hand.map((c) => ({ id: c.id, name: c.name })),
+    queue: [{ playerId: controller, remaining: n }],
+    sourceName: ctx.cardName || null,
+    conniveN: { permanentId: subjectId, controller, nonland: 0 },
   });
 }
 
@@ -126,6 +175,13 @@ export function conniveClauseParser(clause) {
   if (/^this creature connives$/.test(t)) return { op: "connive", target: "self", targetType: null };
   if (/^the triggering creature connives$/.test(t)) return { op: "connive", target: "thatCreature", targetType: null };
   if (/^target creature you control connives$/.test(t)) return { op: "connive", target: "targetCreature", targetType: "creatureYouControl" };
+  // CONNIVE N (CR 701.50e — Spymaster's Vault): the chosen own-side target, X a shared count source read as it resolves. A count the
+  // shared vocabulary doesn't read returns null (LOW → Arbiter), never a guessed X.
+  const nx = t.match(/^target creature you control connives x, where x is the number of (.+)$/);
+  if (nx) {
+    const countFor = parseCountSource(nx[1]);
+    return countFor ? { op: "connive", target: "targetCreature", targetType: "creatureYouControl", countFor } : null;
+  }
   return null;
 }
 

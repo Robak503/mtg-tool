@@ -3786,7 +3786,8 @@ export function applyProtectionColorChoice(session, choice, opts = {}) {
     phase: session.state.phase,
     step: session.state.step,
     actor: "user",
-    action: { kind: "protection-color-choice", color, sourceName: pc.sourceName ?? null },
+    // + `notProtection` (Skrelv, Defector Mite): the colour of a grant that is not protection (its pause carries `grantText`) — the log says the colour only.
+    action: { kind: "protection-color-choice", color, sourceName: pc.sourceName ?? null, ...(pc.grantText ? { notProtection: true } : {}) },
     auto: false,
     reasoning: "user-chose-protection-color",
   };

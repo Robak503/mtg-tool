@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 import { faceManaValue } from "../learn/modalDfc.js"; // a leaf chain (splitCard, spellColors): the face's own mana value, v13 → v14's one rewrite
 
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -217,6 +217,22 @@ export const MIGRATIONS = {
   // a fresh game reads 0, so this step rewrites each battlefield land face's `cmc` with the live view's read (modalDfc.faceManaValue).
   // Nothing else is touched; a save with no land face in play is stamped only.
   13: (doc) => ({ ...withLandFaceManaValue(doc), schemaVersion: 14 }),
+
+  // v14 → v15 — the play-weighted slice pw26 (2026-11-03) persists these new shapes, each written only by its own card and each ABSENT
+  // meaning what every earlier game says:
+  //   · a pending discard choice's `conniveN` (Spymaster's Vault — connive N's nonland tally, placed as counters when the chain ends):
+  //     absent, the discard places no counters;
+  //   · a pending protection-color choice's `grantText` and a `step.atom` of op "chosen-color-toxic-shield" (Skrelv, Defector Mite):
+  //     absent, the colour is a protection grant's;
+  //   · a layer-6 addKeyword "toxic" with `toxicAmount`, and a `cantBeBlockedByColor` effect with `color` (Skrelv): absent, none;
+  //   · a recorded target's `slotPlayer` (Grasp of Fate — the opponent its "target" was chosen for): absent, an ordinary target; and a
+  //     waiting trigger's `awaitingTargets.perOpponent` `{ slots, at, chosen }` (a person asked one opponent at a time — the review of pw26,
+  //     F2): absent, the ability is asked its targets in one question;
+  //   · an ability-source record's `attachedTo` (a stack object's or pending trigger's `abilitySourceLki`, a leave event's `sourceLki` —
+  //     Tarrian's Soulcleaver, Ghost Lantern: the creature an Equipment was attached to as it left, CR 608.2h): absent, none recorded.
+  // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v15 save
+  // (migrate throws on a newer version) instead of dropping a connive's tally or a per-opponent target's player. (CONTRACT-MIG.)
+  14: (doc) => ({ ...doc, schemaVersion: 15 }),
 };
 
 /** v13 → v14's rewrite: each battlefield permanent that is a modal DFC's land face carries that face's own mana value. */

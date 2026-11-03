@@ -69,6 +69,7 @@ const PENDING_WIRE_FIELDS = [
   "allowNone", // trigger-target — a modal "choose up to one": the panel offers choosing no mode (CR 603.3c)
   "objectKind", // soft-counter (2026-10-20) — "spell" | "ability": SoftCounterPanel names an ability's threat as the ability
   "optionsAffordable", // soft-counter — per alternative of a ward cost with alternatives (`cost.options`): which the payer can pay
+  "grantText", // protection-color — what the colour gives when the grant is not protection (Skrelv, Defector Mite's toxic, hexproof and evasion); ProtectionColorPanel's banner
 ];
 
 /**

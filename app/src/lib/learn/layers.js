@@ -1629,7 +1629,9 @@ function appliesBeforeLayer6(e) {
 const REAL_KEYWORD_GRANTS = new Set([...GRANTABLE_STATIC_KEYWORDS].map((k) => String(k).toLowerCase()));
 function grantKindOf(op) {
   switch (op?.layerOp) {
-    case "addKeyword": return REAL_KEYWORD_GRANTS.has(String(op.keyword || "").toLowerCase()) ? "keyword" : null;
+    // + "toxic" (Skrelv, Defector Mite's "gains toxic 1" — the review of pw26, F1): toxic is a static ability (CR 702.164a), so its grant is
+    // an ability grant a newer "loses all abilities" removes (CR 613.1f, 613.7), though it is not one of the static-grant keywords.
+    case "addKeyword": return REAL_KEYWORD_GRANTS.has(String(op.keyword || "").toLowerCase()) || String(op.keyword || "").toLowerCase() === "toxic" ? "keyword" : null;
     case "addAbility": return op.grant?.kind === "mana" ? "mana" : "ability";
     case "addProtection":
     case "addWard":
@@ -3082,6 +3084,48 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
 }
 
 /**
+ * GRANTED TOXIC (Skrelv, Defector Mite — the play-weighted program, #1123; CR 702.164b: multiple instances of toxic are cumulative): the
+ * total N of the toxic instances granted to a permanent — layer-6 `addKeyword` "toxic" grants, each carrying its `toxicAmount` — read in
+ * timestamp order exactly as keywordInstanceCount reads instances (a later removal strips the grants before it; a gate closed grants
+ * nothing; "can't have" leaves none). The printed toxic is combatResolution's own read (toxicValue). 0 when none.
+ */
+export function grantedToxicAmount(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return 0;
+  const grants = l6IndexOf(state).byKeyword.get("toxic");
+  if (!grants || grants.length === 0) return 0;
+  let n = 0;
+  for (const e of grants) {
+    if (!effectAffects(e, perm, state)) continue;
+    if (e.op.gate) {
+      const gp = gatePermForEffect(state, e, perm);
+      if (!gp || !gateMet(state, gp, e.op.gate)) continue;
+    }
+    if (e.op.layerOp === "addKeyword") n += Math.max(0, Number(e.op.toxicAmount ?? 1) || 0);
+    else if (e.op.layerOp === "removeKeyword") n = 0;
+  }
+  if (grants.some((e) => e.op.layerOp === "removeKeyword" && e.op.cantHave && effectAffects(e, perm, state))) return 0;
+  return n;
+}
+
+/**
+ * "CAN'T BE BLOCKED BY CREATURES OF THAT COLOR THIS TURN" (Skrelv, Defector Mite — CR 509.1b): the colours (WUBRG letters) whose creatures
+ * can't block this permanent, from resolved layer-6 `cantBeBlockedByColor` effects on it (a fixed set, CR 611.2c — they end at the cleanup
+ * with their duration). An effect of the resolving ability, not an ability of the creature, so an ability loss leaves it. Read by
+ * combatEvasion as blockers are declared, beside the printed "can't be blocked by <colour> creatures". Empty when none.
+ */
+export function permanentUnblockableByColors(state, permanentId) {
+  const out = new Set();
+  const perm = permanentId ? findPerm(state, permanentId) : null;
+  if (!perm) return out;
+  for (const e of collectContinuousEffects(state)) {
+    if (e.op?.layerOp !== "cantBeBlockedByColor" || !e.op.color) continue;
+    if (effectAffects(e, perm, state)) out.add(e.op.color);
+  }
+  return out;
+}
+
+/**
  * EQUIP-PROTECTION (CR 702.16, layer 6) — the set of COLORS a permanent has "protection from" right now:
  * its PRINTED protection-from-color (parseProtectionColors on the card) UNIONED with GRANTED protection
  * from layer-6 `addProtection` continuous effects (a Captain America Sword's "Equipped creature … has
@@ -3840,6 +3884,14 @@ export function permanentTargetShields(state, permanentId) {
     const self = e.affects?.mode === "self" && e.source?.permanentId === permanentId;
     const granted = e.affects?.mode === "fixed" && (e.affects.permanentIds || []).includes(permanentId);
     if (!self && !granted) continue;
+    // A HEXPROOF SHIELD IS AN ABILITY (the review of pw26, F1 — CR 702.11d: hexproof from a quality is a hexproof ability; CR 613.1f, 613.7):
+    // a granted one (Veil of Summer's, Dawn's Truce's, Skrelv's) is removed by a "loses all abilities" newer than it — the same timestamp
+    // cutoff as every keyword grant (grantCutByLoss). A shield that only says "can't be the target of …" (Canopy Cover's) is the Aura's
+    // effect, not the creature's ability, and stays; a self shield is a printed static, which the loss already drops (withoutLostStatics).
+    if (granted && e.op.hexproof && boardLossEffects(state).length > 0) {
+      const loss = abilityLossOf(state, permanentId);
+      if (loss !== null && grantCutByLoss(loss, e, "keyword")) continue;
+    }
     const sourceController = e.source?.permanentId ? findPerm(state, e.source.permanentId)?.controller ?? null : null;
     // + `colors` (shelf D18 — Veil of Summer's "hexproof from <colours>"), set only when the op names them so every other shield
     // reads byte-identical: a resolved spell's grant has no source permanent, so sourceController stays null and the shield's

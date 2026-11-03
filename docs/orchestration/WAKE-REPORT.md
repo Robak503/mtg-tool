@@ -9,7 +9,7 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-11-03 ~18:49Z) — v0.170.0 TAGGED · PHASE 2 RUNNABLE (TOP 5,000).** Top 1,000 **965 / 1,000**; top 2,500 **1,950 / 2,500
+> **NOW (2026-11-03 ~18:49Z) — v0.170.0 RELEASED · PHASE 2 RUNNABLE (TOP 5,000).** Top 1,000 **965 / 1,000**; top 2,500 **1,950 / 2,500
 > (78.0%) → +300 to 90%**; top 5,000 **2,993 / 5,000 (59.9%)**; corpus 16,056 (46.4%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
 > scripts/measure-coverage.mjs --played=5000` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. **Decided (Colton, 10-21):** the automatic payment holds back
@@ -75,7 +75,7 @@
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
 
-## 🚀 2026-11-03 — **v0.170.0 TAGGED** (release run watching) — 21 commits since v0.169.0, every push CI green
+## 🚀 2026-11-03 — **v0.170.0 RELEASED** (published 19:36:20Z; release run 41699622133 green on its first attempt) — 21 commits since v0.169.0, every push CI green
 
 > **The release (+99 cards, no false credit removed; the top 5,000 opened; a run of rules fixes):** the play-weighted program widened
 > to the top 5,000 in pure rank order (Colton, 11-02) and landed seven card slices (Coat of Arms through Muldrotha, Ocelot Pride

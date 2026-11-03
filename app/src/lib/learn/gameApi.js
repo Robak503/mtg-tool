@@ -446,7 +446,22 @@ export function observe(state, seat) {
 //     cards of one name that another lane tells apart (a flashback granted this turn, milled or put there from the battlefield this
 //     turn) are two choices. Every other seat is offered the one least-valuable set, as before.
 //   No kind, decision or answer shape changed.
-export const PLAY_API_VERSION = "1.17.0";
+// 1.18.0 (additive MINOR — new fields on existing kinds, 2026-11-03, the play-weighted slice pw26; after pw25's 1.17.0):
+//   - The "protection-color" decision may carry `grantText` (Skrelv, Defector Mite — the colour of a grant that is not protection: "gains
+//     toxic 1 and hexproof from the color you choose …"); its `candidates` are the five colours, and their `threats` only the spells and
+//     abilities that target the creature (hexproof stops nothing else, CR 702.11d). The answer is the same `{ kind, color }`.
+//   - The "discard" decision may carry `conniveN` (Spymaster's Vault — connive N's tally of the nonland cards discarded so far, put on the
+//     conniving creature as +1/+1 counters when the chain ends, CR 701.50e).
+//   - A recorded target may carry `slotPlayer` (Grasp of Fate — the opponent whose instance of "target" it was chosen for, CR 601.2c).
+//     For a triggered ability whose only targets are one per opponent (Grasp of Fate, Bronzebeak Foragers, Celebrate the Mountain-king), the
+//     "trigger-target" decision is raised ONCE PER OPPONENT with a real choice, in turn order: each time its rows are that player's legal
+//     targets and "No target", answered with the same `{ kind, candidateId }`; the waiting stack object carries
+//     `awaitingTargets.perOpponent` `{ slots, at, chosen }` between the answers, and the game log a "trigger-target-slot-chosen" line per
+//     answer before the last.
+//   - state: a layer-6 addKeyword "toxic" with `toxicAmount` and a `cantBeBlockedByColor` effect with `color` (Skrelv); an ability-source
+//     record's `attachedTo` (Tarrian's Soulcleaver, Ghost Lantern — CR 608.2h).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
+export const PLAY_API_VERSION = "1.18.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

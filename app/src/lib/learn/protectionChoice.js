@@ -158,12 +158,17 @@ export function protectionGrantPermanentIds(state, atom, ctx) {
  * choice to make).
  */
 export function protectionColorQuestion(state, atom, ctx) {
-  if (atom?.op !== "grant-protection" || !atom.colorChoice || atom.chosenColor != null) return null;
+  // + SKRELV, DEFECTOR MITE (the play-weighted program, #1123 — effects/atoms/chosenColorShield.js): "Choose a color. Another target creature
+  // you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn." —
+  // the same choice, made the same way (CR 608.2d), asked with `grantText` naming what the colour gives. Hexproof stops only a threat
+  // that targets (CR 702.11d), so only those are named for it. The five colours, never colourless.
+  const shield = atom?.op === "chosen-color-toxic-shield";
+  if ((!shield && (atom?.op !== "grant-protection" || !atom.colorChoice)) || atom.chosenColor != null) return null;
   const controller = ctx?.controller;
   if (!seatIsHuman(state, controller)) return null;
   const ids = protectionGrantPermanentIds(state, atom, ctx);
   if (ids.length === 0) return null;
-  const threats = protectionThreats(state, controller, ids);
+  const threats = shield ? protectionThreats(state, controller, ids).filter((t) => t.how === "targets") : protectionThreats(state, controller, ids);
   const suggestedId = protectionColorPick(state, controller, ids, { orColorless: !!atom.orColorless, threats });
   const letters = [...PROTECTION_COLOR_ORDER, ...(atom.orColorless ? ["C"] : [])];
   const candidates = letters.map((id) => {
@@ -179,5 +184,8 @@ export function protectionColorQuestion(state, atom, ctx) {
     const perm = findPermanent(state, id)?.permanent;
     return perm?.card?.name || (perm?.faceDown ? "Face-down creature" : "a permanent");
   });
-  return { controller, cardName: names.join(", "), candidates, suggestedId };
+  return {
+    controller, cardName: names.join(", "), candidates, suggestedId,
+    ...(shield ? { grantText: `gains toxic ${atom.toxic ?? 1} and hexproof from the color you choose until end of turn, and can't be blocked by creatures of that color this turn` } : {}),
+  };
 }

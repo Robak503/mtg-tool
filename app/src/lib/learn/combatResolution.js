@@ -56,7 +56,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss, boardSetsTypes, permanentIsCreature } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss, boardSetsTypes, permanentIsCreature, grantedToxicAmount } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
@@ -560,7 +560,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // to poison (replacement); toxic N adds N poison ON TOP of normal player damage.
     const attackerMinus = permanentHasKeyword(state, attackerId, "Infect") || permanentHasKeyword(state, attackerId, "Wither");
     const attackerInfect = permanentHasKeyword(state, attackerId, "Infect");
-    const attackerToxicN = toxicValue(withAbilityLoss(state, lookup.permanent)); // toxic is a static ability (CR 702.164a) — none after a loss
+    // + the toxic instances granted to it (Skrelv's "gains toxic 1" — layers.grantedToxicAmount; cumulative, CR 702.164b).
+    const attackerToxicN = toxicValue(withAbilityLoss(state, lookup.permanent)) + grantedToxicAmount(state, attackerId); // toxic is a static ability (CR 702.164a) — none after a loss
     const attackerColors = permanentColors(state, attackerId); // KW-PROTECTION: a blocker protected from these takes 0
 
     // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.

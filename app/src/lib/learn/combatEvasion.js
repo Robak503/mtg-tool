@@ -66,7 +66,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow, permanentUnblockableByColors } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
 import { findPermanent, creaturePower } from "./gameState.js";
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the evasion text is the front face's
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
@@ -1455,6 +1455,14 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   if (permanentHasKeyword(state, attackerId, "Intimidate")) {
     const shares = [...permColorSet(state, attackerId)].some((c) => permColorSet(state, blockerId).has(c));
     if (!(isArtifactPerm(state, blockerId) || shares)) return false;
+  }
+
+  // A RESOLVED "can't be blocked by creatures of that color this turn" (Skrelv, Defector Mite — layers.permanentUnblockableByColors, CR 509.1b):
+  // a blocker of one of those colours, as it is now (layer-aware), may not block it.
+  const unblockableBy = permanentUnblockableByColors(state, attackerId);
+  if (unblockableBy.size > 0) {
+    const bc = permColorSet(state, blockerId);
+    for (const c of unblockableBy) if (bc.has(c)) return false;
   }
 
   // EVASION-QUALIFIER — parsed "can't be blocked by [qualifier]" text restrictions (CR 509.1b;

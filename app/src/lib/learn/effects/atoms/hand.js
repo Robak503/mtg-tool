@@ -9,6 +9,7 @@ import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprint
 import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
 import { nextRandomInt } from "../../seedMath.js"; // RD-1: THE canonical seeded uniform draw for random discard (leaf; no cycle)
+import { applyConniveCounter, conniveDiscardIsNonland } from "./connive.js"; // CONNIVE N (CR 701.50e) — the chain's end places the tallied counters (connive.js imports nothing from here)
 
 /**
  * δ-1b targeted hand disruption (CR 701.9 discard) — Duress / Thoughtseize / Inquisition / Coercion /
@@ -83,11 +84,16 @@ export function applyImprint(state, atom, ctx) {
  * resolveDiscardChoice — and rides on the pause, so the count survives every pick. When the queue empties, the tally's controller
  * draws that many cards as one instruction (the draw chokepoint, CR 121.2) before the program resumes; a controller who has left
  * the game draws nothing (CR 800.4a). A card that left the hand some other way was not discarded and is not counted.
+ *
+ * CONNIVE N (CR 701.50e — Spymaster's Vault): `conniveN` `{ permanentId, controller, nonland }` tallies the NONLAND cards this chain
+ * discards (connive.conniveDiscardIsNonland — the front face, CR 712.8a) the same way, and when the queue empties the conniving
+ * permanent gets that many +1/+1 counters in ONE placement (connive.applyConniveCounter — doublers and Hardened Scales see one event).
  */
-export function advanceDiscardChain(state, { queue, sourceName = null, perDiscardDraw = null }) {
+export function advanceDiscardChain(state, { queue, sourceName = null, perDiscardDraw = null, conniveN = null }) {
   let next = state;
   let q = queue || [];
   let tally = perDiscardDraw;
+  let conniveTally = conniveN;
   while (q.length) {
     const head = q[0];
     const player = next.players?.[head.playerId];
@@ -102,14 +108,16 @@ export function advanceDiscardChain(state, { queue, sourceName = null, perDiscar
       next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: head.playerId, discarded: hand.length, forced: true });
       next = checkDiscardTriggers(next, head.playerId, hand.map((c) => c.id));   // one event per card (CR 603.2)
       if (tally) tally = { ...tally, count: tally.count + hand.length };
+      if (conniveTally) conniveTally = { ...conniveTally, nonland: conniveTally.nonland + hand.filter(conniveDiscardIsNonland).length };
       q = q.slice(1);
       continue;
     }
     // A real choice (hand > remaining): pause for this discarder's single-card pick.
     const candidates = hand.map((c) => ({ id: c.id, name: c.name }));
-    return setPendingDiscardChoice(next, { controller: head.playerId, remaining: head.remaining, candidates, queue: q, sourceName, ...(tally ? { perDiscardDraw: tally } : {}) });
+    return setPendingDiscardChoice(next, { controller: head.playerId, remaining: head.remaining, candidates, queue: q, sourceName, ...(tally ? { perDiscardDraw: tally } : {}), ...(conniveTally ? { conniveN: conniveTally } : {}) });
   }
   if (tally) next = drawPerDiscarded(next, tally, sourceName);
+  if (conniveTally) next = applyConniveCounter(next, conniveTally.permanentId, conniveTally.controller, conniveTally.nonland);
   return next;
 }
 

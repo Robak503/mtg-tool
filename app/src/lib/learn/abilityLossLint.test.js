@@ -216,7 +216,7 @@ const ALIAS_ALLOWLIST = [
 // { file, fn, holder, count, reason }.
 const TEXT_ALLOWLIST = [
   { file: "boardEval.js", fn: "isUntappedManaSource", holder: "perm", count: 2, reason: "the AI's development proxy with no state (an estimate of the board, never a rules read)" },
-  { file: "gameState.js", fn: "recordLeaveEvent", holder: "permanent", count: 2, reason: "recordLeaveEvent's sourceLki: whether to RECORD the leaving permanent's power for a later look-back (data kept, no ability applied)" },
+  { file: "gameState.js", fn: "recordLeaveEvent", holder: "permanent", count: 4, reason: "recordLeaveEvent's sourceLki: whether to RECORD the leaving permanent's power, and (pw26 — Tarrian's Soulcleaver) the creature an Equipment reading \"equipped creature\" was attached to, for a later look-back (data kept, no ability applied)" },
   { file: "sba.js", fn: "sweepAttachmentLegality", holder: "perm", count: 2, reason: "an Aura's Enchant restriction at the attachment state-based action (CR 303.4, 704.5m): an Aura that lost its abilities is the program's S5 (the Enchant union, backlog E6); the printed line keeps today's legality" },
 ];
 

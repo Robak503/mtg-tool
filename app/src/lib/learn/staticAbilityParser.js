@@ -3606,6 +3606,18 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: false, spellFilter: { chosenTypeOfSource: true } } });
     return;
   }
+  // COVEN (the play-weighted program — Augur of Autumn #1141: "Coven — As long as you control three or more creatures with different
+  // powers, you may cast creature spells from the top of your library."; the "Coven —" label has no rules meaning, CR 207.2c): the same
+  // permission, live only while its controller controls three or more creatures with different powers — `coven`, read at each offer by
+  // playFromTopPermission through the caller's `covenHolds` (legalChoices — the creatures as they are now, layer-aware power). A caller
+  // that passes no such test gets no permission from it (never a paper permission).
+  {
+    const cv = c.match(/^(?:coven\s*[—–-]\s*)?as long as you control three or more creatures with different powers, you may cast ([a-z]+) spells from the top of your library$/);
+    if (cv && castFromTopTypeWords().has(cv[1])) {
+      out.push({ playFromTop: { lands: false, spellFilter: [cv[1].charAt(0).toUpperCase() + cv[1].slice(1)], coven: true } });
+      return;
+    }
+  }
   {
     const ft = c.match(/^you may (play lands and )?cast ([a-z, ]+?) spells from the top of your library$/);
     if (ft) {
@@ -6355,7 +6367,7 @@ export function castFromTopFilterAllows(spellFilter, card, every = false) { // `
     : new RegExp(`\\b${w}\\b`, "i").test(tl) || (every && CR_CREATURE_TYPES.has(String(w).toLowerCase()))));
 }
 
-export function playFromTopPermission(state, playerId) {
+export function playFromTopPermission(state, playerId, { covenHolds = null } = {}) {
   const lossy = abilityViewLossy(state); // the ability-loss board test, once per scan (no per-permanent work without a loss)
   // MERGED across every granting permanent, not first-wins. Two permissions of DIFFERENT breadth can be on
   // the battlefield at once (Courser of Kruphix grants lands only, Future Sight grants lands and spells),
@@ -6372,6 +6384,7 @@ export function playFromTopPermission(state, playerId) {
     for (const d of statics) {
       if (!d.playFromTop) continue;
       if (d.playFromTop.attachedGated && !perm.attachedTo) continue; // The Reality Chip grants nothing while unattached
+      if (d.playFromTop.coven && !(typeof covenHolds === "function" && covenHolds())) continue; // Augur of Autumn — only while coven holds
       // A DYNAMIC chosen-type filter resolves HERE, where the granting permanent is in hand: its word list is
       // whatever that permanent chose on entry (Realmwalker #607). Unchosen → the granter permits no spells at
       // all, rather than permitting everything — the safe direction, and never a guessed type.

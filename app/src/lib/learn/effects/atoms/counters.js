@@ -626,6 +626,14 @@ export function addCounterClauseParser(clause, ctx) {
     const em = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on enchanted creature$/);
     if (em) return { op: "add-counter", counterType: em[2], amount: SMALL_NUM[em[1]] ?? parseInt(em[1], 10), target: "enchanted" };
   }
+  // EQUIPPED referent (the play-weighted program — Tarrian's Soulcleaver #1182, Ghost Lantern: "put a +1/+1 counter on EQUIPPED
+  // CREATURE"): the creature the Equipment is attached to as the ability resolves — atomTargets' target:"equipped"
+  // (shared.equippedTargets), the source's attachment read live, or as the source last existed once it has left (CR 608.2h). An
+  // unattached Equipment has no equipped creature: nothing. A "+1/+1" counter only (a -1/-1 form has no corpus carrier).
+  {
+    const qm = t.match(/^put (a|an|one|two|three|\d+) \+1\/\+1 counters? on equipped creature$/);
+    if (qm) return { op: "add-counter", counterType: "+1/+1", amount: SMALL_NUM[qm[1]] ?? parseInt(qm[1], 10), target: "equipped" };
+  }
   // STUN ON A CHOSEN TARGET (SHELF-85 B12, 2026-09-04 — Cryogen Relic "Put a stun counter on up to one target tapped
   // creature"): the bare put-stun form, no tap of its own (the tap-and-stun fold lives in combat.js). The counter is
   // the SAME "stun" kind untapOrConsumeStun consumes at the untap step (CR 122.1c — a tapped permanent with a stun

@@ -33,7 +33,7 @@ function st(user = [], ai = []) {
 }
 
 describe("vein #3 — parse + the flips", () => {
-  it("MUST STAY HIGH: both of-your-choice forms; the three carriers classify; Skrelv stays parked", () => {
+  it("MUST STAY HIGH: both of-your-choice forms; the three carriers classify; Skrelv (graduated by pw26 — skrelvDefectorMite.test.js plays it) classifies too", () => {
     const m = parseEffectClause("target creature you control gains protection from the color of your choice until end of turn", "Instant", { sourceScoped: true });
     expect(programConfidence(m)).toBe("high");
     expect(m.atoms[0]).toMatchObject({ op: "grant-protection", targetType: "creatureYouControl", colorChoice: true });
@@ -41,7 +41,7 @@ describe("vein #3 — parse + the flips", () => {
     expect(g.atoms[0]).toMatchObject({ op: "grant-protection", excludeSource: true, colorChoice: true, orColorless: true });
     expect(classifyCard({ name: "Mother of Runes", type: "Creature — Human Cleric", power: 1, toughness: 1, oracle: "{T}: Target creature you control gains protection from the color of your choice until end of turn." })).toBe("native-activated");
     expect(classifyCard({ name: "Shelter", type: "Instant", oracle: "Target creature you control gains protection from the color of your choice until end of turn.\nDraw a card." })).toBe("native-spell");
-    expect(classifyCard({ name: "Skrelv, Defector Mite", type: "Legendary Creature — Phyrexian Mite", power: 1, toughness: 1, oracle: "Toxic 1\nSkrelv can't block.\n{W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn." })).toBe("body-only");
+    expect(classifyCard({ name: "Skrelv, Defector Mite", type: "Legendary Creature — Phyrexian Mite", power: 1, toughness: 1, oracle: "Toxic 1\nSkrelv can't block.\n{W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn." })).toBe("native-activated");
   });
 });
 

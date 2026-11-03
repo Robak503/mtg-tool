@@ -18,7 +18,7 @@
 import { enumerateTargets, legacyTargetingEffect, resolutionSource, abilitySource } from "../spellEffects.js"; // + the CR 608.2b re-check's two reads (resolutionTargetVerdicts); resolutionSource — the source's colours, whether they are known, its creature-ness (a departed source's last known information)
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { targetingAtomOf } from "./programQueries.js"; // the enumerated slot of an optional-payment wrapper — shared with programConfidence's target-slot gate
-import { findPermanent } from "../gameState.js";
+import { findPermanent, opponentsOf } from "../gameState.js"; // + opponentsOf — ONE TARGET PER OPPONENT (Grasp of Fate): a slot per opponent, in turn order
 import { cardIsEveryCreatureType } from "../everyCreatureType.js"; // MG-1: every creature type (a changeling, CR 702.73a; P·39b — a Maskwood Nexus creature card) for the shared-creature-type subset gate — a leaf over keywords.js (no cycle)
 
 // A permanent's mana value (CR 202.3), read off the live battlefield permanent by id. Used by the
@@ -409,6 +409,19 @@ function castSlots(state, controllerId, atoms, sourceColors = [], ctx = null) {
       pushSlot(rest.length ? [...options, ...rest] : options, i);
       continue;
     }
+    // ONE TARGET PER OPPONENT (the play-weighted program — Grasp of Fate: "for each opponent, exile up to one target nonland permanent
+    // that player controls …"): each opponent is an instance of the word "target" with its own slot (CR 601.2c) — "up to one" of THAT
+    // player's legal permanents, or none — in turn order from the controller. Each option is bound to its player (`slotPlayer`), so the
+    // CR 608.2b re-check and a change of target hold it to that player's permanents (resolutionTargetVerdicts, changeTargetAlternatives).
+    // All the slots carry this atom's index (the resolver reads them together). Must precede the subset gate below, which would make
+    // one "up to one" over every opponent's permanents.
+    if (atom.perOpponent) {
+      for (const opp of opponentsOf(state, controllerId)) {
+        const own = tagged.filter((t) => t.controller === opp).map((t) => ({ ...t, slotPlayer: opp }));
+        pushSlot([...own, DECLINE], i);
+      }
+      continue;
+    }
     // MULTI-COUNT TARGET ("up to N target …"): this atom chooses a SUBSET of [minTargets..maxTargets] distinct legal
     // targets (all tagged atomIndex i). Push the subsets as this atom's options; the combine loop SPREADS a subset
     // (an array) into the combo. Gated on maxTargets>1 — every single-target atom takes the unchanged path below, so
@@ -790,6 +803,29 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
  * before, the trigger offers threaded no colours and a protected permanent was offered and then fizzled. `ctx` is the enumeration
  * context the flush builds, `sourceId` the flush's `context.sourceId ?? source.permanentId` (offerSourceId below).
  */
+/**
+ * ONE OPPONENT AT A TIME (the review of pw26, F2 — Grasp of Fate, Bronzebeak Foragers, Celebrate the Mountain-king): a triggered ability
+ * whose only targets are a `perOpponent` atom's slots asks a person its targets one opponent at a time — each instance of "target" is
+ * independent (CR 601.2c via 603.3d), so the slots need no product and no cap (the combined rows past 64 are the cast lane's covering,
+ * which can't offer most of the combinations the text allows). Returns the slots that hold a real choice, in castSlots' order (turn
+ * order from the controller), each as trigger-target rows — one per legal target of that player's, `{ targets: [t] }`, then
+ * `{ targets: [] }` for "No target" — or null when the program is not that shape (a mode, any other targeted atom). The same enumeration
+ * expandTriggerChoices makes (the source's colours, protection included), so each row is a legal choice for its slot.
+ */
+export function perOpponentTriggerSlots(state, controllerId, program, ctx) {
+  if (!program || program.structure === "modal") return null;
+  const atoms = program.atoms || [];
+  const targeted = atoms.map((a, i) => (atomTargetSpec(targetingAtomOf(a)) && !a?.reflexiveTrigger ? i : -1)).filter((i) => i >= 0);
+  if (targeted.length !== 1 || !atoms[targeted[0]]?.perOpponent) return null;
+  const source = abilitySource(state, ctx, ctx?.sourceId ?? null);
+  const slots = castSlots(state, controllerId, atoms, source.colors, source.known ? { ...ctx, sourceColorsKnown: true } : ctx);
+  if (!slots) return null;
+  return slots.perAtom
+    .map((options) => options.filter((o) => o !== DECLINE))
+    .filter((own) => own.length > 0)
+    .map((own) => [...own.map((t) => ({ targets: [t] })), { targets: [] }]);
+}
+
 export function expandTriggerChoices(state, controllerId, program, ctx) {
   const source = abilitySource(state, ctx, ctx?.sourceId ?? null);
   return expandCastChoices(state, controllerId, program, source.colors, source.known ? { ...ctx, sourceColorsKnown: true } : ctx);
@@ -831,6 +867,8 @@ export function changeTargetAlternatives(state, obj) {
     // (No role check: roles belong to two-target atoms, whose first role is always required, so a single-target object
     // never has a different role to move into.)
     if (orig.atomIndex != null && t.atomIndex !== orig.atomIndex) continue;
+    // ONE TARGET PER OPPONENT (Grasp of Fate): the same instance of "target" — that player's permanents only (CR 115.7, 601.2c).
+    if (orig.slotPlayer != null && t.slotPlayer !== orig.slotPlayer) continue;
     if (t.id === orig.id || t.id === obj.id) continue;
     if (out.some((x) => x.id === t.id)) continue;
     out.push(t);
@@ -919,7 +957,8 @@ export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) 
     const slot = offeredTargetSlot(obj, t);
     if (!slot.spec) return true;
     if (!pools.has(slot.key)) pools.set(slot.key, enumerateTargets(state, params.controller, slot.spec, colors, ctx));
-    return pools.get(slot.key).some((x) => x.id === t.id);
+    // ONE TARGET PER OPPONENT (Grasp of Fate — "… that player controls"): a target bound to its slot's player must still be that player's.
+    return pools.get(slot.key).some((x) => x.id === t.id && (t.slotPlayer == null || x.controller === t.slotPlayer));
   };
   return targets.map((t) => {
     if (!t || typeof t !== "object" || t.id == null || typeof t.type !== "string") return null;

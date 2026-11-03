@@ -30,7 +30,7 @@ import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d �
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent; + the shuffle-instead replacement for a spell leaving the stack (Nexus of Fate)
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, continueEachGraveyardPick, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, continueEachGraveyardPick, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, conniveDiscardIsNonland, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -1453,11 +1453,13 @@ export function resolveDiscardChoice(state, cardId) {
   let next = clearPendingChoice(state);
   const discarder = pc.controller;
   let discardedNow = false; // a card really discarded by this settle (the per-card draw's tally below)
+  let discardedNonland = false; // ... and a nonland one (CR 701.50a / 701.50e — the connive tallies)
   if (next.players?.[discarder]) {
     // Capture the card object BEFORE the move — the CONNIVE rider needs its landness (CR 701.50a).
     const discardedCard = cardId ? (next.players[discarder].hand || []).find((c) => c.id === cardId) : null;
     const inHand = !!discardedCard;
     discardedNow = inHand;
+    discardedNonland = inHand && conniveDiscardIsNonland(discardedCard);
     if (inHand) {
       next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
     }
@@ -1467,15 +1469,18 @@ export function resolveDiscardChoice(state, cardId) {
     // the conniving permanent — routed through applyConniveCounter (doublers CR 616 + counters-placed
     // watchers CR 122.6 compose; the permanent having left the battlefield is a clean no-op). A LAND
     // discard or a stale/no-op settle places nothing (only a card actually "discarded this way" counts).
-    if (pc.connive && inHand && !/\bLand\b/.test(String(discardedCard.type || discardedCard.type_line || ""))) {
+    // "Nonland" is the card's front face (CR 712.8a — connive.conniveDiscardIsNonland, the one read).
+    if (pc.connive && discardedNonland) {
       next = applyConniveCounter(next, pc.connive.permanentId, pc.connive.controller || discarder);
     }
   }
+  // CONNIVE N (CR 701.50e): the chain's nonland tally rides on, and its end places the counters in one placement (advanceDiscardChain).
+  const conniveN = pc.conniveN ? { ...pc.conniveN, nonland: pc.conniveN.nonland + (discardedNonland ? 1 : 0) } : null;
   // Decrement the head discarder's owed count, then advance the chain. THE PER-CARD DRAW (Syphon Mind): the tally counts a card
   // actually discarded (a stale pick is not) and rides on; the chain draws it when its queue empties (hand.advanceDiscardChain).
   const queue = (pc.queue || []).map((e, i) => (i === 0 ? { ...e, remaining: e.remaining - 1 } : e));
   const perDiscardDraw = pc.perDiscardDraw ? { ...pc.perDiscardDraw, count: pc.perDiscardDraw.count + (discardedNow ? 1 : 0) } : null;
-  const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName, ...(perDiscardDraw ? { perDiscardDraw } : {}) });
+  const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName, ...(perDiscardDraw ? { perDiscardDraw } : {}), ...(conniveN ? { conniveN } : {}) });
   if (r.pendingChoice) {
     // The chain re-paused (more picks). Carry the original caster-resume onto the new choice so the
     // program resumes once the whole chain settles (advanceDiscardChain never sets a resume itself).

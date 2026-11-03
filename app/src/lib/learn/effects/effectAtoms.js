@@ -52,6 +52,7 @@ import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
 import { speedResolvers } from "./atoms/speed.js";
 import { myriadResolvers } from "./atoms/myriad.js"; // KW-MYRIAD (CR 702.116a, play-weighted #898) — the token copies attacking each other opponent
+import { chosenColorShieldResolvers } from "./atoms/chosenColorShield.js"; // SKRELV (play-weighted #1123) — the chosen colour's toxic 1, hexproof from it and unblockable by it
 import { classLevelUpResolvers } from "./atoms/classLevelUp.js"; // CLASS (CR 716.2a) — the class level bar's "this Class's level becomes N"
 import { apnapOrder } from "./atoms/removal.js"; // YOU-AND-ATTACKING-OPPONENTS — the opponents who do the same go in APNAP order (the edict chain's own ordering)
 import { findPermanent, opponentsOf, logEvent } from "../gameState.js"; // YOU-AND-ATTACKING-OPPONENTS — who is attacking the attacked player as the ability resolves
@@ -66,7 +67,7 @@ export { applyEarthbend } from "./atoms/combat.js";
 export { counterSpellById, counterIfCounterable, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, bottomLibraryCardsByIds } from "./atoms/library.js";
 export { advanceDiscardChain, advanceHandToLibraryTopChain, pitchRandomDiscard } from "./atoms/hand.js";
-export { applyConniveCounter } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice)
+export { applyConniveCounter, conniveDiscardIsNonland } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice); the front-face nonland read (CR 712.8a)
 export { applyDivideDamage } from "./atoms/misc.js";
 export { advanceEdictChain, lockInEdictPick, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";
 
@@ -115,6 +116,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...speedResolvers,   // start-engines (KW-ENGINES, CR 702.179b) — the synthesized "Start your engines!" ETB sets controller speed to 1 if none
   ...myriadResolvers, // myriad (CR 702.116a) — the attack trigger's token copies, tapped and attacking each other opponent, exiled at end of combat
   ...classLevelUpResolvers, // class-level-become (CR 716.2a) — the level-up resolution: the source's level becomes N, then its becomes-level-N triggers
+  ...chosenColorShieldResolvers, // chosen-color-toxic-shield (Skrelv, CR 608.2d) — the colour chosen as it resolves; toxic 1, hexproof from it, can't be blocked by it, until end of turn
 });
 
 /**
