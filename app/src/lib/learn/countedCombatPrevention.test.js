@@ -35,6 +35,7 @@ const GIANT = {"name":"Hill Giant","type":"Creature — Giant","mana":"{3}{R}","
 const ARCHERS = {"name":"Elvish Archers","type":"Creature — Elf Archer","mana":"{1}{G}","cmc":2,"power":"2","toughness":"1","keywords":["First strike"],"colors":["G"],"oracle":"First strike"};
 const DREADMAW = {"name":"Colossal Dreadmaw","type":"Creature — Dinosaur","mana":"{4}{G}{G}","cmc":6,"power":"6","toughness":"6","keywords":["Trample"],"colors":["G"],"oracle":"Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)"};
 const NIGHTHAWK = {"name":"Vampire Nighthawk","type":"Creature — Vampire Shaman","mana":"{1}{B}{B}","cmc":3,"power":"2","toughness":"3","keywords":["Deathtouch","Flying","Lifelink"],"colors":["B"],"oracle":"Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)"};
+const CRUSADER = {"name":"Mirran Crusader","type":"Creature — Human Knight","mana":"{1}{W}{W}","cmc":3,"power":"2","toughness":"2","keywords":["Protection","Double strike"],"colors":["W"],"oracle":"Double strike, protection from black and from green"};
 const BEARS = {"name":"Grizzly Bears","type":"Creature — Bear","mana":"{1}{G}","cmc":2,"power":"2","toughness":"2","keywords":[],"colors":["G"],"oracle":""};
 const TORBRAN = {"name":"Torbran, Thane of Red Fell","type":"Legendary Creature — Dwarf Noble","mana":"{1}{R}{R}{R}","cmc":4,"power":"2","toughness":"4","keywords":[],"colors":["R"],"oracle":"If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead."};
 const FURNACE = {"name":"Furnace of Rath","type":"Enchantment","mana":"{1}{R}{R}{R}","cmc":4,"power":null,"toughness":null,"keywords":["Double"],"colors":["R"],"oracle":"If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead."};
@@ -101,10 +102,15 @@ describe("Inkshield — the game", () => {
     s = damage(s);
     expect({ life: s.players.user.life, tokens: inklings(s).length }).toEqual({ life: 20, tokens: 5 });
   });
-  it("⭐ a trampler's excess over its blocker is prevented and counted (6 power over a 2/2: 4 tokens)", () => {
-    let s = castAndResolve(combatAt({ ai: [P("maw", DREADMAW, "ai")], user: [P("myBears", BEARS, "user")], attackers: ["maw"], blockers: [{ blockerId: "myBears", attackerId: "maw" }], hand: [{ ...INKSHIELD, id: "ink" }] }), "ink");
+  it("⭐ a trampler's excess that reaches the player is prevented and counted (6 power over Mirran Crusader — protection from green, so no blocker would be dealt it: 4 tokens)", () => {
+    let s = castAndResolve(combatAt({ ai: [P("maw", DREADMAW, "ai")], user: [P("crus", CRUSADER, "user")], attackers: ["maw"], blockers: [{ blockerId: "crus", attackerId: "maw" }], hand: [{ ...INKSHIELD, id: "ink" }] }), "ink");
     s = damage(s);
     expect({ life: s.players.user.life, tokens: inklings(s).length }).toEqual({ life: 20, tokens: 4 });
+  });
+  it("⭐ trample's excess goes on an open blocker instead (CR 702.19b), not into the blocking player's Inkshield tokens: 6 power over Grizzly Bears — all 6 on the Bears, no Inklings", () => {
+    let s = castAndResolve(combatAt({ ai: [P("maw", DREADMAW, "ai")], user: [P("myBears", BEARS, "user")], attackers: ["maw"], blockers: [{ blockerId: "myBears", attackerId: "maw" }], hand: [{ ...INKSHIELD, id: "ink" }] }), "ink");
+    s = damage(s);
+    expect({ life: s.players.user.life, tokens: inklings(s).length, bears: s.players.user.battlefield.some((p) => p.id === "myBears") }).toEqual({ life: 20, tokens: 0, bears: false });
   });
   it("⭐ the order that makes the most (CR 616.1): Fiery Emancipation's triple first — a 3/3 makes nine Inklings", () => {
     let s = castAndResolve(combatAt({ ai: [P("giant", GIANT, "ai"), P("fiery", EMANCIPATION, "ai")], attackers: ["giant"], hand: [{ ...INKSHIELD, id: "ink" }] }), "ink");

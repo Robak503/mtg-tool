@@ -762,10 +762,13 @@ export function abilitySource(state, ctx, sourceId) {
  * enumeration below and the "Enchant player" Aura offer in legalChoices both read it, so the two can't disagree.
  * · SHROUD (CR 702.18, stage ③ · 48): absolute — nobody may target the player, the player included.
  * · HEXPROOF (CR 702.11c): opponent-scoped — the player may still target themself (Leyline of Sanctity).
- * · PROTECTION FROM EVERYTHING (Teferi's Protection, CR 702.16b): nothing another player controls may target them.
+ * · PROTECTION FROM EVERYTHING (Teferi's Protection, The One Ring, The Stasis Coffin — CR 702.16j: "Such a permanent or player
+ *   can't be targeted by spells or abilities"): absolute like shroud — the player included (the rulings: "That player can't be
+ *   the target of spells or abilities"; a spell or ability already targeting them has an illegal target at the re-check).
  * `recheck` — the CR 608.2b resolution re-check: an empty colour list never refuses there (canBeTargetedBy's colour shields).
  */
 export function playerTargetableBy(state, playerId, controllerId, sourceColors = [], recheck = false) {
+  if (playerProtectedFromEverything(state, playerId)) return false;
   if (playerHasShroud(state, playerId)) return false;
   // · HEXPROOF FROM <colours> until end of turn (CR 702.11c/d — Veil of Summer, shelf D18): an opponent's source of a named
   //   colour can't target the player; a source whose colours weren't threaded can't be told apart, so it's refused too —
@@ -774,7 +777,7 @@ export function playerTargetableBy(state, playerId, controllerId, sourceColors =
   const hf = state?.players?.[playerId]?.hexproofFrom;
   if (hf && hf.turn === state.turn && playerId !== controllerId
     && (hf.colors === null || (sourceColors.length ? hf.colors.some((c) => sourceColors.includes(c)) : !recheck))) return false;
-  return playerId === controllerId || (!playerHasHexproof(state, playerId) && !playerProtectedFromEverything(state, playerId));
+  return playerId === controllerId || !playerHasHexproof(state, playerId);
 }
 
 /**
@@ -1004,8 +1007,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // ⛔ IT IS OPPONENT-SCOPED, NOT ABSOLUTE. "You can't be the target of spells or abilities your OPPONENTS
   // control" — a player with hexproof may still target THEMSELF (Leyline of Sanctity does not stop you
   // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
-  // TEFERI'S PROTECTION — protection from everything (CR 702.16b): the shielded player can't be the target of
-  // anything another player controls; their own spells and abilities may still target them.
+  // TEFERI'S PROTECTION — protection from everything (CR 702.16j): the shielded player can't be the target of any spell
+  // or ability, their own included (playerTargetableBy).
   const targetablePlayer = (pid) => playerTargetableBy(state, pid, controllerId, sourceColors, recheck); // + the source's colours (shelf D18 — hexproof from colours)
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
@@ -1696,20 +1699,21 @@ export function dealDamageToCreature(s, event, dealer, permId, raw) {
 }
 
 /**
- * THE PLAYER HIT — `dealer` deals `raw` damage to the player `pid`, one hit of `event`: a redirect to a creature first, the
- * damage replacements, protection from everything, the prevention shields, then poison from a source with infect (CR 120.3b),
- * life loss otherwise (CR 120.3a — not combat damage).
+ * THE PLAYER HIT — `dealer` deals `raw` damage to the player `pid`, one hit of `event`: a redirect to a creature first (unless
+ * the player is protected from everything), the damage replacements, protection from everything, the prevention shields, then
+ * poison from a source with infect (CR 120.3b), life loss otherwise (CR 120.3a — not combat damage).
  */
 export function dealDamageToPlayer(s, event, dealer, pid, raw) {
   if (dealer.silenced) return s;
   // DAMAGE REDIRECT (shelf D42, CR 614.9 — With Great Power . . ., Pariah, Empyrial Archangel): damage that would be dealt to
   // this player is dealt to the creature their redirect names instead — an ordinary hit on that creature (its own walls,
-  // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). Applied FIRST, a legal
-  // CR 616.1 order (the affected player picks which replacement applies). Never onto a creature with any protection: a
+  // shields and doublers; the source's infect/wither; the lethal pass and dealt-damage watchers). The affected player picks the
+  // order (CR 616.1): protection from everything first when they have it (CR 702.16j — nothing is dealt; the redirect would deal
+  // their creature the hit), else the redirect first. Never onto a creature with any protection: a
   // departed dealer without a record carries no colours, so a prevention CR 702.16e owes can't always be told apart — the
   // damage stays with the player (kept conservative).
   const redirectTo = playerDamageRedirectTarget(s, pid);
-  if (redirectTo && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
+  if (redirectTo && !playerProtectedFromEverything(s, pid) && !permanentProtectionColors(s, redirectTo).size && !permanentProtectionClasses(s, redirectTo).size) {
     return dealDamageToCreature(s, event, dealer, redirectTo, raw);
   }
   // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —

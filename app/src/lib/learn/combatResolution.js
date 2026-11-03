@@ -481,6 +481,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // PLAYERS-ONLY FOG (BLITZ FOG-1b, CR 615 — Defend the Hearth): the players-scoped fog flag zeroes only
   // player-directed deals (the bare whole-turn fog short-circuits the whole step above, untouched).
   const fogPlayers = state.preventCombatPlayersTurn === state.turn && !unpreventable;
+  // PROTECTION FROM EVERYTHING on a player (CR 702.16j — Teferi's Protection, The One Ring, The Stasis Coffin): a prevention effect, so
+  // inert while combat damage can't be prevented (CR 615.12). spillToDefender's player arm applies it; what it prevented this step is
+  // tallied per player and logged where the life loss would have been.
+  const protectedFromEverything = (pid) => !unpreventable && playerProtectedFromEverything(state, pid);
+  const protectionPrevented = {}; // playerId -> combat damage protection from everything prevented this step
   const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
     let amt = rawAmount;
     // THE COUNTED PREVENTION FIRST (Inkshield's ruling: "If multiple damage prevention effects would apply to combat damage that would
@@ -617,9 +622,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       // (protection, Maze of Ith's stamp, a shield counter, the creature-side walls and doublers, deathtouch and infect/wither,
       // the dealt-by record). Wolverine's dealt-to-a-creature arm is not set — an under-delivery. No player is dealt damage, so
       // no combat-damage-player event: no commander damage, no monarch steal, no "deals combat damage to a player" trigger.
-      // Applied first, a legal CR 616.1 order. Lifelink still counts it.
+      // Lifelink still counts it. The affected player orders it (CR 616.1): after protection from everything (it ends the event
+      // with nothing dealt; the redirect would deal the player's own creature the hit and give the attacker its lifelink and
+      // deathtouch) and after a counted shield that covers them (Inkshield — every 1 prevented is a token, nothing dealt): the
+      // player arm below applies those, so the redirect is skipped for them. A redirect onto ANOTHER player's creature (Pariah on an
+      // opponent's) loses to protection too: there it is a real choice (the redirect would deal that creature the hit but give the
+      // attacker its lifelink), and protection first, which deals nothing, is the FN-safe default. Otherwise it applies first.
       const redirectTo = defender && state.players[defender] ? playerDamageRedirectTarget(state, defender) : null;
-      if (redirectTo) {
+      if (redirectTo && !protectedFromEverything(defender) && !countedShieldCovers(defender)) {
         if (protectionPrevents(redirectTo, attackerColors)) return 0;
         if (mazePrevents(findPermanent(state, redirectTo).permanent)) return 0;
         if (shieldSpends(redirectTo)) return 0;
@@ -629,6 +639,19 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         return amount;
       }
       if (defender && state.players[defender]) {
+        // PROTECTION FROM EVERYTHING (CR 702.16j — "All damage that would be dealt to such a permanent or player is prevented"): the
+        // hit is prevented before anything reads or records it. Prevented damage is never dealt (CR 615.6) and triggers nothing
+        // (CR 603.2g): no life loss, no poison from infect or toxic (CR 702.90b, 702.164c), no commander damage (CR 903.10a), no
+        // lifelink (this returns 0, so `dealt` stays clear of it — CR 702.15b), no monarch steal (CR 725.2) and no "deals combat
+        // damage to a player" trigger — no combat-damage-player event at all. The affected player orders it among the other
+        // replacement and prevention effects (CR 616.1): before a redirect (the arm above skips a protected player — the noncombat
+        // funnel's order too), after the counted shield (Inkshield — the one prevention with an upside, so its tokens are made),
+        // before the doublers, the fogs and every other shield, so none of those is spent on damage this already prevents.
+        if (protectedFromEverything(defender)) {
+          const rest = countedShieldCovers(defender) ? consultCombat(rawAmount, lookup.permanent, "player", defender) : rawAmount;
+          if (rest > 0) protectionPrevented[defender] = (protectionPrevented[defender] || 0) + rest;
+          return 0;
+        }
         // DAMAGE-REPLACEMENT (CR 614): finalize the player-damage amount BEFORE the infect/toxic split and
         // BEFORE the combat-damage-player event (so 903.10a commander damage accrues the DOUBLED amount —
         // the 21-rule reads playerEvents.amount). The toxic-N rider is added AFTER and is NOT doubled.
@@ -658,12 +681,25 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     };
 
     let dealt = 0;
+    // THE DEFENDING PLAYER'S DAMAGE IS ALL PREVENTED (protection from everything, or their own counted shield — Inkshield, whose
+    // tokens are the DEFENDER's, so a hit on them is worse than nothing for the attacker; the player arm of spillToDefender): the
+    // assignment choices that would send damage to them are not taken where a blocker would be dealt it instead, as no attacking
+    // player would take them — a trampler's excess goes to an OPEN blocker (one whose damage would not be prevented —
+    // combatDealPrevented) like the remainder without trample (CR 702.19b — "as its controller chooses among those blocking
+    // creatures and the player"), and Thorn Elemental's "may" is declined when a blocker is open. With no open blocker the damage
+    // still goes to the player: a walled blocker (Vigor, Panther Habit) would turn it into +1/+1 counters. The engine makes these
+    // choices for a person too. Not an attack on a planeswalker (its own arm).
+    const defenderAllPrevented = !att.defenderPlaneswalkerId && !!att.defender && !!state.players[att.defender]
+      && (protectedFromEverything(att.defender) || countedShieldCovers(att.defender));
     // ASSIGN-AS-UNBLOCKED (BLITZ TE-1, CR 508.1h — Thorn Elemental class): a BLOCKED attacker printing
     // "You may have this creature assign its combat damage as though it weren't blocked" assigns its FULL
     // power straight to the defending player (the deterministic take of the printed MAY — always legal,
-    // and the entire point of the card). Its blockers still deal back normally in the blocker loop below;
-    // trample is irrelevant on this path (nothing is assigned to blockers, so nothing "spills").
-    if ((liveBlockers.length > 0 || wasBlocked) && (mayAssignAsUnblocked(withAbilityLoss(state, lookup.permanent)) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
+    // and the entire point of the card) — unless all of it would be prevented there and a live blocker is open (declined, so it
+    // assigns to its blockers). Its blockers still deal back normally in the blocker loop below; trample is irrelevant on this path
+    // (nothing is assigned to blockers, so nothing "spills").
+    const declineUnblocked = defenderAllPrevented
+      && liveBlockers.some((blk) => !combatDealPrevented(blk.permanent.id, lookup.permanent, attackerColors));
+    if ((liveBlockers.length > 0 || wasBlocked) && !declineUnblocked && (mayAssignAsUnblocked(withAbilityLoss(state, lookup.permanent)) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
       dealt += spillToDefender(power, false);
     } else if (liveBlockers.length > 0) {
       // ASSIGNMENT (CR 510.1c — a blocked creature assigns ALL its combat damage to the creatures blocking it: all of it to a lone
@@ -686,10 +722,15 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       // (combatDealPrevented), so it is dealt: lifelink, the "that much" payoffs and the damage the blocker is dealt all read it.
       // When every blocker would prevent it, the last blocker. (A blocked attacker used to drop it here: a 5/5 lifelinker blocked
       // by a 2/2 gained 2 — Vampiric Link's ruling: "If you put this on a 5/5 and it is blocked by a 1/1, you still gain 5 life.")
-      if (!trample && remaining > 0) {
+      // A trampler's excess goes the same way when the defending player's damage is all prevented (defenderAllPrevented above) and a
+      // blocker is open; with none open it goes to the player (the last-blocker fallback is the no-trample case's alone, where there
+      // is no other choice).
+      if ((!trample || defenderAllPrevented) && remaining > 0) {
         const open = shares.filter((sh) => !combatDealPrevented(sh.blk.permanent.id, lookup.permanent, attackerColors));
-        (open.length ? open[open.length - 1] : shares[shares.length - 1]).give += remaining;
-        remaining = 0;
+        if (!trample || open.length > 0) {
+          (open.length ? open[open.length - 1] : shares[shares.length - 1]).give += remaining;
+          remaining = 0;
+        }
       }
       for (const { blk, give } of shares) {
         if (give <= 0) continue; // nothing assigned to it, nothing dealt (CR 120.8): no shield spent
@@ -853,20 +894,21 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       next = recordDamageSource(next, { permanentId: pair.damagedCreatureId, sourceId: pair.dealerId });
     }
   }
+  // PROTECTION FROM EVERYTHING — the combat damage it prevented this step (spillToDefender's player arm), one line per player. None of it
+  // reached lifeLoss, poisonGain or playerEvents.
+  for (const [pid, amount] of Object.entries(protectionPrevented)) {
+    next = logEvent(next, { kind: "combat-damage-prevented", playerId: pid, amount, via: "protection from everything" });
+  }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
-    // TEFERI'S PROTECTION — protection from everything prevents all damage to the player (CR 702.16b); the life
-    // lock would also hold the total, but the DAMAGE itself is prevented, so no lifelink / dealt-damage watcher
-    // sees it either.
-    if (amount > 0 && playerProtectedFromEverything(next, pid)) { next = logEvent(next, { kind: "combat-damage-prevented", playerId: pid, amount, via: "protection from everything" }); continue; }
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
   // THE TURN'S COMBAT DAMAGE TO PLAYERS, BY THE DEALING OBJECT (play-weighted #1184 — Steel Hellkite: "Destroy each nonland permanent with
   // mana value X whose controller was dealt combat damage by this creature this turn"): each attacker that dealt a player combat damage in
-  // this step (after replacement and prevention — the event's amount, and protection from everything prevents it all, CR 702.16b), keyed
-  // by its permanent id: a new object after a zone change has no record (CR 400.7), and the record outlives the dealer leaving the
-  // battlefield (the ability reads the turn's history, not the source). Infect damage is damage dealt too (CR 702.90b).
-  next = recordCombatDamageToPlayers(next, playerEvents.filter((ev) => ev.kind === "combat-damage-player" && ev.amount > 0 && ev.defender != null
-    && !playerProtectedFromEverything(next, ev.defender)));
+  // this step (after replacement and prevention — the event's amount; a hit protection from everything prevents has no event, CR 702.16j,
+  // and one it can't prevent — CR 615.12 — has one), keyed by its permanent id: a new object after a zone change has no record (CR 400.7),
+  // and the record outlives the dealer leaving the battlefield (the ability reads the turn's history, not the source). Infect damage is
+  // damage dealt too (CR 702.90b).
+  next = recordCombatDamageToPlayers(next, playerEvents.filter((ev) => ev.kind === "combat-damage-player" && ev.amount > 0 && ev.defender != null));
   // KW-POISON (CR 702.90c infect / 702.80a wither): infect/wither combat damage to a creature is dealt
   // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
   // destroyed in the SAME step (CR 704.5f) and fires its dies-triggers — exactly like marked lethal
@@ -881,7 +923,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // CMD-DAMAGE (CR 903.10a): accrue 21-rule commander combat damage off the per-attacker events whose
   // attacker was a commander — read from the events (not the live board) so a commander that died trading
   // in this same step still records the damage it dealt. isPlayerDead checks the tracker for the SBA loss.
-  // MONARCH (CR 725.4) — creature combat damage to the monarch passes the crown to the dealer's
+  // MONARCH (CR 725.2) — creature combat damage to the monarch passes the crown to the dealer's
   // controller. Read from the SAME per-attacker events as commander damage (a dealer that traded and
   // died this step still stole the crown — the events carry it). No monarch on board → no-op.
   next = applyMonarchCombatSteal(next, playerEvents);

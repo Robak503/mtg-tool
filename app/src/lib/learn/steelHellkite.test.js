@@ -38,6 +38,7 @@ const RELIC = {"name":"Darksteel Relic","type":"Artifact","mana":"{0}","oracle":
 const CLOUDSHIFT = {"name":"Cloudshift","type":"Instant","mana":"{W}","oracle":"Exile target creature you control, then return that card to the battlefield under your control.","layout":"normal","cmc":1,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["W"],"colorIdentity":["W"]}; // EDHREC #774
 const MURDER = {"name":"Murder","type":"Instant","mana":"{1}{B}{B}","oracle":"Destroy target creature.","layout":"normal","cmc":3,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":["B"],"colorIdentity":["B"]}; // EDHREC #861
 const WIND_DRAKE = {"name":"Wind Drake","type":"Creature — Drake","mana":"{2}{U}","oracle":"Flying","layout":"normal","cmc":3,"power":"2","toughness":"2","loyalty":null,"keywords":["Flying"],"colors":["U"],"colorIdentity":["U"]}; // EDHREC #26647
+const BALOTH = {"name":"Frenzied Baloth","type":"Creature — Beast","mana":"{G}{G}","oracle":"This spell can't be countered.\nTrample, haste\nCreature spells you control can't be countered.\nCombat damage can't be prevented.","layout":"normal","cmc":2,"power":"3","toughness":"2","loyalty":null,"keywords":["Haste","Trample"],"colors":["G"],"colorIdentity":["G"]};
 const FOREST = {"name":"Forest","type":"Basic Land — Forest","mana":"","oracle":"({T}: Add {G}.)","layout":"normal","cmc":0,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":[],"colorIdentity":["G"]}; // EDHREC #—
 
 const EMPTY = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -174,6 +175,15 @@ describe("the record's guards (pw27's review, F2)", () => {
     expect({ aiLife: main2.players.ai.life, record: main2.combatDamageToPlayersThisTurn?.bySource?.hk ?? null }).toEqual({ aiLife: s0.players.ai.life, record: null });
     const s = settle(dispatchAction(main2, xAct(main2, 2)));
     expect(names(s, "ai")).toEqual(names(main2, "ai"));
+  });
+  it("⭐ combat damage can't be prevented (Frenzied Baloth, CR 615.12): the protected AI is dealt the 5 — recorded, X = 2 destroys", () => {
+    const s0 = table({ attackAt: "ai", boards: { user: [hellkite({ tapped: true }), on("user", "bal", BALOTH)], ai: aiBoard() } });
+    const ring = parseEffectClause("You gain protection from everything until your next turn.", "Instant");
+    const shielded = resolveAtom(s0, ring.atoms[0], { controller: "ai", targets: [] }); // The One Ring's enters trigger, resolved for the AI
+    const main2 = withPool(toMain2(shielded), "user", { C: 2 });
+    expect({ aiLife: main2.players.ai.life, record: main2.combatDamageToPlayersThisTurn?.bySource?.hk ?? null }).toEqual({ aiLife: s0.players.ai.life - 5, record: ["ai"] });
+    const s = settle(dispatchAction(main2, xAct(main2, 2)));
+    expect(names(s, "ai")).toEqual(["Darksteel Relic", "Forest", "Ornithopter", "Sol Ring"]);
   });
   it("⭐ a stale turn: the Hellkite hit the AI on turn 5; on the user's next turn, with no combat yet, X = 2 destroys nothing", () => {
     const s0 = table({ attackAt: "ai", boards: { user: [hellkite({ tapped: true })], ai: aiBoard() } });

@@ -568,10 +568,50 @@ either KNOWN (an empty list is then colourless) or not known (never read as colo
   and `shieldSpends` lets the damage through while still removing the counter (the bundled shield-counter ruling: "that damage will
   be dealt and a shield counter will still be removed"). Maze of Ith's dealt-by half is its own stamp,
   `combatDamageDealtPreventedTurn` (it shared Laccolith's `noCombatDamageTurn` — "assigns no combat damage", not prevention —
-  which still holds under it); the receiver half stays `takesNoCombatDamageTurn`. Teferi's Protection (a player's protection from
-  everything) is not changed here — its life lock would hold the total, but commander damage, poison and lifelink would follow.
+  which still holds under it); the receiver half stays `takesNoCombatDamageTurn`. A player's protection from everything follows
+  the same rule since 2026-11-03 (the next paragraph): under it the damage is dealt — Teferi's Protection's life lock still holds the
+  total, but commander damage, poison and lifelink follow.
 Witness: `protectionAttachWalkerOffer.test.js` (20); `mazeOfIth.test.js` (the dealer stamp's new name); `druidApprenticeSurge.test.js`
 (Warstorm Surge's trigger is no longer offered Kor Firewalker).
+
+**Where combat damage is prevented — before it is recorded, never after** (2026-11-03, CR 702.16j, 615.6, 603.2g, 616.1, 615.12).
+Every reader of a combat hit — lifelink (the attacker's `dealt`, the blocker's `bdealt`), commander damage, the monarch's steal,
+the "deals combat damage to a player" triggers and Steel Hellkite's record (`playerEvents`), infect's and toxic's poison (`poisonGain`), the life loss
+(`lifeLoss`), -1/-1 counters and marks (`addDmg`), deathtouch (`deathtouched`), the dealt-by triggers (`dealtBySources`) and the
+"deals combat damage to a creature" triggers (`creatureDamagePairs`, `armPairs`) — reads what the deal site RECORDED, so a
+prevention must zero the hit before that site records it (CR 615.6 — prevented damage never happens; CR 603.2g — it triggers
+nothing). In `combatResolution.resolveCombatDamage` the prevention sites are: the whole-turn Fog's short-circuit (the step is a
+logged no-op); `dealsThisStep` (Maze of Ith's dealt-by stamp); the blocked arm's and the blocker loop's protection from a colour
+(`protectionPrevents`), Maze's receiver stamp and the shield counter (`shieldSpends`) — each a `continue` before the deal; the
+redirect arm's three and the planeswalker arm's protection — each a `return 0`; `consultCombat` (the counted shield, the
+players-only fog, the creature's own and attached walls, the counter shields, the prevent-and-put walls, the dealer's walls, the
+replacement consult's prevention — Gisela's half — and the prevent-next-N shields, the "prevent all damage that would be dealt to
+you" form included), whose 0 or reduced amount is all the caller records; and **a player's protection from everything**
+(`protectedFromEverything`, spillToDefender's player arm — Teferi's Protection, The One Ring, The Stasis Coffin): it returns 0 for the
+hit before the consult and before a redirect, after the counted shield (Inkshield's tokens). The affected player's order (CR 616.1),
+the dominant one: protection first ends the event with nothing dealt, where a redirect (Empyrial Archangel, With Great Power . . .,
+Protector of the Crown, Pariah on their own creature — CR 614.9) would deal their creature the hit, spend its shield counter and
+give the attacker its lifelink and deathtouch; so the redirect arm skips a protected player, and one whose counted shield covers the
+hit (Inkshield first — 3 tokens, nothing dealt; the noncombat `dealDamageToPlayer` skips its redirect for a protected player too).
+A redirect onto ANOTHER player's creature (Pariah on an opponent's) loses to protection as well: there it is a real choice (the
+redirect would deal that creature the hit but give the attacker its lifelink), and protection first, which deals nothing, is the
+FN-safe default. No other shield is spent on it; what it prevented is tallied (`protectionPrevented`) and logged (`combat-damage-prevented`) where the
+life loss would have been. Assignment follows (`defenderAllPrevented` — the defending player protected from everything or covered
+by their own counted shield, whose tokens are theirs; not a planeswalker attack): a trampler's excess goes to the last OPEN blocker
+(`combatDealPrevented` — one whose damage would not be prevented) like the remainder without trample, and Thorn Elemental's "may"
+is declined while a live blocker is open (CR 702.19b, 510.1c — the engine assigns for a person too, and no attacker would assign
+damage that is all prevented). With no open blocker the damage still goes to the player: a walled blocker (Vigor, Panther Habit)
+would turn it into +1/+1 counters, so the last-blocker fallback is the no-trample remainder's alone. Under "Combat damage can't be prevented" the damage is dealt; a life-locked player (Teferi's Protection) keeps the total
+but `loseLife` still tallies `damageTakenThisTurn` (its ruling: "triggers and effects can see that damage was dealt"). Until 2026-11-03 it ran only in the life-loss loop, after the hit
+was recorded: a protected player lost no life but took commander damage, poison, the lifelink gain, Scroll Thief's draw and the
+crown's steal; and the Hellkite record filtered protected players out itself (removed — under "Combat damage can't be prevented"
+it dropped a hit that was dealt). The noncombat funnel has the same shape — `dealDamageToCreature` / `dealDamageToPlayer` / `dealDamageToPlaneswalker`
+prevent before `tallyDealt` / `tallyRecipient`, which lifelink, the dealt-by and the "deals damage to" triggers read. A new combat
+prevention goes in one of these sites, before the record — never as a filter on a reader. Witness: `preventedCombatDamage.test.js`
+(55 — the protection rows, the redirect and assignment rows, the targeting rows and the audit pins of every other site);
+`steelHellkite.test.js` (the record under Frenzied Baloth). Targeting: `spellEffects.playerTargetableBy` refuses a player protected from
+everything outright, their own spells and abilities included (CR 702.16j — the one player-targeting seam: the cast and ability
+enumerations, the CR 608.2b re-check, the "Enchant player" Aura offer).
 
 **Ward on a triggered ability** (2026-10-18, CR 702.21a). A triggered ability an opponent controls that targets a ward
 permanent raises the question a spell (the cast path) or an activated ability (the ability path) raises — the soft-counter
@@ -1129,7 +1169,8 @@ combat damage by object, the top four of a search.**
   ritual arm ("add {R} for each …"), so the mana is added as the trigger resolves and empties as the phase ends (CR 500.4).
 - **The turn's combat damage to players, by object** (`combatResolution.recordCombatDamageToPlayers` → `state.combatDamageToPlayersThisTurn`
   `{ turn, bySource: { [permanent id]: [player ids] } }` — Steel Hellkite): written after each combat damage step's life loss from the
-  step's player events (after replacement and prevention; protection from everything leaves no record), keyed by the dealing OBJECT (a
+  step's player events (after replacement and prevention — a hit protection from everything prevents has no event, so no record; under
+  "Combat damage can't be prevented" it is dealt and recorded, CR 615.12 — 2026-11-03), keyed by the dealing OBJECT (a
   blinked creature is a new one, CR 400.7) and outliving the dealer leaving the battlefield; a stale turn reads as none. Its reader is
   the mass scope `eachNonlandPermanentDamagedBySource` (`shared.nonlandPermanentsDamagedBySourceWithManaValue` — Culling Ritual's land and
   mana-value reads, mana value exactly `ctx.xValue`, the controller NOW in the damaged set), a NON-wipe scope (targetTypes). The atom's

@@ -2665,9 +2665,17 @@ export function phaseInAndExpireShield(state, playerId) {
 export function loseLife(state, { playerId, amount, combatDamage }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
-  // TEFERI'S PROTECTION — "your life total can't change" (CR 119.6): every loss (damage, pay-life, drains) funnels
-  // here; while the shield holds, the total simply does not move (logged, never fabricated).
-  if (playerLifeLocked(state, playerId)) return logEvent(state, { kind: "life-locked", playerId, blocked: -amount });
+  // TEFERI'S PROTECTION — "your life total can't change": every loss (damage, pay-life, drains) funnels
+  // here; while the shield holds, the total simply does not move (logged, never fabricated). Damage that reaches a locked player
+  // (only damage that can't be prevented does — Frenzied Baloth, CR 615.12; protection from everything prevents the rest) was
+  // still dealt: its ruling — "triggers and effects can see that damage was dealt even though your life total didn't change" —
+  // so damageTakenThisTurn tallies it, as below.
+  if (playerLifeLocked(state, playerId)) {
+    const held = combatDamage !== undefined && amount > 0
+      ? withPlayer(state, playerId, (p) => ({ ...p, damageTakenThisTurn: (p.damageTakenThisTurn || 0) + amount }))
+      : state;
+    return logEvent(held, { kind: "life-locked", playerId, blocked: -amount });
+  }
   // LIFE-LOST-THIS-TURN ledger (Bloodchief Ascension "if an opponent lost 2 or more life this turn" —
   // SHELF S7, CR 603.4): tallied HERE at the single life-loss chokepoint (damage + pay-life + drains all
   // flow through loseLife — the same funnel the lifeLost watcher rides), reset for all seats at untap
