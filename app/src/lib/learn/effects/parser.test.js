@@ -1144,7 +1144,6 @@ const MUST_DROP_TO_LOW = [
   "Each opponent sacrifices X creatures of their choice.",                      // an X count on the each-opponent form (re-pointed 2026-10-17: the spelled each-opponent count — Portal to Phyrexia — is modeled, portalToPhyrexia.test.js; #509: the each-player count, blasphemousEdict.test.js)
   "Each player sacrifices two lands of their choice.",                          // a count on the TYPED land edict (still LOW)
   "Each opponent sacrifices a nontoken artifact of their choice.",              // "nontoken" qualifier — token-status not honored (LOW)
-  "Each player sacrifices all permanents they control that are one or more colors.", // "all" (All Is Dust)
   "Each opponent sacrifices a creature or planeswalker of their choice.",       // type UNION incl. planeswalker (Dark Intimations) — unmodeled
   "You sacrifice a creature.",                                                  // controller "you sacrifice" — bare controller-sac deferred (α2-interaction risk)
 
@@ -1175,6 +1174,10 @@ describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
 // The other side of the gate — oracles the P2.5 adversarial review CONFIRMED are
 // legitimately HIGH. Pinned so a future tightening can't over-correct and drop them.
 const MUST_STAY_HIGH = [
+  // GRADUATED 2026-11-03 out of MUST_DROP_TO_LOW — All Is Dust's whole text is ONE atom now (removal.matchEachPlayerSacrificesColored —
+  // every player's permanents with one or more colours as they are now, sacrificed as one event; allIsDust.test.js). Moved here so the pin
+  // protects the flip; the other "all" sacrifices stay LOW.
+  "Each player sacrifices all permanents they control that are one or more colors.",
   // GRADUATED 2026-10-20 out of MUST_DROP_TO_LOW — the mass -1/-1 counter on every creature and on every creature an opponent
   // controls ("you don't control": every other seat is an opponent in these games) is an untargeted set now (eachCreature /
   // eachOpponentCreature, addCounterClauseParser). Moved here so the pin protects the flip.

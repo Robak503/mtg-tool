@@ -1310,6 +1310,44 @@ timestamp on attaching. "A Role" is one reading, `auraEntry.isRoleCard`. Witness
   Trickery rider — read "nonland" off the front face (`library.isLandFrontFace`, as hideaway.js reads its hidden card), so a spell //
   land MDFC or a transform card with a land back is a nonland card there; before 2026-11-02 the whole "Front // Back" line made
   Shatterskull Smashing "a land" to Bloodbraid Elf. A new dig reads the same helper.
+- **A spell's own placement** (Approach of the Second Sun — `life.applyApproachWinOrTuck`, 2026-11-03): an atom that moves the
+  resolving spell's own card leaves a request, `state.spellResolutionPlacement` (`{ zone: "library", fromTop }`), and
+  `runProgram.finishSpellResolution` — the one disposition step — reads it and clears it on every path, a copy's included (a copy is no
+  card, CR 707.10a). Flashback's exile still wins (CR 702.34a). Before it, a spell had only `selfExile` / `selfShuffle`, fixed on the
+  program; a placement that depends on the resolution's own branch goes through the request.
+- **The named-cast tally for the game** (`gameState.recordSpellCast` → a player's `castNamesThisGame`): the casts of a spell whose own
+  text reads "you've cast another spell named <its name> this game" are counted by name at the one cast chokepoint (a copy is never cast
+  and never reaches it); no other spell is tallied, so no other game's state changes shape. **Cast from your hand** rides the spell's
+  context (`params.context.castFromHand`, a definite boolean only on a cast whose program has an atom marked `readsCastFromHand`) and
+  `stack.spellCopyPayload` strips it, as it strips `castFromGraveyard`.
+- **One atom for an instruction that reads its own outcome** (Cut a Deal — `misc.applyOpponentsDrawThenYouPerDrawer`): "for each
+  opponent who drew a card this way" is read off each opponent's draw (its `cardsDrawnThisTurn` moved), so an empty library or a draw a
+  replacement took (Laboratory Maniac) is not counted and a doubled draw counts once (the rulings).
+- **Each player sacrifices every coloured permanent** (All Is Dust — `removal.applySacrificeAllColored`): the colours as they are now
+  (`layers.permanentColors`), every player's victims one event (`sacrificeChosen` → `sacrificePermanentsTogether`). The AI holds it as a
+  wipe (`programContainsMassRemoval`) unless its own board has no coloured permanent and an opponent's does
+  (`opponentAI.coloredSacrificeOneSided`).
+- **Keep one, sacrifice the rest, and the vow** (Promise of Loyalty — `removal.applySacrificeAllButOne` → `applyVowThoseCreatures`): the
+  N-count edict chain (`advanceCreatureBatchSacrifice`) with each player owing every creature but one, so a person picks each creature
+  they give up on the edict panel and the AI keeps its best; the pools as the instruction began ride `state.vowPoolsThisWay` to the
+  vow atom (the `couldNotSacrificeThisWay` precedent), so only a pool member still on the battlefield makes the promise — a reconfigure
+  Equipment that fell off a sacrificed creature is a creature again and makes none. The promise is a stamp on the creature
+  (`vowAgainst`) read with its `vow` counter (§4.8, the vow), and it ENDS with the last vow counter (CR 611.2a): `gameState.removeCounter`
+  — the one counter-removal chokepoint (a cost, a move, a sweep) — drops the stamp as the count reaches 0, and a later Promise on a
+  creature with no vow counter replaces whatever stamp is left, so a counter put or moved on later revives nothing.
+- **The chain** (Chain of Vapor — `stack.applyChainBounce`): the bounce and its rider are one atom so "that permanent's controller" is
+  read as the permanent leaves; the land choice is the optional-sac pause's chosen form raised for THAT player; a sacrifice runs
+  `copy-self-spell` whose `body` is the same atom, so each copy can chain again; the copy re-aims through the self-copy picker
+  (`freshCopyTargets` — enemy-side for `chain-bounce` in `copyAtomIntent`) with `sideOnly`: no fallback to the copier's own permanents
+  (the house never takes the choice that harms its copier — CR 707.10c), and the picker is asked BEFORE the land question, so with
+  nothing of another player's to aim at nobody is asked. Chain Lightning's "pay {R}{R}", Chain of Plasma's discard and Chain Stasis's
+  {2}{U} are the same shape with other costs (not read).
+- **A group animate** (Cyberdrive Awakener — the animate atom's `eachNoncreatureArtifactYouControl` scope, `shared.atomTargets`): the
+  set is the controller's artifacts that are no creature as it resolves (CR 611.2c); "becomes an artifact creature" adds Creature and
+  keeps every prior type (CR 205.1b). What it animates while attached — an Equipment, a reconfigure Equipment (an attached one is no
+  creature, so it is in the set), an Aura made an artifact — falls off through `sba.js`'s CR 704.5p sweep (an attached creature becomes
+  unattached; an Aura so freed then goes to the graveyard, CR 303.4d). A new group scope joins `targetTypes` (its wipe/non-wipe half) and
+  the atomTargets branch together.
 
 ### 4.6 Layers (`layers.js`, CR 613)
 
@@ -2299,6 +2337,14 @@ Absolution, Sphere of Safety, Norn's Annex), "planeswalkers you control" → the
 `attackTaxDetail(state, defenderId, defenderPlaneswalkerId)` sums the defender's taxers that name the target; the offer's withhold
 (`legalChoices.canPayAttackTax`), the declaration's payment (`applyDeclareAttacker`) and `attackRequirements.attackCostsNothing`
 all pass the attack's planeswalker id. A new tax wording extends the reader's sentence (the clause check reads the same pieces).
+**The vow (`combatEvasion.vowForbidsAttack` — Promise of Loyalty, 2026-11-03, CR 508.1c).** A creature with a `vow` counter that
+remembers a promise to a player (`vowAgainst`, stamped on that creature) can't attack that player or a planeswalker they control (an
+attack at a planeswalker names its controller as the defender). The offer (`legalChoices.allowedTargetsFor`, beside the defender
+requirement) leaves those targets out — so the AI's attack plan, which picks among offered attacks, never makes one — and
+`applyDeclareAttacker` refuses one that arrives (`ATTACK_VOW`). The last vow counter removed, the promise is over — `removeCounter` drops
+the stamp, so a counter put or moved back later revives nothing (CR 611.2a); a counter moved to another creature binds nothing there; a
+new controller keeps it (its rulings). The AI's crack-back and blocking reads don't know the
+vow yet (they count a vowed opposing creature as a possible attacker — the pessimistic direction).
 
 **The AI's planeswalker attacks (`opponentAI.planWalkerAttacks`, added 2026-10-18 — AI decision quality).** `pickAttackPlan` keeps the
 racer's face target for every creature except those this policy sends at an opposing planeswalker: when removing the walker is worth

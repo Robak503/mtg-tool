@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -182,6 +182,20 @@ export const MIGRATIONS = {
   // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v12 save
   // (migrate throws on a newer version) instead of dropping the players still to search or resolving an unknown atom. (CONTRACT-MIG.)
   11: (doc) => ({ ...doc, schemaVersion: 12 }),
+
+  // v12 → v13 — the play-weighted slice pw23 (2026-11-03) persists four new shapes, each written only by its own card and each ABSENT
+  // meaning what every earlier game says:
+  //   · a player's `castNamesThisGame` (Approach of the Second Sun — gameState.recordSpellCast's tally of the casts of a spell whose own
+  //     text reads that history): absent, no such spell cast this game;
+  //   · a permanent's `vowAgainst` beside a `vow` counter (Promise of Loyalty — the players it promised not to attack, CR 508.1c):
+  //     absent, no promise;
+  //   · `state.vowPoolsThisWay` (Promise of Loyalty's pools, carried across the sacrifice pauses to the vow atom): absent between
+  //     resolutions;
+  //   · `state.spellResolutionPlacement` (Approach's "seventh from the top", read by the disposition step in the same call — never held
+  //     across a pause): absent.
+  // So an earlier save needs no backfill; this migration only stamps the version forward, as v9 → v10 does — and an earlier build refuses
+  // a v13 save (migrate throws on a newer version) instead of dropping a vow mid-game. (CONTRACT-MIG.)
+  12: (doc) => ({ ...doc, schemaVersion: 13 }),
 };
 
 export class SaveMigrationError extends Error {

@@ -10,7 +10,17 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.14.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.15.0"`
+
+> **v1.15.0 (additive MINOR, 2026-11-03 — new state fields and a decision for another seat; the play-weighted slice pw23, after
+> pw21's 1.13.0 and pw22's 1.14.0):** each rides a kind a driver already handles (§5: "new additive fields on
+> decisions/actions/answers/state").
+> - state: a player's `castNamesThisGame` (Approach of the Second Sun's tally of its name's casts); a permanent's `vow` counter with
+>   `vowAgainst` (Promise of Loyalty — its `"declare-attacker"` offers leave out the promised player and their planeswalkers; one
+>   dispatched anyway is a `"dispatch-error"` with code `ATTACK_VOW`); `state.vowPoolsThisWay` while Promise's sacrifice choices pend.
+> - `"optional-sac-payment"` may be raised for a seat that isn't the spell's controller (Chain of Vapor — the bounced permanent's
+>   controller, its lands as `candidates`); `"sacrifice-choice"` on the N-count chain may ask one seat several times running (Promise).
+> - No kind, decision or answer shape changed.
 
 > **v1.14.0 (additive MINOR, 2026-11-03 — new fields on an existing action kind; the play-weighted slice pw22):** `"play-land"`: `copyOfPermanentId` and `copyOfName` — Vesuva's
 > land drop entering tapped as a copy of that land (one action per land it may copy; the plain play carries neither). An

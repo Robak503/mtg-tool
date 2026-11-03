@@ -892,6 +892,17 @@ export function parseAttackDefenderRequirementClause(clause) {
   if (what === "enchantment or an enchanted permanent") return { kind: "enchantmentOrEnchanted" };
   return null; // unvetted defender predicate → fail closed (safe FN)
 }
+/**
+ * THE VOW (Promise of Loyalty, play-weighted #943 — "Each of those creatures can't attack you or planeswalkers you control for as long
+ * as it has a vow counter on it."): does this permanent's promise forbid an attack at `defenderId` — the player, or a planeswalker that
+ * player controls (an attack at a planeswalker names its controller as the defender, CR 506.2)? True while it has a vow counter and
+ * remembers a promise to that player (`vowAgainst`, stamped by removal.applyVowThoseCreatures on the creature itself, so a moved
+ * counter makes no other creature promise and a new controller keeps the promise — its rulings). A restriction (CR 508.1c).
+ */
+export function vowForbidsAttack(perm, defenderId) {
+  return (perm?.counters?.vow ?? 0) > 0 && Array.isArray(perm?.vowAgainst) && perm.vowAgainst.includes(defenderId);
+}
+
 const reAttackDefenderSentence = /(?:^|[\n.;])\s*((?:this creature|it) can't attack (?:unless defending player [^.;\n]+?|a player it has already attacked this turn))\s*(?:\.|$)/;
 export function attackDefenderRequirementOf(card) {
   const m = selfOracle(card).match(reAttackDefenderSentence);

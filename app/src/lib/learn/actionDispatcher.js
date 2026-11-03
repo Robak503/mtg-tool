@@ -80,6 +80,7 @@ import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds,
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
+import { vowForbidsAttack } from "./combatEvasion.js"; // Promise of Loyalty's vow (CR 508.1c) — the declaration's refusal half; legalChoices filters the offer with the same read
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
@@ -983,6 +984,10 @@ function applyCastSpell(state, action) {
     // (false) from an object that was never cast at all (no stamp → null). It rides params.context beside castFromGraveyard;
     // a copy is never cast (CR 707.10), so stack.spellCopyPayload strips it from every copy.
     params.context = { ...(params.context || {}), castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId) };
+    // CAST FROM YOUR HAND (play-weighted #979 — Approach of the Second Sun, "If this spell was cast from your hand …"): a definite boolean
+    // on a cast whose program reads it (an atom marked `readsCastFromHand`), so every other cast's context is unchanged; a copy is never
+    // cast (CR 707.10) and stack.spellCopyPayload strips it.
+    if ((program.atoms || []).some((a) => a?.readsCastFromHand)) params.context = { ...params.context, castFromHand: fromZone === "hand" };
     // THE SACRIFICED PERMANENT'S LKI, FROZEN ON THIS SPELL (play-weighted #756 — Eldritch Evolution; Fling and the other
     // "the sacrificed creature's …" spells read it too). The state stamp (`sacrificedForCost`) is one shared channel: a
     // sacrifice-cost spell or ability put on the stack in response overwrites it, and this spell would resolve reading THAT
@@ -2154,6 +2159,9 @@ function applyDeclareAttacker(state, action) {
   // defenderId picks which opponent this attacker targets (Commander). In
   // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
+  // PROMISE OF LOYALTY'S VOW, ENFORCED HERE TOO (CR 508.1c): a creature with a vow counter that promised `defender` can't attack that
+  // player or a planeswalker they control. legalChoices never offers one; this refuses any that arrives.
+  if (vowForbidsAttack(creature, defender)) throw new DispatcherError(`${creature.card?.name || action.permanentId} can't attack ${defender} — its vow counter`, "ATTACK_VOW");
   // THE DEFENDER-SCOPED CAP, ENFORCED HERE TOO (Crawlspace, Judoon Enforcers — CR 508.1c): an attack at a player whose cap is already
   // met is an illegal declaration, never auto-filled or accepted. legalChoices never offers one; this refuses any that arrives.
   if (!action.defenderPlaneswalkerId) {

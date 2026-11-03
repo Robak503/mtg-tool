@@ -4,6 +4,7 @@
 
 import { addPoison, logEvent, gainLife, loseLife, opponentsOf } from "../../gameState.js";
 import { checkLifegainTriggers } from "../../triggers.js";
+import { playerCantWinGame } from "../../layers.js"; // Approach of the Second Sun: a can't-win effect read as the win would happen (winGame.js imports layers.js too — cycle-safe)
 import { resolveScaledAmount } from "./shared.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 17: shared count-source parser (leaf, cycle-free) for the scaled life clauses
 
@@ -550,7 +551,54 @@ function applyDoubleLife(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "double-life", player: pid, from: life });
 }
 
+/**
+ * APPROACH OF THE SECOND SUN (the play-weighted program, EDHREC #979): "If this spell was cast from your hand and you've cast another
+ * spell named Approach of the Second Sun this game, you win the game. Otherwise, put Approach of the Second Sun into its owner's library
+ * seventh from the top and you gain 7 life." — ONE atom (the "Otherwise" reads the first sentence's condition). Both halves of the
+ * condition are read as it resolves:
+ *   - cast from your hand — the cast-time fact the dispatcher stamps on this spell's context (`castFromHand`, a definite boolean on a
+ *     cast whose program reads it; a copy is never cast — CR 707.10 — so stack.spellCopyPayload strips it and a copy reads false);
+ *   - another spell named <name> cast this game — the controller's game-long tally of those casts (`castNamesThisGame`, recorded at the
+ *     one cast chokepoint, gameState.recordSpellCast, for a spell whose own text reads it), this cast among them, so "another" is a
+ *     tally of two or more. Its rulings: the first may have been cast from anywhere and needn't have resolved (a countered one counts);
+ *     a copy is not cast, so it counts as neither; the same card cast again on a later turn is "another spell" (CR 400.7).
+ * Met → the controller wins (the `wonGame` stamp the win-game atom writes, CR 104.2b) and the card goes to its graveyard as usual; under
+ * a can't-win effect as it resolves (Abyssal Persecutor) nothing happens and nothing is stamped, so the effect leaving later wins
+ * nothing — and the "Otherwise" isn't taken. Otherwise → the card goes into its OWNER's library seventh from the top — under the top six
+ * unseen, or at the bottom with fewer than six (its ruling) — placed by runProgram.finishSpellResolution off the request this atom
+ * leaves (`spellResolutionPlacement`, consumed there); a copy is no card and goes nowhere (CR 707.10a) — and the controller gains the
+ * life (CR 119.3, lifegain watchers). The name is captured from the printed text (the second mention must repeat it), never assumed.
+ * Returns { atom } | null.
+ */
+export function matchApproachWinOrTuck(oracle) {
+  const m = String(oracle || "").trim().replace(/[’]/g, "'")
+    .match(/^if this spell was cast from your hand and you've cast another spell named (.+?) this game, you win the game\. otherwise, put (.+?) into its owner's library seventh from the top and you gain (\d+) life\.?$/i);
+  if (!m || m[1].toLowerCase() !== m[2].toLowerCase()) return null;
+  return { atom: { op: "approach-win-or-tuck", name: m[1], fromTop: 7, life: parseInt(m[3], 10), readsCastFromHand: true, targetType: null } };
+}
+
+function applyApproachWinOrTuck(state, atom, ctx) {
+  const me = ctx.controller;
+  const player = state.players?.[me];
+  if (!player) return state; // the controller left the game (CR 800.4a)
+  const castCount = player.castNamesThisGame?.[atom.name] ?? 0;
+  if (ctx.castFromHand === true && castCount >= 2) {
+    // A can't-win effect (Abyssal Persecutor — CR 104.2b's "you win the game" can't happen) is read NOW: the win doesn't happen and
+    // leaves nothing behind, so the Persecutor leaving later wins nothing; the "Otherwise" isn't taken either (the condition was met).
+    if (playerCantWinGame(state, me)) return logEvent(state, { kind: "spell-effect", effect: "win-game", controller: me, applied: false, reason: "cant-win", via: atom.name });
+    const won = { ...state, players: { ...state.players, [me]: { ...player, wonGame: true } } };
+    return logEvent(won, { kind: "spell-effect", effect: "win-game", controller: me, applied: true, via: atom.name });
+  }
+  // The spell card's placement, asked of the disposition step (finishSpellResolution reads it for this spell and clears it).
+  let next = { ...state, spellResolutionPlacement: { zone: "library", fromTop: atom.fromTop } };
+  const amount = Math.max(0, atom.life || 0);
+  next = gainLife(next, { playerId: me, amount });
+  if (amount > 0) next = checkLifegainTriggers(next, me, amount);
+  return logEvent(next, { kind: "spell-effect", effect: "approach-otherwise", controller: me, castFromHand: ctx.castFromHand === true, castCount, life: amount });
+}
+
 export const lifeResolvers = {
+  "approach-win-or-tuck": applyApproachWinOrTuck, // APPROACH OF THE SECOND SUN (#979) — the win on a second hand cast, else seventh from the top and 7 life
   "double-life": applyDoubleLife, // shelf D40 (Celestial Mantle) — CR 701.10d
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,

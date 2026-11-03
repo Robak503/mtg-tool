@@ -2389,12 +2389,16 @@ export function removeCounter(state, { permanentId, type, amount = 1 }) {
     const nextCounters = { ...p.counters };
     if (next === 0) delete nextCounters[type];
     else nextCounters[type] = next;
+    // THE LAST VOW COUNTER GONE, THE PROMISE ENDS (Promise of Loyalty — "for as long as it has a vow counter on it", CR 611.2a; its
+    // ruling: "If the vow counter is removed from the creature, it can attack as normal"): `vowAgainst` goes with it, so a vow counter
+    // put or moved onto it later revives nothing (the pw23 review's F4). Every counter removal — a cost, a move, a sweep — comes here.
+    const base = next === 0 && type === "vow" && "vowAgainst" in p ? (({ vowAgainst: _ended, ...rest }) => rest)(p) : p;
     // The last counter of a kind gone, its stamp goes with it (CR 613.7c — the next one of that kind is stamped as it's put on).
     if (next === 0 && p.counterTimestamps && type in p.counterTimestamps) {
       const { [type]: _gone, ...stamps } = p.counterTimestamps;
-      return { ...p, counters: nextCounters, counterTimestamps: stamps };
+      return { ...base, counters: nextCounters, counterTimestamps: stamps };
     }
-    return { ...p, counters: nextCounters };
+    return { ...base, counters: nextCounters };
   });
 }
 
@@ -3504,6 +3508,10 @@ export function recordSpellCast(state, { playerId, spellCard = null, colors = nu
   // K9 (Lock and Load "for each other instant and sorcery spell you've cast this turn"): the instant/sorcery tally, kept
   // beside the noncreature one on the same chokepoint and reset with it at untap.
   const isInstantOrSorcery = spellCard != null && /\b(?:instant|sorcery)\b/i.test(String(spellCard?.type || spellCard?.type_line || "").split(" // ")[0]);
+  // THE NAMED-CAST TALLY FOR THE GAME (Approach of the Second Sun — "you've cast another spell named Approach of the Second Sun this
+  // game"): the casts of a spell whose own text reads that history are counted by name, for the whole game, at this one chokepoint (a
+  // copy is never cast — CR 707.10 — and never reaches it). Only those spells are tallied, so no other game's state changes shape.
+  const tallyName = spellCard != null && readsOwnNamedCastHistory(spellCard) ? spellCard.name : null;
   return withPlayer(state, playerId, p => ({
     ...p,
     spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1,
@@ -3513,7 +3521,16 @@ export function recordSpellCast(state, { playerId, spellCard = null, colors = nu
     // had this turn. The cast site threads faceUp.characteristicColors(castCard) (the face being cast's colours, CR 712.8c); an unthreaded caller
     // records none, so a color condition under-reads, never over.
     ...(Array.isArray(colors) && colors.length ? { spellColorsCastThisTurn: [...new Set([...(p.spellColorsCastThisTurn || []), ...colors])] } : {}),
+    ...(tallyName ? { castNamesThisGame: { ...(p.castNamesThisGame || {}), [tallyName]: (p.castNamesThisGame?.[tallyName] ?? 0) + 1 } } : {}),
   }));
+}
+
+/** Does `card`'s own text read how many times its controller has cast a spell with its name this game ("you've cast another spell named
+ *  <its name> this game" — Approach of the Second Sun)? The face being cast's text and name (CR 712.8c). */
+function readsOwnNamedCastHistory(card) {
+  const name = String(card?.name || "");
+  const text = String(card?.oracle ?? card?.oracle_text ?? "").replace(/[’]/g, "'").toLowerCase();
+  return name !== "" && text.includes(`you've cast another spell named ${name.toLowerCase()} this game`);
 }
 
 /**

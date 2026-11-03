@@ -30,7 +30,7 @@ import { filterActions, legalActionsForPlayer, parseManaCost, offeredPaymentPlan
 import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields, nextInTurnOrder, cardSelfPreventsUntap } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read); + nextInTurnOrder: whose turn comes next, cardSelfPreventsUntap: a source that stays tapped (the end-step sink)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow, permanentColors } from "./layers.js"; // + permanentColors (All Is Dust's one-sided unlock)
 import { protectionColorPick, stackObjectProtectionColors } from "./protectionChoice.js"; // the colour a "protection from the color of your choice" grant takes at resolution (the threats on the stack first) — previewed by pickSaveInResponse; + the colours protection judges a harming source by
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
@@ -589,7 +589,7 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
     const prog = { structure: "sequence", atoms };
     if (programContainsCounter(prog)) return !!pickCounterCast(state, aiPlayerId, [{ targets }]);
     if (atoms.length && atoms.every((a) => a.op === "change-target")) return !!pickChangeTargetCast(state, aiPlayerId, [{ targets }]);
-    if (programContainsMassRemoval(prog)
+    if (programContainsMassRemoval(prog) && !coloredSacrificeOneSided(state, aiPlayerId, prog)
       && (pol.wipe === "v1" || !programContainsCreatureMassRemoval(prog) || !clearlyBehindOnBoard(state, aiPlayerId))) return false;
     if (programContainsTeamPump(prog)) {
       if (pol.pump === "v1" || state.activePlayer !== aiPlayerId || state.phase !== "precombat-main") return false;
@@ -790,6 +790,18 @@ export const __preferCheapestCostVariantForTests = (...args) => preferCheapestCo
  * than the AI, OR the table's total power is at least double the AI's plus 6 (so an empty own
  * board vs one 7/7 qualifies, but 4-vs-2 or an empty table never does). Deterministic reads.
  */
+/**
+ * ALL IS DUST'S ONE-SIDED CAST (#988): "each player sacrifices all permanents they control that are one or more colors" is a
+ * symmetric wipe the AI holds — unless it controls no permanent with a colour as it is now (layers.permanentColors) and an
+ * opponent controls at least one: then the sacrifice costs this seat nothing and only its opponents lose permanents (the
+ * colourless Eldrazi deck's line).
+ */
+function coloredSacrificeOneSided(state, aiPlayerId, program) {
+  if (!(program?.atoms || []).some((a) => a.op === "sacrifice-all-colored")) return false;
+  const colored = (pid) => (state.players?.[pid]?.battlefield || []).some((p) => (permanentColors(state, p.id) || []).length > 0);
+  return !colored(aiPlayerId) && opponentsOf(state, aiPlayerId).some(colored);
+}
+
 function clearlyBehindOnBoard(state, aiPlayerId) {
   const enemies = opponentsOf(state, aiPlayerId);
   const boardOf = (pid) => (state.players?.[pid]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id));
@@ -1721,7 +1733,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // scores like any sorcery; an X-scaled wipe (Black Sun's Zenith) still sizes X via the
     // X-sizing branch below. Sorcery-speed timing is the OFFER side's (legalChoices), so a
     // "when behind" cast lands in the AI's own main. policy 'v1' recovers hold-always (probe).
-    if (programContainsMassRemoval(actions[0].program)) {
+    if (programContainsMassRemoval(actions[0].program) && !coloredSacrificeOneSided(state, aiPlayerId, actions[0].program)) {
       if (pol.wipe === "v1"
         || !programContainsCreatureMassRemoval(actions[0].program)
         || !clearlyBehindOnBoard(state, aiPlayerId)) continue;

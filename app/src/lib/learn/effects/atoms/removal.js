@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder, addCounter, updatePermanentSafe } from "../../gameState.js"; // + addCounter, updatePermanentSafe (Promise of Loyalty's vow) // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -17,7 +17,7 @@ import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
 import { applyPumpEffect } from "./combat.js"; // the chosen-type -N/-N (Crippling Fear) rides the shared pump over a fixed set (combat.js imports no removal module)
 import { manifestTopOf } from "./manifest.js"; // P·19 — Reality Shift's controller rider (manifest imports only gameState, triggers, tokens)
-import { permanentTypes, abilityLossStamp, withAbilityLoss, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower, lkiSubtypesStamp, boardSetsTypes } from "../../layers.js"; // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
+import { permanentTypes, abilityLossStamp, withAbilityLoss, permIsEveryCreatureType, permanentHasCardType, permanentIsCreature, deriveCharacteristics, permanentCreatureTypes, permanentHasTypeWord, permanentPower, lkiSubtypesStamp, boardSetsTypes, permanentColors } from "../../layers.js"; // + permanentColors (All Is Dust): a permanent's colours as it is now, after layer 5 // + permanentHasTypeWord (the type-line audit): sacrificePoolMatchNow // P·20 — the sacrificed permanent's card types, read before it leaves (CR 608.2h) // + permIsEveryCreatureType (P·39): Champion and the subtype sacrifice pool // + permanentHasCardType (#509, #639): the batch edict's layer-aware, face-up pool and a sacrificed planeswalker // + deriveCharacteristics (#582): the destroyed creature's copiable values (a layer-1 copy result) // + permanentIsCreature: the destroy ladder's layer-aware death look-backs
 import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 import { autoPickCreatureTypeToSpare } from "../../choicePolicy.js"; // #701 — Kindred Dominance's resolution-time type choice (a zero-import leaf)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // #701 — the closed creature-type vocabulary the choice is made from (a zero-import leaf)
@@ -398,6 +398,93 @@ export function matchSacrificeAnotherForPower(oracle) {
     { op: "gain-life", amountCount: x, ifSacrificed: true, targetType: null },
     { op: "draw", amountCount: x, ifSacrificed: true, targetType: null },
   ] };
+}
+
+/**
+ * ALL IS DUST (the play-weighted program, EDHREC #988): "Each player sacrifices all permanents they control that are one or more
+ * colors." — ONE atom. Every permanent each player controls whose colours as it is NOW are one or more (layers.permanentColors —
+ * after layer 5, CR 105.2, 613.1e: a permanent an effect made blue is blue, a face-down one colourless) is sacrificed, every
+ * player's TOGETHER as one event (its ruling: "All permanents with one or more colors are sacrificed at the same time" — CR 101.4),
+ * so each look-back reads the board as the event began. A sacrifice is no destruction (CR 701.21a — its ruling: regeneration, umbra
+ * armor and indestructible can't save them). A land is colourless unless an effect says otherwise (its rulings). Returns
+ * { atom } | null.
+ */
+export function matchEachPlayerSacrificesColored(oracle) {
+  const s = String(oracle || "").trim().toLowerCase();
+  return s === "each player sacrifices all permanents they control that are one or more colors." || s === "each player sacrifices all permanents they control that are one or more colors"
+    ? { atom: { op: "sacrifice-all-colored", targetType: null } }
+    : null;
+}
+
+/** The sacrifice All Is Dust's atom makes — the victims read in APNAP order (CR 101.4) on the board as it is now, then one event. */
+function applySacrificeAllColored(state, atom, ctx) {
+  const seen = new Set();
+  const players = apnapOrder(state, [ctx.controller, ...opponentsOf(state, ctx.controller)].filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid)));
+  const victims = [];
+  for (const playerId of players) {
+    for (const perm of state.players[playerId].battlefield || []) {
+      if ((permanentColors(state, perm.id) || []).length > 0) victims.push({ playerId, permId: perm.id });
+    }
+  }
+  if (victims.length === 0) return logEvent(state, { kind: "spell-effect", effect: "sacrifice-all-colored", controller: ctx.controller, sacrificed: [] });
+  return logEvent(sacrificeChosen(state, victims), { kind: "spell-effect", effect: "sacrifice-all-colored", controller: ctx.controller, sacrificed: victims.map((v) => v.permId) });
+}
+
+/**
+ * PROMISE OF LOYALTY (the play-weighted program, EDHREC #943): "Each player puts a vow counter on a creature they control and sacrifices
+ * the rest. Each of those creatures can't attack you or planeswalkers you control for as long as it has a vow counter on it." — TWO atoms.
+ *   1. `sacrifice-all-but-one` — each player keeps one creature they control and sacrifices the rest: the N-count edict chain
+ *      (advanceCreatureBatchSacrifice) with each player owing every creature but one — chosen in APNAP order (CR 101.4), one pick at a
+ *      time ("You must sacrifice a creature" — a person picks every creature they give up; the AI gives up its least valuable, so it
+ *      keeps its best), and every chosen creature sacrificed together once the last player has chosen. Its ruling: "Each player,
+ *      including you, must put a vow counter on a creature they control if able. They can't choose to opt out and sacrifice all of
+ *      their creatures" — a player with one creature keeps it, unasked. The pools (each player's creatures as it begins, layer-aware)
+ *      are recorded on the state for the atom after (`vowPoolsThisWay` — the couldNotSacrificeThisWay precedent).
+ *   2. `vow-those-creatures` — each pool member still on the battlefield (the creature its player kept) gets a vow counter, put on by
+ *      its controller, and remembers the promise: `vowAgainst` names this spell's controller ("you"). legalChoices refuses its attack at
+ *      that player and at their planeswalkers while it has a vow counter (combatEvasion.vowForbidsAttack, and the dispatcher refuses
+ *      one that arrives). Its rulings: the counter removed, it attacks as normal; the counter moved to another creature doesn't stop
+ *      that creature (the stamp is on the creature that made the promise); it "will remember its promise if another player gains control
+ *      of it" (the stamp stays with the permanent). A creature that is no pool member — a reconfigure Equipment that fell off a
+ *      sacrificed creature and is one again — makes no promise. The counters go on as the sacrifice completes, in the same resolution.
+ * Returns { atoms } | null.
+ */
+export function matchPromiseOfLoyalty(oracle) {
+  const s = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+  return s === "each player puts a vow counter on a creature they control and sacrifices the rest. each of those creatures can't attack you or planeswalkers you control for as long as it has a vow counter on it"
+    ? { atoms: [{ op: "sacrifice-all-but-one", targetType: null }, { op: "vow-those-creatures", targetType: null }] }
+    : null;
+}
+
+function applySacrificeAllButOne(state, atom, ctx) {
+  const seen = new Set();
+  const players = apnapOrder(state, [ctx.controller, ...opponentsOf(state, ctx.controller)].filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid)));
+  const pools = {};
+  for (const pid of players) pools[pid] = batchSacrificePool(state, pid).map((p) => p.id);
+  const recorded = { ...state, vowPoolsThisWay: pools };
+  return advanceCreatureBatchSacrifice(recorded, { queue: players.map((playerId) => ({ playerId, count: Math.max(0, pools[playerId].length - 1) })), chosen: [], sourceName: ctx.cardName });
+}
+
+function applyVowThoseCreatures(state, atom, ctx) {
+  const pools = state.vowPoolsThisWay || {};
+  let next = { ...state };
+  delete next.vowPoolsThisWay;
+  const vowed = [];
+  for (const ids of Object.values(pools)) {
+    for (const id of ids) {
+      const lk = findPermanent(next, id);
+      if (!lk) continue; // sacrificed
+      // A creature with no vow counter now keeps no earlier promise (its duration ended with its last vow counter — CR 611.2a; removeCounter
+      // clears the stamp as that happens): the new promise replaces whatever stamp is left. With a vow counter still on it, both bind.
+      const before = lk.permanent.counters?.vow ?? 0;
+      const stillVowed = before > 0;
+      next = addCounter(next, { permanentId: id, type: "vow", amount: 1, placedBy: lk.controller });
+      if (!((findPermanent(next, id)?.permanent?.counters?.vow ?? 0) > before)) continue; // no counter could be put on it: it isn't one of "those creatures"
+      next = updatePermanentSafe(next, id, (p) => ({ ...p, vowAgainst: stillVowed ? [...new Set([...(p.vowAgainst || []), ctx.controller])] : [ctx.controller] }));
+      vowed.push(id);
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "vow-those-creatures", controller: ctx.controller, vowed });
 }
 
 /**
@@ -1797,5 +1884,8 @@ export const removalResolvers = {
         ? applyExileUntilLeaves(state, atom, ctx) // DETAIN (DT-1) — Banishing Light: exile linked to the source permanent
         : applyZoneMove(state, atom, ctx, "exile"),
   "sacrifice": applySacrifice,
+  "sacrifice-all-but-one": applySacrificeAllButOne, // PROMISE OF LOYALTY (#943) — each player keeps one creature and sacrifices the rest (the N-count edict chain)
+  "vow-those-creatures": applyVowThoseCreatures, // PROMISE OF LOYALTY — the kept creatures get a vow counter and remember the promise (can't attack its caster or their planeswalkers)
+  "sacrifice-all-colored": applySacrificeAllColored, // ALL IS DUST (#988) — each player sacrifices every permanent of theirs with one or more colours, one event
   "ordeal-threshold-sac": applyOrdealThresholdSac, // ORDEAL (BLITZ OC-1, CR 608.2c order-written) — host at 3+ +1/+1 counters → the source Aura sacrifices itself (→ its own "when you sacrifice" payoff)
 };

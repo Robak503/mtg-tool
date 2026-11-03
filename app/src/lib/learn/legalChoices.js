@@ -39,7 +39,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — eve
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, resolveCastSiteReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
+import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow, vowForbidsAttack } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — withhold the attack the tax can't fund, per attack target (+ the Phyrexian life lane, Norn's Annex)
 import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, legacyTargetingEffect, canBeTargetedBy, playerTargetableBy, cardMatchesGraveyardFilter } from "./spellEffects.js"; // + cardMatchesGraveyardFilter: the granted-retrace lane's "nonland permanent card" (2026-11-02)
@@ -4784,7 +4784,8 @@ function actionsDeclareAttacker(state, playerId) {
     const req = attackDefenderRequirementOf(lossy ? withAbilityLoss(state, p) : p.card);
     return obeyingAttackOptions(state, playerId, p.id, targets.filter((t) =>
       canPayAttackTax(p, t)
-      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))));
+      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p))
+      && !vowForbidsAttack(p, t.defenderId))); // Promise of Loyalty's vow — never at the player it promised, nor their planeswalkers (CR 508.1c)
   };
   // The creatures that "attack each combat if able" and can still attack without paying a cost must be declared before the
   // declaration closes (legalActionsForPlayer withholds every other action while one remains); under an attack cap the last

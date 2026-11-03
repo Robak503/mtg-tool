@@ -8,7 +8,7 @@ import { graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLi
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
 import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
-import { applyControllerRider } from "./removal.js";
+import { applyControllerRider, sacrificePoolMatchNow } from "./removal.js"; // + sacrificePoolMatchNow (Chain of Vapor): a land as it is now, the edict pools' read
 import { applyTrickeryRider } from "./library.js"; // TIBALT'S TRICKERY (2026-11-02) — the countered spell's controller's mill and dig (library.js imports no stack atom)
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
@@ -1704,6 +1704,7 @@ function copyAtomIntent(atom) {
     case "lose-life":
     case "rad":
     case "cant-block":
+    case "chain-bounce": // Chain of Vapor's copy re-aims at a nonland permanent of another player's (the bounce's enemy-side reading — atomTargetIntent)
       return "enemy";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
@@ -1741,6 +1742,7 @@ export function spellCopyPayload(payload) {
   if (cloned.params.context) {
     delete cloned.params.context.castFromGraveyard;
     delete cloned.params.context.castDuringMainPhase;
+    delete cloned.params.context.castFromHand; // Approach of the Second Sun's "cast from your hand" (its ruling: a copy isn't cast)
   }
   return cloned;
 }
@@ -1755,8 +1757,11 @@ export function spellCopyPayload(payload) {
  * both signal a targeted spell; a non-targeted body (no targeting atom, no original targets) gets empty targets
  * (byte-identical to the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm). Returns null
  * when the body needs a target but none is legal (the copy is removed, CR 608.2b).
+ * `sideOnly` (Chain of Vapor's copy, 2026-11-03): no fallback off the wanted side — with no enemy-side target the answer is null and no
+ * copy is made. The new target is the copier's choice (CR 707.10c), and the house never takes the one choice that harms them: before,
+ * a copy with only the copier's own nonland permanents left returned one of them (the pw23 review's F2 — a person's Sol Ring).
  */
-function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
+function freshCopyTargets(s, controller, bodyProgram, originalTargets, { sideOnly = false } = {}) {
   const bodyHasChosenTarget = (bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0;
   if (!bodyHasChosenTarget) return [];
   // No try/catch (removed 2026-10-18): a probe saw no throw here over the full suite and an 80-game seeded batch, and the
@@ -1766,7 +1771,7 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
   if (combos.length === 0) {
     // No fresh legal target. CR 707.10c default = keep the original targets — but only if they're STILL legal-
     // shaped (present). If the original is also empty the copy has no target → remove it (null).
-    return originalTargets.length > 0 ? originalTargets : null;
+    return originalTargets.length > 0 && !sideOnly ? originalTargets : null;
   }
   const sideOk = (combo) => (combo.targets || []).every((t) => {
     const intent = copyAtomIntent((bodyProgram.atoms || [])[t.atomIndex]);
@@ -1774,8 +1779,9 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets) {
     if (intent === "own") return copyTargetSide(s, t) === controller;
     return true; // null intent (non-side-constrained atom) — any legal target is fine
   });
-  const chosen = combos.find((c) => sideOk(c) && copyKeepsTargets(s, controller, c.targets || [])) || combos.find(sideOk) || combos[0];
-  return chosen?.targets || [];
+  const chosen = combos.find((c) => sideOk(c) && copyKeepsTargets(s, controller, c.targets || [])) || combos.find(sideOk) || (sideOnly ? null : combos[0]);
+  if (!chosen) return null;
+  return chosen.targets || [];
 }
 
 /**
@@ -1872,7 +1878,7 @@ function copyKeepsTargets(state, controller, targets, uncounterable = false) {
  */
 function applyCopySelfSpell(state, atom, ctx) {
   const bodyProgram = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: atom.body || [], modal: null, xSpell: false, unparsedTail: null };
-  const targets = freshCopyTargets(state, ctx.controller, bodyProgram, ctx.targets || []);
+  const targets = freshCopyTargets(state, ctx.controller, bodyProgram, ctx.targets || [], { sideOnly: !!atom.sideOnly });
   if (targets === null) {
     return logEvent(state, { kind: "spell-effect", effect: "self-copy-removed", controller: ctx.controller, cardName: ctx.cardName, reason: "no legal target" });
   }
@@ -1883,6 +1889,55 @@ function applyCopySelfSpell(state, atom, ctx) {
   let next = { ...s2, stack: [...s2.stack, withWardOwed(s2, { ...copyObj, isCopy: true })] }; // its targets' wards (CR 702.21a, 707.10c)
   next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
   return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: targets.map((t) => t.id) });
+}
+
+/**
+ * ===== THE CHAIN (the play-weighted program, EDHREC #975 — Chain of Vapor) ===== "Return target nonland permanent to its owner's hand.
+ * Then that permanent's controller may sacrifice a land of their choice. If the player does, they may copy this spell and may choose a
+ * new target for that copy." — ONE atom, the bounce and its rider together, so "that permanent's controller" is read as the permanent
+ * leaves (its controller then, CR 608.2h — a permanent another player stole is returned to its owner's hand and the thief is asked).
+ * The bounce is the shared zone move (a token returned ceases to exist, CR 111.7, and its controller is still asked). That player then
+ * chooses: one of their lands (each listed — the optional-sac pause's chosen form; a land as it is now, layers.permanentHasTypeWord, so
+ * an animated land is one) or none — no land, no question. A sacrificed land puts ONE copy of this spell on the stack under that
+ * player's control (CR 707.10; stack.applyCopySelfSpell, the self-copy every spell's "copy this spell" shares) whose body is this same
+ * atom, so the copy can chain again; its new target is the copy picker's (the house policy for every seat, as for Sevinne's Reclamation
+ * and the storm copies — CR 707.10c lets its controller choose) and only ever a nonland permanent of another player's: with none, that
+ * player isn't asked at all (no copy could do them good — the house never aims it at their own). The copy's "may" is folded into the
+ * sacrifice: the land is sacrificed only to copy. Returns { atom } | null.
+ */
+export function matchChainBounceLandCopy(oracle, cardType) {
+  const s = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'");
+  if (s !== "return target nonland permanent to its owner's hand. then that permanent's controller may sacrifice a land of their choice. if the player does, they may copy this spell and may choose a new target for that copy."
+    && s !== "return target nonland permanent to its owner's hand. then that permanent's controller may sacrifice a land of their choice. if the player does, they may copy this spell and may choose a new target for that copy") return null;
+  return { atom: { op: "chain-bounce", targetType: "nonlandPermanent", restrictions: [], spellType: String(cardType || "Instant"), copyCost: "sacrificeLand" } };
+}
+
+function applyChainBounce(state, atom, ctx) {
+  const t = (ctx.targets || []).find((x) => (x.type === "permanent" || x.type === "creature") && findPermanent(state, x.id));
+  if (!t) return logEvent(state, { kind: "spell-effect", effect: "chain-bounce", controller: ctx.controller, targets: [], reason: "target gone" });
+  const chooser = findPermanent(state, t.id).controller; // that permanent's controller, as it leaves
+  let next = applyZoneMove(state, { ...atom, op: "bounce" }, ctx, "hand");
+  if (!next.players?.[chooser] || next.pendingChoice) return next;
+  // THE COPY'S TARGET FIRST (the pw23 review's F2): the copy would re-aim at a nonland permanent of another player's — the copy picker's
+  // side for the copier — and with none there is nothing a sacrifice could buy (its other targets would be the copier's own, which the
+  // house never takes for them, CR 707.10c), so there is no question. A land sacrificed doesn't change that set (it is no nonland
+  // permanent), and the copy re-picks on the same side with no fallback (`sideOnly`).
+  const copyAtom = { op: "copy-self-spell", body: [atom], spellType: atom.spellType, sideOnly: true, targetType: null };
+  const copyProgram = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: copyAtom.body, modal: null, xSpell: false, unparsedTail: null };
+  if (freshCopyTargets(next, chooser, copyProgram, [], { sideOnly: true }) == null) {
+    return logEvent(next, { kind: "spell-effect", effect: "chain-rider", controller: chooser, sourceName: ctx.cardName || null, reason: "no target for a copy" });
+  }
+  const candidates = (next.players[chooser].battlefield || []).filter((p) => sacrificePoolMatchNow("land", next, p))
+    .map((p) => ({ id: p.id, name: p.card?.name ?? null, manaValue: Math.max(0, p.card?.cmc ?? 0), token: !!p.card?.token }));
+  if (candidates.length === 0) return logEvent(next, { kind: "spell-effect", effect: "chain-rider", controller: chooser, sourceName: ctx.cardName || null, reason: "no land" });
+  return setPendingOptionalSacBySubtypeChoice(next, {
+    controller: chooser,
+    subtype: "land",
+    available: true,
+    candidates,
+    effectAtoms: [copyAtom],
+    sourceName: ctx.cardName || null,
+  });
 }
 
 /**
@@ -2628,6 +2683,7 @@ export const stackResolvers = {
   "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "cdmg-to-each-other-opponent": applyCdmgToEachOtherOpponent, // CDMG-TO-EACH-OTHER-OPPONENT (Super State) — deal the combat-damage amount to each opponent EXCEPT the one just combat-damaged
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
+  "chain-bounce": applyChainBounce, // CHAIN OF VAPOR (#975) — the bounce, then its controller may sacrifice a land to copy the spell (the copy can chain again)
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"

@@ -62,7 +62,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser, createTokensTogetherClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
-import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
+import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower, matchEachPlayerSacrificesColored, matchPromiseOfLoyalty } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
@@ -71,16 +71,17 @@ import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HA
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, multiKindCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
-import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
+import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser, matchOpponentsDrawThenYouPerDrawer } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser, lookAtHandClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause
 import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 603.7) — fires from the delayed-trigger drain
 import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Biomancer's Familiar (CR 701.46a)
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
 import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
+import { matchChainBounceLandCopy } from "./atoms/stack.js"; // Chain of Vapor (#975) — the bounce with its land-sacrifice copy rider
 import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser, spellOnStackSentenceAtoms } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser, gyBatchToBattlefieldClauseParser, matchGyCastPermission } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
-import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
+import { lifeClauseParser, matchApproachWinOrTuck } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N) + Approach of the Second Sun (#979)
 import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { grantUntilEotClauseParser, matchChooseLoseLifeGrant } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family; + Malakir Rebirth's choose-lose-grant (P·14)
 import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
@@ -3130,6 +3131,25 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (sp && sp.atoms.every((a) => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: sp.atoms, xSpell: false, unparsedTail: null });
   }
+  // ===== EACH PLAYER SACRIFICES EVERY COLOURED PERMANENT (the play-weighted program, #988 — All Is Dust) ===== see atoms/removal.js.
+  const sac = matchEachPlayerSacrificesColored(oracle);
+  if (sac && KNOWN.has(sac.atom.op)) return makeProgram({ confidence: "high", atoms: [sac.atom], xSpell: false, unparsedTail: null });
+  // ===== EACH OPPONENT DRAWS, THEN YOU DRAW PER DRAWER (#978 — Cut a Deal) ===== one atom: the count reads the first instruction's
+  // outcome ("for each opponent who drew a card this way" — see atoms/misc.js).
+  const cad = matchOpponentsDrawThenYouPerDrawer(oracle);
+  if (cad && KNOWN.has(cad.atom.op)) return makeProgram({ confidence: "high", atoms: [cad.atom], xSpell: false, unparsedTail: null });
+  // ===== THE SECOND HAND CAST WINS, ELSE SEVENTH FROM THE TOP (#979 — Approach of the Second Sun) ===== one atom: "Otherwise" reads the
+  // first sentence's condition (see atoms/life.js).
+  const aps = matchApproachWinOrTuck(oracle);
+  if (aps && KNOWN.has(aps.atom.op)) return makeProgram({ confidence: "high", atoms: [aps.atom], xSpell: false, unparsedTail: null });
+  // ===== EACH PLAYER KEEPS ONE CREATURE UNDER A VOW (#943 — Promise of Loyalty) ===== two atoms: the keep-one sacrifice, then the vow
+  // on "those creatures" (see atoms/removal.js).
+  const pol = matchPromiseOfLoyalty(oracle);
+  if (pol && pol.atoms.every((a) => KNOWN.has(a.op))) return makeProgram({ confidence: "high", atoms: pol.atoms, xSpell: false, unparsedTail: null });
+  // ===== THE CHAIN: BOUNCE, THEN A LAND SACRIFICE COPIES (#975 — Chain of Vapor) ===== one atom: "that permanent's controller" is read as
+  // the permanent leaves, and the copy is this same atom (see atoms/stack.js).
+  const cov = matchChainBounceLandCopy(oracle, cardType);
+  if (cov && KNOWN.has(cov.atom.op)) return makeProgram({ confidence: "high", atoms: [cov.atom], xSpell: false, unparsedTail: null });
   const ld = matchLivingDeath(oracle);
   if (ld && KNOWN.has(ld.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [ld.atom], xSpell: false, unparsedTail: null });

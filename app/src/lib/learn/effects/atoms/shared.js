@@ -394,6 +394,16 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachCreatureYouControl") {
     return massCreatureTargets(state, {}).filter((t) => t.controller === ctx.controller);
   }
+  // EACH NONCREATURE ARTIFACT YOU CONTROL (play-weighted #989 — Cyberdrive Awakener's "each noncreature artifact you control becomes a
+  // 4/4 artifact creature until end of turn"): every permanent the controller controls that is an artifact and no creature as it is
+  // now — layers.permanentHasCardType / permanentIsCreature, layer-aware and on the face that is up (a crewed Vehicle is already a
+  // creature and isn't in the set; an animated land that is also an artifact isn't either). Fixed as the effect begins (CR 611.2c):
+  // an artifact that enters later is never animated.
+  if (atom.targetType === "eachNoncreatureArtifactYouControl") {
+    return (state.players?.[ctx.controller]?.battlefield || [])
+      .filter((perm) => permanentHasCardType(state, perm.id, "Artifact") && !permanentIsCreature(state, perm.id))
+      .map((perm) => ({ type: "permanent", id: perm.id, controller: ctx.controller }));
+  }
   // NONLAND PERMANENTS YOUR OPPONENTS CONTROL (play-weighted #651 — Ruinous Ultimatum "Destroy all nonland permanents your opponents
   // control."): every permanent an opponent controls that is not a land as it exists right now — layers.permanentHasCardType, the
   // battlefield card-type reader: layer-aware (an animated land is still a land; Arixmethes is one while it has a slumber counter) and

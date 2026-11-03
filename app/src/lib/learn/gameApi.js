@@ -410,7 +410,16 @@ export function observe(state, seat) {
 //   - The "optional-effect" decision may carry `effectOp: "myriad"` (myriad's one yes/no — the copies attacking each other opponent), and a
 //     "tutor-search" decision may now belong to a seat that is not the ability's controller (Field of Ruin — each player's own search).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
-export const PLAY_API_VERSION = "1.14.0";
+// 1.15.0 (additive MINOR — new state fields and a decision for another seat, 2026-11-03, the play-weighted slice pw23, after
+//   pw21's 1.13.0 and pw22's 1.14.0):
+//   - state: a player's `castNamesThisGame` (Approach of the Second Sun's tally); a permanent's `vow` counter with `vowAgainst` (Promise
+//     of Loyalty — its declare-attacker offers leave out the promised player and their planeswalkers, and a dispatched one is refused
+//     with code "ATTACK_VOW"); `state.vowPoolsThisWay` while Promise's sacrifice choices are pending.
+//   - "optional-sac-payment" may be raised for a seat that isn't the spell's controller (Chain of Vapor — the bounced permanent's
+//     controller, with its lands as `candidates`); "sacrifice-choice" on the N-count chain may ask one seat several times in a row
+//     (Promise of Loyalty — every creature but one).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
+export const PLAY_API_VERSION = "1.15.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

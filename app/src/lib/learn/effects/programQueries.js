@@ -419,6 +419,7 @@ export function atomTargetIntent(atom) {
       return "enemy";
     case "bounce":
     case "tuck":
+    case "chain-bounce": // Chain of Vapor (#975) — the bounce with its land-sacrifice copy rider; its target reads as the bounce's
       // ETB-BOUNCE / ETB-TUCK — triggered bounce and tuck effects target an OPPONENT's permanent.
       // "YouControl" forms (rare) bounce own permanents (self-protective). Bare "creature" / "artifact" /
       // "land" / "permanent" targets are offensive (Man-o'-War, Aether Adept, Vedalken Dismisser,
@@ -662,7 +663,13 @@ export function programContainsMassRemoval(program) {
     || a.op === "mass-destroy-add-mana-per-destroyed" || a.op === "destroy-not-chosen-type"
     // RAISE THE PALISADE (#888), CRIPPLING FEAR (#2047) — the same chosen-type set, bounced or shrunk on every battlefield; held
     // like Kindred Dominance (the policy spares the caster's best type, but a blind cast still sweeps its other creatures).
-    || a.op === "bounce-not-chosen-type" || a.op === "pump-not-chosen-type");
+    || a.op === "bounce-not-chosen-type" || a.op === "pump-not-chosen-type"
+    // ALL IS DUST (#988) — every coloured permanent on every battlefield, sacrificed; held like the other symmetric wipes (the AI's
+    // one-sided unlock — no coloured permanent of its own — is opponentAI's, it needs the board).
+    || a.op === "sacrifice-all-colored"
+    // PROMISE OF LOYALTY (#943) — every player keeps one creature and sacrifices the rest: a creature wipe, held like Wrath (and
+    // unlocked like it when clearly behind — programContainsCreatureMassRemoval below).
+    || a.op === "sacrifice-all-but-one");
 }
 
 /**
@@ -686,6 +693,7 @@ export function programContainsCreatureMassRemoval(program) {
     a.op === "mass-destroy-treasure-per-nontoken" ||
     a.op === "destroy-not-chosen-type" || // KINDRED DOMINANCE (#701) — answers a creature board (and spares the caster's best type)
     a.op === "bounce-not-chosen-type" || a.op === "pump-not-chosen-type" || // RAISE THE PALISADE (#888), CRIPPLING FEAR (#2047) — the same set, bounced / shrunk
+    a.op === "sacrifice-all-but-one" || // PROMISE OF LOYALTY (#943) — every player down to one creature (the AI keeps its best)
     // the TRIPLE wipe (stage ③ · 29 — Nevinyrral's Disk, Akroma's Vengeance) answers a creature board too
     (a.targetType === "eachArtifactCreatureOrEnchantment" && (a.op === "destroy" || a.op === "exile")) ||
     (a.targetType === "eachCreature" && (

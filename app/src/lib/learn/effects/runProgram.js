@@ -138,7 +138,13 @@ function programAtoms(program, chosenMode) {
  * The card is ZONELESS here (it left its zone at cast), so this is a direct append like
  * placeCounteredCard — moveCardToZone can't move a card that is in no zone.
  */
-export function finishSpellResolution(state, disposition, { selfExile = false, selfShuffle = false } = {}) {
+export function finishSpellResolution(stateIn, disposition, { selfExile = false, selfShuffle = false } = {}) {
+  // A PLACEMENT THE SPELL'S OWN EFFECT ASKED FOR (Approach of the Second Sun's "Otherwise, put Approach of the Second Sun into its owner's
+  // library seventh from the top" — atoms/life.applyApproachWinOrTuck): read once and cleared on every path, a copy's included (a copy is
+  // no card and goes nowhere — CR 707.10a — so its request is dropped with it).
+  const placement = stateIn.spellResolutionPlacement || null;
+  let state = stateIn;
+  if (placement) { state = { ...stateIn }; delete state.spellResolutionPlacement; }
   const playerId = disposition?.playerId;
   const card = disposition?.card;
   if (!playerId || !card) return state;
@@ -160,6 +166,15 @@ export function finishSpellResolution(state, disposition, { selfExile = false, s
       players: { ...state.players, [playerId]: { ...player, exile: [...(player.exile || []), card] } },
     };
     return logEvent(next, { kind: "spell-to-exile", playerId, cardName: card.name || null });
+  }
+  // N-TH FROM THE TOP (Approach of the Second Sun): into its owner's library under the top (fromTop − 1) cards, unseen, or at the bottom
+  // when the library holds fewer (its ruling). After the exile branch above: a flashback spell is exiled wherever else it would go
+  // (CR 702.34a).
+  if (placement?.zone === "library") {
+    const lib = player.library || [];
+    const at = Math.min(Math.max(0, (placement.fromTop ?? 1) - 1), lib.length);
+    const next = { ...state, players: { ...state.players, [playerId]: { ...player, library: [...lib.slice(0, at), card, ...lib.slice(at)] } } };
+    return logEvent(next, { kind: "spell-to-library", playerId, cardName: card.name || null, fromTop: at + 1 });
   }
   // SELF-SHUFFLE (Green Sun's Zenith + the Sun's Zenith / Beacon family "Shuffle <this> into its owner's
   // library.") — the resolving spell shuffles ITSELF into its OWNER's library instead of the graveyard (CR

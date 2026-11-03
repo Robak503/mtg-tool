@@ -86,6 +86,41 @@ function applyDrawAtom(state, atom, ctx) {
 }
 
 /**
+ * CUT A DEAL (the play-weighted program, EDHREC #978): "Each opponent draws a card, then you draw a card for each opponent who drew a
+ * card this way." — ONE atom, both sentences, because the count reads the first instruction's outcome. Each opponent draws one card
+ * through applyDrawEffect (the one draw chokepoint — draw watchers fire, a draw doubler applies), in APNAP order (CR 101.4); an opponent
+ * counts when that draw took a card. Its rulings: "if an opponent doesn't draw a card, perhaps because a replacement effect replaced
+ * the draw with another effect, that player is not counted" — an opponent with an empty library draws nothing (CR 121.4) and an empty
+ * draw a `wonGame` replacement took (gameState.drawCards) takes no card; "If an opponent drew more than one card this way due to a
+ * replacement effect, you still draw only one card for that player." Then the controller draws that many cards, one instruction
+ * (CR 121.2). Returns { atom } | null.
+ */
+export function matchOpponentsDrawThenYouPerDrawer(oracle) {
+  const s = String(oracle || "").trim().toLowerCase().replace(/\.$/, "");
+  return s === "each opponent draws a card, then you draw a card for each opponent who drew a card this way"
+    ? { atom: { op: "opponents-draw-then-you-per-drawer", targetType: null } }
+    : null;
+}
+
+function applyOpponentsDrawThenYouPerDrawer(state, atom, ctx) {
+  const me = ctx.controller;
+  if (!state.players?.[me]) return state; // the controller left the game mid-resolution (CR 800.4a)
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const ap = Math.max(0, order.indexOf(state.activePlayer));
+  const apnap = [...order.slice(ap), ...order.slice(0, ap)];
+  let next = state;
+  const drew = [];
+  for (const pid of apnap) {
+    if (pid === me || !next.players?.[pid] || !opponentsOf(next, me).includes(pid)) continue;
+    const before = next.players[pid].cardsDrawnThisTurn || 0;
+    next = applyDrawEffect(next, { controller: pid, amount: 1 });
+    if ((next.players[pid]?.cardsDrawnThisTurn || 0) > before) drew.push(pid);
+  }
+  if (drew.length > 0 && next.players?.[me]) next = applyDrawEffect(next, { controller: me, amount: drew.length });
+  return logEvent(next, { kind: "spell-effect", effect: "opponents-draw-then-you-per-drawer", controller: me, drew, amount: drew.length });
+}
+
+/**
  * SHELF-85 N11 (2026-09-04) — PEER INTO THE ABYSS: "Target player draws cards equal to half the number of cards in their
  * library and loses half their life. Round up each time." Both halves are read off the TARGET seat as the spell
  * resolves (CR 608.2h): draw ceil(library/2) through the single draw chokepoint (draw watchers fire — Nekusar's plan),
@@ -1082,6 +1117,7 @@ export const miscResolvers = {
   "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn
   "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
+  "opponents-draw-then-you-per-drawer": applyOpponentsDrawThenYouPerDrawer, // CUT A DEAL (#978) — each opponent draws a card, then you draw one per opponent who drew
   "draw-half-library-lose-half-life": applyDrawHalfLibraryLoseHalfLife, // SHELF-85 N11 — Peer into the Abyss (the target draws ceil(library/2), loses ceil(life/2))
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
   "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3b — the TURN-SCOPED twin of the static flash-cast permission

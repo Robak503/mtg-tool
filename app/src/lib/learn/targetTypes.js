@@ -66,6 +66,9 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   "eachCreatureYouControl",     // MASS-OWN-BOARD — "regenerate each creature you control" (Golgari Charm).
   //                               The mirror of eachOpponentCreature. A NON-wipe on purpose: it BUFFS the
   //                               caster's own board, so the AI must not hold it the way it holds a wipe.
+  "eachNoncreatureArtifactYouControl", // play-weighted #989 — "each noncreature artifact you control becomes a 4/4 artifact creature
+  //                               until end of turn" (Cyberdrive Awakener's enters trigger). The controller's own board, so no wipe the
+  //                               AI holds. Resolved in atomTargets (shared.js), the set fixed as the effect begins (CR 611.2c).
   "eachOpponentNonlandPermanent", // play-weighted #651 — "destroy all nonland permanents your opponents control" (Ruinous
   //                               Ultimatum). One-sided: the caster's board is never in the set, so the AI need not hold it
   //                               the way it holds a symmetric wipe. Resolved in atomTargets (shared.js).

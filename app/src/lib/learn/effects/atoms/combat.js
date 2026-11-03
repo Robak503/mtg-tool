@@ -2955,6 +2955,15 @@ export function animateClauseParser(clause) {
     if (!anmArt[1] && !anmArt[4]) return null;
     return { op: "animate", targetType: "noncreatureArtifact", restrictions: [{ kind: "controller", who: "you" }], power: parseInt(anmArt[2], 10), toughness: parseInt(anmArt[3], 10), subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
   }
+  // THE GROUP FORM (play-weighted #989 — Cyberdrive Awakener: "When this creature enters, each noncreature artifact you control becomes a
+  // 4/4 artifact creature until end of turn."): the same animation over every noncreature artifact the controller controls as it
+  // resolves (the eachNoncreatureArtifactYouControl scope — nothing is targeted; the set is fixed then, CR 611.2c). "Becomes an artifact
+  // creature" keeps every prior card type and subtype (CR 205.1b): layer-4 Creature added, layer-7b base P/T set, until end of turn. An
+  // Equipment among them falls off its creature (CR 301.5c — sba.js), a Vehicle takes the set 4/4 over its printed P/T (CR 613.4b).
+  const anmAll = t.match(/^each noncreature artifact you control becomes a (\d+)\/(\d+) artifact creature until end of turn$/);
+  if (anmAll) {
+    return { op: "animate", targetType: "eachNoncreatureArtifactYouControl", power: parseInt(anmAll[1], 10), toughness: parseInt(anmAll[2], 10), subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
+  }
   // SHELF D33 (Katsumasa, the Animator — "Until end of turn, target noncreature artifact you control becomes an artifact
   // creature and gains flying. If it's not a Vehicle, it has base power and toughness 1/1 until end of turn.", folded to
   // one clause by splitClauses): the same target with no P/T in the becomes-phrase. A Vehicle keeps its printed power and

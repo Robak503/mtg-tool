@@ -434,7 +434,7 @@ describe("migrate", () => {
     expect([typeof MIGRATIONS[10], typeof MIGRATIONS[11]]).toEqual(["function", "function"]); // a continuous chain; the v11 → v12 step exists (CONTRACT-MIG)
     expect(MIGRATIONS[11](JSON.parse(JSON.stringify(v11)))).toEqual({ ...v11, schemaVersion: 12 }); // and stamps the version only
     const upgraded = migrate(JSON.parse(JSON.stringify(v11)));
-    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: 12, resumable: true, state: v11.session.state });
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v11.session.state });
     const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, ...extra });
     const legend = { name: "Isamaru, Hound of Konda", type: "Legendary Creature — Dog", power: "2", toughness: "2", oracle: "" };
     const original = perm("isamaru", legend, { timestamp: 1 });
@@ -452,9 +452,40 @@ describe("migrate", () => {
     const v12 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v12.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v12)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 12, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // the chain runs on to v13 since pw23
     const kept = applyLegendRule(back.session.state).state.players.user.battlefield.map((p) => p.id);
     expect(kept).toEqual(["isamaru"]);
+  });
+  // CONTRACT-MIG (the play-weighted slice pw23): a v13 game may carry a player's `castNamesThisGame` (Approach of the Second Sun), a
+  // permanent's `vowAgainst` beside its `vow` counter (Promise of Loyalty) and, paused mid-Promise, `state.vowPoolsThisWay`. An earlier
+  // save has none, and absent means what every earlier game says, so the migration stamps the version only. The round trip: each survives
+  // save → JSON → migrate and still plays — the vowed creature is not offered an attack at the player it promised.
+  it("carries a v12 save forward to v13 (stamp-only; a v13 game's tally, vow and paused pools round-trip, and the vow still binds)", async () => {
+    const { legalActionsForPlayer } = await import("../learn/legalChoices.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v12 = {
+      schemaVersion: 12, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v12", serializable: true,
+      session: { id: "learn-v12", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[12]).toBe("function"); // the v12 → v13 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[12](JSON.parse(JSON.stringify(v12)))).toEqual({ ...v12, schemaVersion: 13 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v12)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v12.session.state });
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "ai", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, enteredOnTurn: 1, ...extra });
+    const wurm = perm("wurm", { name: "Craw Wurm", type: "Creature — Wurm", power: "6", toughness: "4", oracle: "" }, { counters: { vow: 1 }, vowAgainst: ["user"] });
+    const state = { ...v12.session.state, activePlayer: "ai", priorityHolder: "ai", phase: "combat", step: "declare-attackers", combat: null, turnOrder: ["user", "ai"], mode: "standard",
+      players: { user: { ...empty, castNamesThisGame: { "Approach of the Second Sun": 1 } }, ai: { ...empty, battlefield: [wurm] } },
+      vowPoolsThisWay: { ai: ["wurm"] } };
+    const v13 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v13.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v13)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 13, state });
+    const attacks = (st) => legalActionsForPlayer(st, "ai").filter((a) => a.kind === "declare-attacker" && a.permanentId === "wurm").length;
+    const freed = { ...back.session.state, players: { ...back.session.state.players, ai: { ...back.session.state.players.ai, battlefield: [{ ...wurm, counters: { vow: 0 } }] } } };
+    expect({ vowed: attacks(back.session.state), freed: attacks(freed) }).toEqual({ vowed: 0, freed: 1 }); // the control: the same board without the counter attacks
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration
