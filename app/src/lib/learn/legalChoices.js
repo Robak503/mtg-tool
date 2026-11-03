@@ -33,7 +33,7 @@ import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower,
 import { canAfford, planPayment, manaSources, withoutOwnHandSource, manualManaTaps, payActivationFromPool, sourcesExcludingOneShotVictim, castPaymentSources, withoutUnfeedableSacSources, costReservedPermanentIds, activationPaymentSources, graveyardActivationPaymentSources, lifePaymentContext, tapCostPayerOrder, costOwesMana } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // SELF-METRIC-COST-REDUCTION: a live count read at cast announce
 import { hasKeyword } from "./keywords.js";
-import { permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
+import { boardHasCopyEffect, copiableBaseOf, permanentColors, permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, grantedActivatedQuotedFor, crewCostWithOverrides, permIsEveryCreatureType, permanentHasCardType, permanentHasTypeWord, cannotEquipNow, withAbilityLoss, abilityViewPermanents, attachedGrantCutByLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow } from "./layers.js"; // + the ability view (CR 613.1f — ABILITY-LOSS-PROGRAM.md, S0b: a permanent that lost its abilities offers none, scans none, restricts nothing) // + permanentHasCardType / permanentHasTypeWord (the type-line audit — sacTypeMatchesNow and the battlefield discounts)
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer for the cost readers; a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — every creature type answers for a creature type only (CR 205.3d); a zero-import leaf
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
@@ -2757,6 +2757,23 @@ function activationTimingAllows(state, playerId, ab) {
   return true;
 }
 
+/**
+ * A BECOME-COPY'S ABILITY WHOSE PAYOFF IS READ OFF THE PRINTED CARD (CR 707.2 — the pw21 review's F2 and its recheck's R1). A permanent
+ * that became a copy (Mizzium Transreliquat, Shifting Woodland, Impossible Man) has the copied card's activated abilities, but these pay
+ * off only through readers that still read the permanent's printed card, so the copy would pay the cost and get nothing:
+ *   · Equip / Reconfigure — the bonus is the attachment's (layers' attached-bonus read: a Transreliquat that is a Swiftfoot Boots);
+ *   · level up (CR 702.87a — the LEVEL statics, CR 711.2) and a Class's level-up (its level abilities and triggers, classLiveCard): a
+ *     Shifting Woodland that is a Wizard Class would pay {2}{U} and draw nothing; an Impossible Man that is a Student of Warfare stays 1/1;
+ *   · Monstrosity (CR 701.37 — "becomes monstrous" triggers and "as long as … is monstrous" statics: an Impossible Man that is an Alpha
+ *     Deathclaw would get its counters and destroy nothing) and Adapt (CR 701.46 — its "+1/+1 counters are put on" payoffs). Left out
+ *     whole, payoff or not: an Adapt with no payoff of its own is an under-offer, the safe direction.
+ * Not offered on a copy until those readers take the copy (the copy-read-everywhere slice).
+ */
+function copyPayoffUnread(ab) {
+  if (ab.isEquipAbility || ab.isLevelUp || ab.classLevelUp != null) return true;
+  return (ab.program?.atoms || []).some((a) => a.op === "monstrosity" || a.op === "adapt");
+}
+
 function actionsActivateAbility(state, playerId) {
   // Whenever the player holds priority (CR 117.1b); each ability's own timing is activationTimingAllows'. Until 2026-10-20
   // this lane opened in the player's own main phase, plus two narrow windows for the abilities that main phase could never
@@ -2777,6 +2794,7 @@ function actionsActivateAbility(state, playerId) {
   const equipOverrides = collectEquipCostOverrides(abilityViewPermanents(state, player.battlefield || []));
   const artLocked = artifactActivationsLocked(state); // NR-1: covers printed + granted + equip abilities of artifacts (CR 602.1/702.6a)
   const lossy = boardHasAbilityLoss(state); // the ability-loss board test, once for the whole enumeration
+  const copyBoard = boardHasCopyEffect(state); // a become-copy anywhere — its permanent reads the copy's abilities (once per enumeration)
   for (const perm of player.battlefield) {
     // NR-1 — the WHOLE activated surface of an artifact permanent is off under the lock: printed abilities,
     // aura/equipment-granted and group-granted abilities (the granted ability belongs to the HOST — an
@@ -2785,7 +2803,15 @@ function actionsActivateAbility(state, playerId) {
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
     // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
-    const printed = parseActivatedAbilities((lossy ? withAbilityLoss(state, perm) : perm.card));
+    // A permanent that BECAME a copy has the copied card's abilities, never its printed ones (CR 707.2, 613.1a — a Mizzium Transreliquat
+    // that is a Sol Ring has none of its own; a Shifting Woodland that is a Prodigal Sorcerer pings and has no {G} or copy line).
+    // ⛔ EXCEPT AN ABILITY WHOSE PAYOFF IS READ OFF THE PRINTED CARD (copyPayoffUnread, below — the pw21 review's F2 and its recheck's R1):
+    // a copy pays the cost and gets nothing, so it is not offered until those readers take the copy too (the copy-read-everywhere slice
+    // the parked Mycosynth Gardens waits on).
+    const copied = copyBoard ? copiableBaseOf(state, perm) : perm;
+    const ownCard = copied.card;
+    const ownAbilities = parseActivatedAbilities((lossy ? withAbilityLoss(state, perm, ownCard) : ownCard));
+    const printed = copied === perm ? ownAbilities : ownAbilities.filter((a) => !copyPayoffUnread(a));
     // GRANTED-ACTIVATED — abilities conferred on this permanent by (a) an Aura/Equipment ATTACHED to it
     // ("Enchanted creature has \"…\""), and (b) a GROUP static ("All Slivers have \"{2}: Regenerate this
     // permanent.\"" — Clot Sliver). The group grants come from layers.grantedActivatedQuotedFor (selector-
@@ -3507,7 +3533,8 @@ function actionsDoubleManaPool(state, playerId) {
   const lossy = boardHasAbilityLoss(state);
   for (const perm of player.battlefield) {
     if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
-    for (const ab of parseActivatedAbilities((lossy ? withAbilityLoss(state, perm) : perm.card))) {
+    const ownCard = boardHasCopyEffect(state) ? copiableBaseOf(state, perm).card : perm.card; // a become-copy reads the copy (CR 707.2)
+    for (const ab of parseActivatedAbilities((lossy ? withAbilityLoss(state, perm, ownCard) : ownCard))) {
       if (!ab.doubleManaPool) continue;
       if (ab.tapSelf) {
         if (perm.tapped) continue; // can't tap an already-tapped source
@@ -3965,6 +3992,11 @@ function actionsPlayImpulseFromExile(state, playerId) {
   // is offered only through the scan below, to the player it names — the owner never gets the permission.
   const impulsed = (player.exile || []).filter(c => c && c._impulse && !c._impulseFor && (c._impulseExtended || c._impulseTurn === state.turn));
   const actions = [];
+  // A FREE PLAY IS AN ORDINARY CAST (Urza, Lord High Artificer; Mind's Desire; Dauthi Voidwalker): the builder's free mode exists
+  // for casts made while a spell resolves and skips the timing gate, so each free card is first held to the timing a paid cast of
+  // it needs — actionsCastFreeByPermission's gate. Both rulings say so: Urza's "doesn't change when you can play the exiled card",
+  // Dauthi's "Playing a card with Dauthi Voidwalker's last ability is still subject to normal timing restrictions."
+  const freeTimingOk = (c) => (isSorcerySpeed(c) ? canCastSorcerySpeed(state, playerId) : canCastInstantSpeed(state, playerId));
   // ANOTHER PLAYER'S CARD (shelf D3, Ragavan — CR 601.3): a card sitting in its OWNER's exile, stamped
   // `_impulseFor` this player this turn, is castable by this player at full cost. Casts only — the printed verb is
   // "cast", and the cast builder never offers a land; the action names the owner as `fromPlayerId` so the dispatcher
@@ -3975,7 +4007,7 @@ function actionsPlayImpulseFromExile(state, playerId) {
     const foreign = (other.exile || []).filter(c => c && c._impulse && c._impulseFor === playerId && c._impulseTurn === state.turn);
     // + P·28 (Dauthi Voidwalker): a card stamped `_impulseFree` is cast without paying its mana cost.
     const paid = foreign.filter((c) => !c._impulseFree);
-    const free = foreign.filter((c) => c._impulseFree);
+    const free = foreign.filter((c) => c._impulseFree && freeTimingOk(c)); // + its timing (the Dauthi ruling — a sorcery not on an opponent's turn)
     if (paid.length) actions.push(...castActionsFromZone(state, playerId, paid, "exile", null, false).map((a) => ({ ...a, fromPlayerId: pid })));
     if (free.length) actions.push(...castActionsFromZone(state, playerId, free, "exile", null, true).map((a) => ({ ...a, fromPlayerId: pid })));
   }
@@ -3983,7 +4015,12 @@ function actionsPlayImpulseFromExile(state, playerId) {
   const nonlands = impulsed.filter(c => !isLand(c));
   const lands = impulsed.filter(c => isLand(c));
   // NONLANDS — cast at full cost from exile (freeCast=false), same builder as a hand cast (timing/cost/X/targets).
-  actions.push(...castActionsFromZone(state, playerId, nonlands, "exile", null, false));
+  actions.push(...castActionsFromZone(state, playerId, nonlands.filter((c) => !c._impulseFree), "exile", null, false));
+  // THE FREE PLAY (Urza, Lord High Artificer; Mind's Desire; Oracle's Vault): cast without paying its mana cost through the
+  // builder's free mode (CR 118.9 — no other alternative cost, X is 0, additional costs paid). That mode exists for casts made
+  // while a spell resolves and skips the timing gate; this is an ordinary cast, so the card is held to the timing a paid cast of
+  // it needs first (Urza's ruling: a sorcery only in your main phase with the stack empty) — freeTimingOk above.
+  actions.push(...castActionsFromZone(state, playerId, nonlands.filter((c) => c._impulseFree && freeTimingOk(c)), "exile", null, true));
   // LANDS — play from exile if a land drop is available at sorcery speed (the same gates the hand play-land uses).
   if (lands.length && canCastSorcerySpeed(state, playerId)
       && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {

@@ -58,7 +58,7 @@ import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPL
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
-export { enterCardFromZone } from "./atoms/zones.js";
+export { enterCardFromZone, continueEachGraveyardPick } from "./atoms/zones.js"; // + Breach the Multiverse's next pick (runProgram's milled-pick settler)
 export { sacrificeCreatureEffect, sacrificeCreaturesTogether, advanceSacrificeChain, advanceCreatureBatchSacrifice, sacrificePoolMatch, sacrificePoolMatchNow } from "./atoms/removal.js"; // + advanceCreatureBatchSacrifice (#509 — the N-count edict's settle side) // + sacrificeCreaturesTogether (2026-10-17): the sac-unless N-land payment, one event
 export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
@@ -157,6 +157,7 @@ const PAUSING_OPS_LIST = [
   "taxed-edict", // stack.js applyTaxedEdict → setPendingTaxedPaymentChoice (the opponent pays or sacrifices — the Rishadan pirates; stage ③ 2026-09-30)
   "lose-life-unless-discard", // stack.js applyLoseLifeUnlessDiscard → setPendingOptionalDiscardPaymentChoice (the referent player discards or loses N — Painful Quandary; SHELF-85 N6)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
+  "each-graveyard-put-onto-battlefield", // zones.js applyEachGraveyardPutOne → setPendingMilledPickChoice (toZone "battlefieldYours" — Breach the Multiverse; pauses only on 2+ candidates in a graveyard)
   "void-play-grant", // voidPlay.js applyVoidPlayGrant → setPendingMilledPickChoice (toZone "playFree" — Dauthi Voidwalker, P·28)
   "edict-shares-type", // iteratedEdict.js applyEdictSharesType → advanceEdictChain → setPendingEdictModeChoice (Braids, Arisen Nightmare — P·20)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)

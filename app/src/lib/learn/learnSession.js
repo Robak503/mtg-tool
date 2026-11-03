@@ -79,6 +79,7 @@ import { resolveAtom } from "./effects/effectAtoms.js"; // Arbiter-in-runner: ap
 import { featurizeState } from "./gameFeatures.js";
 import {
   autoPickTutorCandidate,
+  autoPickImpulseExile,
   resolveTutorChoice,
   resolveScryChoice,
   resolveOptionalChoice,
@@ -1950,7 +1951,7 @@ function advanceUntilDecisionUnguarded(
           fallbackAction: {
             kind: "pending-choice",
             choiceKind: pc.kind,
-            candidateId: autoPickTutorCandidate(current.state, pc),
+            candidateId: pc.chosenTo === "impulseExile" ? autoPickImpulseExile(current.state, pc) : autoPickTutorCandidate(current.state, pc), // + Expressive Iteration's exile pick
           },
         });
         current = { ...current, state: settleImpulseDigChoice(current.state, picked.candidateId) };
@@ -2474,7 +2475,7 @@ function advanceUntilDecisionUnguarded(
           recordDecision,
           // T7: a pause with an `owner` other than the chooser is an opponent's-choice pick (Tasigur) — the chooser GIVES.
           // + P·28: the playFree pick (Dauthi Voidwalker) plays the card free this turn.
-          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: pc.toZone === "playFree" ? `Play ${c.name} free this turn` : pc.owner && pc.owner !== pc.controller ? `Give ${c.name}` : `Take ${c.name}` })),
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: pc.toZone === "playFree" ? `Play ${c.name} free this turn` : pc.toZone === "battlefieldYours" ? `Put ${c.name} onto the battlefield under your control` : pc.owner && pc.owner !== pc.controller ? `Give ${c.name}` : `Take ${c.name}` })),
           fallbackAction: {
             kind: "pending-choice",
             choiceKind: pc.kind,

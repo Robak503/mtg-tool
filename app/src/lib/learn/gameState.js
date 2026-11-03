@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
-import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, lkiSubtypesStamp, typeLineNow, boardSetsTypes, permanentHasCardType } from "./layers.js";
+import { permanentPower, permanentToughness, permanentToughnessSized, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, permanentColors, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE, enteringTypeWords, untilNextTurnEndsNow, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, lkiSubtypesStamp, lkiCopyManaValueStamp, typeLineNow, boardSetsTypes, permanentHasCardType } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { faceUpTypeLine } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the look-back fallback and the legend rule read the front face's type line
@@ -1704,6 +1704,10 @@ function recordLeaveEvent(state, permanent, toGraveyard, toZone = null, before =
   // (CR 603.10a), so a leave or graveyard scope reads what it WAS (a creature Kenrith's Transformation made a green Elk was no artifact
   // and no Food — layers.typeLineNow); written only there, so every other leave event is unchanged.
   if (before && findPermanent(before, permanent.id)) Object.assign(ev, lkiSubtypesStamp(before, permanent.id));
+  // `lkiCopyMv` — its mana value as it last existed when a layer-1 copy effect named it (layers.lkiCopyManaValueStamp — CR 603.10a,
+  // 707.2: a Mizzium Transreliquat that was a Sol Ring left as a mana value 1 artifact; Scrap Trawler's cap reads it). Written only
+  // under such an effect, so every other leave event is unchanged.
+  if (before && findPermanent(before, permanent.id)) Object.assign(ev, lkiCopyManaValueStamp(before, permanent.id));
   // `lkiAbilityLoss` — the abilities it had as it last existed (CR 603.10a, 613.1f): a permanent that had lost its abilities leaves
   // with none, so its own leave triggers do not fire and a grant cut by the loss stays cut (layers.abilityLossStamp, read off `before`,
   // the board it was still on). Written only when it had lost them, so every other leave event is unchanged.
@@ -2068,11 +2072,16 @@ export function preventionShieldsFor(state) {
 }
 
 /** Add a prevention shield. Purges stale/spent entries on write so the array never accumulates. */
-export function addPreventionShield(state, { targetKind, targetId, amount, turn, redirectTo = null }) {
+export function addPreventionShield(state, { targetKind, targetId, amount, turn, redirectTo = null, combatOnly = false, perPrevented = null, controller = null }) {
   const live = preventionShieldsFor(state);
   // ④-H (the en-Kor cycle, CR 615.7): a REDIRECT shield — the consumed damage is dealt to `redirectTo` (a creature)
   // instead of being prevented. Absent on every plain shield (byte-identical).
-  return { ...state, preventionShields: [...live, { targetKind, targetId, amount: Math.max(0, amount || 0), turn, ...(redirectTo ? { redirectTo } : {}) }] };
+  // COMBAT ONLY (Inkshield, Druid's Deliverance — "Prevent all combat damage that would be dealt to you this turn."): consumed only by
+  // the combat damage step (combatResolution's pool); consumePreventionShields — the noncombat damage — passes over it.
+  // THE COUNTED RIDER (Inkshield — "For each 1 damage prevented this way, create a 2/1 white and black Inkling creature token with
+  // flying."): `perPrevented` is the create-token atom the prevention performs for each 1 damage it prevents (CR 615.5 — part of the
+  // prevention effect, as the damage would be dealt), for `controller` (the shield's creator). Absent on every other shield.
+  return { ...state, preventionShields: [...live, { targetKind, targetId, amount: Math.max(0, amount || 0), turn, ...(redirectTo ? { redirectTo } : {}), ...(combatOnly ? { combatOnly: true } : {}), ...(perPrevented ? { perPrevented, controller } : {}) }] };
 }
 
 /** Consume up to `amount` of matching shields. Returns { state, amount } — the unprevented remainder.
@@ -2097,7 +2106,8 @@ export function consumePreventionShields(state, { targetKind, targetId, amount }
   const nextShields = [];
   const redirects = []; // ④-H — { to, amount } per consumed REDIRECT shield (the caller deals it to `to`)
   for (const sh of live) {
-    if (rem > 0 && sh.targetKind === targetKind && sh.targetId === targetId && sh.amount > 0) {
+    // A COMBAT-ONLY shield (Inkshield, Druid's Deliverance) is the combat damage step's alone — this is the noncombat damage path.
+    if (rem > 0 && !sh.combatOnly && sh.targetKind === targetKind && sh.targetId === targetId && sh.amount > 0) {
       const used = Math.min(sh.amount, rem);
       rem -= used;
       touched = true;
@@ -3124,6 +3134,7 @@ export function deathLookback(state, perm, controller) {
     counters: { ...(perm.counters || {}) }, // undying / persist / modular and the counter-scoped watchers read the last-known bag
     lkiTypes: [...permanentTypes(state, perm.id).types],
     ...lkiSubtypesStamp(state, perm.id), // + its subtypes, on a board that sets types (the ability-loss S2 — CR 603.10a)
+    ...lkiCopyManaValueStamp(state, perm.id), // + its copied mana value, under a layer-1 copy effect (CR 707.2 — Scrap Trawler's cap)
     lkiColors: [...permanentColors(state, perm.id)], // its colours as it last existed (CR 113.7a) — a dies trigger's damage source for Torbran's "red source"
     lkiKeywords: damageResultKeywords(state, perm.id), // its lifelink / deathtouch / infect / wither as it last existed (CR 702.15c, 702.2e, 702.80b) — its own dies trigger's damage
     // FLYING AS IT LAST EXISTED (CR 603.10a — Luminous Broodmoth's "a creature you control without flying dies"): printed or granted,

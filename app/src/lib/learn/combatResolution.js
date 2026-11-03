@@ -32,6 +32,7 @@
  */
 
 import { applyMonarchCombatSteal } from "./effects/atoms/monarch.js";
+import { applyCreateToken } from "./effects/atoms/tokens.js"; // Inkshield — the counted prevention's tokens (tokens.js never imports this module)
 import {
   findPermanent,
   loseLife,
@@ -436,14 +437,21 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // LOCAL copy (the shieldConsumed pattern: state is the frozen pre-step board) written back to `next` after
   // the apply loops. Empty pool → zero allocations on the hot path → byte-identical.
   const pvPool = unpreventable ? [] : preventionShieldsFor(state).map((s) => ({ ...s })); // SG-11: no shield consumes while combat damage can't be prevented
+  // THE COUNTED PREVENTION (Inkshield — "For each 1 damage prevented this way, create …"): a shield carrying `perPrevented` is the one
+  // prevention with an upside, so the affected player orders it first among the shields (CR 616.1 — the CAP9 stand-in below); what it
+  // prevents this step is tallied on the local copy (`prevented`) and paid out in tokens after the deals. A pool without one keeps its
+  // own order and every object as it was.
+  const pvOrder = pvPool.some((s) => s.perPrevented) ? [...pvPool.filter((s) => s.perPrevented), ...pvPool.filter((s) => !s.perPrevented)] : pvPool;
+  const countedShieldCovers = (targetId) => pvPool.some((s) => s.perPrevented && s.amount > 0 && s.targetKind === "player" && s.targetId === targetId);
   const pvConsume = (targetKind, targetId, dealt) => {
     let rem = dealt;
-    for (const sh of pvPool) {
+    for (const sh of pvOrder) {
       if (rem <= 0) break;
       if (sh.amount <= 0 || sh.targetKind !== targetKind || sh.targetId !== targetId) continue;
       const used = Math.min(sh.amount, rem);
       sh.amount -= used;
       rem -= used;
+      if (sh.perPrevented) sh.prevented = (sh.prevented || 0) + used;
       // ④-H (the en-Kor cycle, CR 615.7): a REDIRECT shield sends the consumed damage to the named creature instead —
       // it joins the SAME accumulation every other combat deal uses (marked and lethal-checked with the rest). Dealt
       // as plain damage: the dealer's deathtouch/infect is not carried (an under-kill — the FN-safe direction).
@@ -459,6 +467,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const fogPlayers = state.preventCombatPlayersTurn === state.turn && !unpreventable;
   const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
     let amt = rawAmount;
+    // THE COUNTED PREVENTION FIRST (Inkshield's ruling: "If multiple damage prevention effects would apply to combat damage that would
+    // be dealt to you, you get to choose the order the prevention effects are applied in."): its controller applies it after every
+    // increase (the doublers, in the order that leaves the most — the consult with its preventions skipped) and before every other
+    // prevention (a players-only fog, the dealer's own walls, the consult's preventions, the other shields), so it prevents — and pays
+    // tokens for — the most damage any legal order lets it. It prevents all of it, so no order deals any. Pool empty (combat damage
+    // can't be prevented — Frenzied Baloth) → never here.
+    if (amt > 0 && targetKind === "player" && countedShieldCovers(targetId)) {
+      const increased = hasReplacement
+        ? consultDamageAmount(state, { sourceId: sourcePerm?.id ?? null, sourceController: sourcePerm?.controller ?? null, amount: amt, targetKind, targetId, isCombat: true, skipPrevention: true, maximize: true })
+        : amt;
+      return pvConsume(targetKind, targetId, increased);
+    }
     if (amt > 0 && fogPlayers && targetKind === "player") return 0;
     // FOG-1 self statics: the damaged CREATURE's own printed prevent-all wall (Guard Gomazoa's combat
     // form and Dawn Elemental's all form both zero a combat deal). Read per hit, layer-free (a printed
@@ -793,7 +813,15 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   }
   // PV-1 (CR 615): write the surviving prevention shields back (the local pool decremented at the deal
   // sites). Only when a live pool existed — an empty pool leaves state untouched (byte-identical).
-  if (pvPool.length) next = { ...next, preventionShields: pvPool.filter((s) => s.amount > 0) };
+  if (pvPool.length) next = { ...next, preventionShields: pvPool.filter((s) => s.amount > 0).map((s) => (s.prevented != null ? (({ prevented: _p, ...rest }) => rest)(s) : s)) };
+  // THE COUNTED PREVENTION'S TOKENS (Inkshield): one per 1 damage its shield prevented in this step, made by the shield's creator as the
+  // damage is prevented (CR 615.5 — the prevention effect makes them; no trigger) — before the step's state-based actions and its
+  // triggers, never attacking or blocking (they did neither). A first-strike step and the regular step each pay their own.
+  for (const sh of pvPool) {
+    if (!sh.perPrevented || !(sh.prevented > 0) || !next.players?.[sh.controller]) continue;
+    next = applyCreateToken(next, { ...sh.perPrevented, count: sh.prevented }, { controller: sh.controller, cardName: null });
+    next = logEvent(next, { kind: "spell-effect", effect: "prevented-damage-tokens", controller: sh.controller, prevented: sh.prevented });
+  }
   for (const [id, amount] of Object.entries(dmgToPermanent)) {
     if (findPermanent(next, id)) next = markCombatDamage(next, { permanentId: id, amount });
   }

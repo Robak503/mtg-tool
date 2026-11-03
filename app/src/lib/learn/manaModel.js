@@ -3247,10 +3247,13 @@ function manaCardOf(state, perm, lossy = true) {
   return lossy ? withAbilityLoss(state, perm, base) : base;
 }
 
-/** The permanent's PRINTED card as its ability readers see it — the base the raw per-line readers below parse (the extra lines, the
- *  activation cost, the self no-untap lock): the stripped view after a loss, else the printed card itself. */
+/** The permanent's card as its ability readers see it — the base the raw per-line readers below parse (the extra lines, the
+ *  activation cost, the self no-untap lock): the stripped view after a loss, else its card. A permanent that BECAME a copy reads the
+ *  copy (CR 707.2, 613.1a — the copied card's abilities, never its printed ones): a Shifting Woodland that became a Sol Ring has no
+ *  "{T}: Add {G}." line left (manaCardOf's base; the printed card whenever no copy effect names it). */
 function ownManaCardOf(state, perm, lossy = true) {
-  return lossy ? withAbilityLoss(state, perm) : perm.card;
+  const base = deriveCharacteristics(state, perm.id)?.copiableValues || perm.card;
+  return lossy ? withAbilityLoss(state, perm, base) : base;
 }
 
 /**

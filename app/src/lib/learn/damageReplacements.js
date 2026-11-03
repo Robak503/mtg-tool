@@ -628,14 +628,14 @@ function runInOrder(state, entries, raw) {
  * order that leaves the LEAST damage; among equals, the battlefield (registration) order. Every order is tried for up to six
  * effects (720 orders — more is never printed on one board); beyond that the battlefield order stands.
  */
-function chooseOrder(state, entries, raw) {
+function chooseOrder(state, entries, raw, maximize = false) {
   if (entries.length < 2 || entries.length > 6) return entries;
   let best = null;
-  let bestAmount = Infinity;
+  let bestAmount = maximize ? -Infinity : Infinity;
   const permute = (rest, chosen) => {
     if (!rest.length) {
       const { amount } = runInOrder(state, chosen, raw);
-      if (amount < bestAmount) { bestAmount = amount; best = chosen; }
+      if (maximize ? amount > bestAmount : amount < bestAmount) { bestAmount = amount; best = chosen; }
       return;
     }
     for (let i = 0; i < rest.length; i++) permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...chosen, rest[i]]);
@@ -657,7 +657,10 @@ function chooseOrder(state, entries, raw) {
 export function applyDamageReplacements(state, event) {
   const raw = Math.max(0, Number(event?.amount) || 0);
   if (raw <= 0) return { amount: raw, prevented: false };
-  const skipPrevention = !!event?.isCombat && combatDamageUnpreventable(state);
+  // + `event.skipPrevention` / `event.maximize` (Inkshield's counted shield — combatResolution): the amount its prevention would see
+  // when its controller orders it after every increase and before every other prevention (CR 616.1 — the order that makes the most
+  // tokens; the damage dealt is 0 in every order, the shield preventing all of it). Unset on every other consult.
+  const skipPrevention = (!!event?.isCombat && combatDamageUnpreventable(state)) || !!event?.skipPrevention;
   // 614.5 — a FRESH applied-set PER consult invocation (MUST-FIX 4). Keyed by the entry (its permanent and its index on the
   // card) so each distinct replacement applies at most once within THIS event; a separate combat sub-step is a separate call →
   // a separate set → the doubler fires again (correct double-strike doubling, never ×step-count).
@@ -673,7 +676,7 @@ export function applyDamageReplacements(state, event) {
     applied.add(key);
     entries.push(entry);
   }
-  return runInOrder(state, chooseOrder(state, entries, raw), raw);
+  return runInOrder(state, chooseOrder(state, entries, raw, !!event?.maximize), raw);
 }
 
 /**

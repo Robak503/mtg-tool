@@ -24,7 +24,7 @@
  */
 
 import { findPermanent, logEvent } from "../../gameState.js";
-import { addContinuousEffect } from "../../layers.js";
+import { addContinuousEffect, copiableBaseOf } from "../../layers.js";
 import { parseCloneRider, snapshotCopiedCard } from "../../cloneCopy.js";
 import { atomTargets } from "./shared.js";
 
@@ -39,6 +39,10 @@ function parseTargetNoun(noun) {
   // P·26 (Shifting Woodland): "target permanent card in your graveyard" — a CARD, the graveyard target the reanimate family uses
   // (the controller's own graveyard, any permanent card type). applyBecomeCopy copies the card itself.
   if (noun === "target permanent card in your graveyard") return { targetType: "graveyardCard", cardFilter: "permanent" };
+  // ⛔ PARKED: The Mycosynth Gardens' "target nontoken artifact you control with mana value X" (play-weighted #853, land-partial). Its copy
+  // is read only by the activated, mana and type readers; the copied artifact's statics, triggers, untap lock, Equipment grant and
+  // legendary name are still read off the printed land (the pw21 review's F1, plus the legend rule), so the noun stays unparsed until
+  // the copy is read everywhere (RUN-LEDGER, pw21).
   const m = noun.match(TARGET_NOUN_RE);
   if (!m || ((m[2] || m[3]) && m[4] !== "creature")) return null;
   const restrictions = [
@@ -109,7 +113,10 @@ export function applyBecomeCopy(state, atom, ctx) {
     copiedFrom = card ? { card } : null;
   } else {
     const target = targets.find((t) => t?.id && findPermanent(state, t.id));
-    copiedFrom = target ? findPermanent(state, target.id).permanent : null;
+    // Over its copiable values (CR 707.3 — "Objects that copy the object will use the new copiable values"): a target that is itself a
+    // copy is copied as what it copies — a Mizzium Transreliquat copying another Transreliquat that became a Mind Stone becomes a Mind
+    // Stone. An entering clone's card already is its copy, so this is the printed permanent for every other target.
+    copiedFrom = target ? copiableBaseOf(state, findPermanent(state, target.id).permanent) : null;
   }
   if (!copiedFrom) {
     return logEvent(state, { kind: "spell-effect", effect: "become-copy", copied: 0, reason: "no legal target", controller: ctx.controller });

@@ -36,7 +36,7 @@ import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentenc
 import { programNeedsChosenTarget, atomTargetSlotsKnown, programTriggerTargetsResolvable } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterTrickery, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripGiftPromise, stripStormKeywordLine, stripDevoidLine, stripChangelingLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
-import { matchChaosWarp, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchNotChosenTypeSweep, matchMassDestroyPerDestroyed, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, matchSacrificeCreatureOrSelf, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
+import { matchChaosWarp, matchLookThreeSplit, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchNotChosenTypeSweep, matchMassDestroyPerDestroyed, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, matchSacrificeCreatureOrSelf, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
 // a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
@@ -68,7 +68,7 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser, selfWheelClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
+import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM, NUM_WORD } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, multiKindCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -795,7 +795,8 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
   // grammar, no widened anchor — the identical matcher, reached by the path that already delivers the
   // text it wants. The collapse stays first and keeps its cards byte-identical.
   const impulseClause = matchImpulseExilePlay(s);
-  if (impulseClause && KNOWN.has(impulseClause.atom.op)) return impulseClause.atom;
+  // A single-atom form only: the free play's shuffle-led two-atom form (Urza, Mind's Desire) is a whole effect, never one clause.
+  if (impulseClause?.atom && KNOWN.has(impulseClause.atom.op)) return impulseClause.atom;
 
   // ⭐ SELF-HIT DAMAGE AS A CLAUSE (2026-08-04) — "<source> deals N damage to any target and M damage to
   // you." THE THIRD instance today of one shape: a WHOLE-ORACLE matcher that only fires when its sentence
@@ -3648,8 +3649,52 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // under the clause splitter (each half is individually unmatchable), so it's collapsed up front. HIGH iff the
   // op is KNOWN (it is — registered in libraryResolvers). Not an X spell.
   const iep = matchImpulseExilePlay(oracle);
-  if (iep && KNOWN.has(iep.atom.op)) {
-    return makeProgram({ confidence: "high", atoms: [iep.atom], xSpell: false, unparsedTail: null });
+  const iepAtoms = iep ? (iep.atoms || [iep.atom]) : null; // + the free play's leading shuffle (Urza, Mind's Desire)
+  if (iepAtoms && iepAtoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: iepAtoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== THE COUNTED PREVENTION ===== (the play-weighted program — Inkshield #784: "Prevent all combat damage that would be dealt to you
+  // this turn. For each 1 damage prevented this way, create a 2/1 white and black Inkling creature token with flying.") The second
+  // sentence counts what the first prevents — a back-reference the sentence split would orphan — so the pair collapses to ONE
+  // combat-only "you" shield carrying `perPrevented`, the token sentence read by the ordinary token grammar (one HIGH create-token
+  // atom, or nothing collapses). combatResolution makes that many tokens for the shield's creator as the damage is prevented
+  // (CR 615.5 — the prevention effect does it, no trigger). The exact printed pair only.
+  {
+    const ink = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^prevent all combat damage that would be dealt to you this turn\. for each 1 damage prevented this way, (create a [^.]+ token with [a-z]+)$/);
+    if (ink) {
+      const tok = parseEffectClause(ink[1], cardType);
+      const tokAtom = tok?.confidence === "high" && tok.atoms?.length === 1 && tok.atoms[0].op === "create-token" ? tok.atoms[0] : null;
+      if (tokAtom && KNOWN.has("prevent-next-damage")) {
+        const { count: _c, ...perPrevented } = tokAtom;
+        return makeProgram({ confidence: "high", atoms: [{ op: "prevent-next-damage", amount: ALL_DAMAGE_SHIELD, who: "you", combatOnly: true, perPrevented, targetType: null }], xSpell: false, unparsedTail: null });
+      }
+    }
+  }
+  // ===== ONE CARD FROM EACH GRAVEYARD ===== (the play-weighted program — Breach the Multiverse #874: "Each player mills ten cards. For
+  // each player, choose a creature or planeswalker card in that player's graveyard. Put those cards onto the battlefield under your
+  // control. Then each creature you control becomes a Phyrexian in addition to its other types.") "Those cards" is the set the choosing
+  // sentence makes — a back-reference the sentence split would orphan — so the text collapses to three atoms: the shared each-player
+  // mill, the per-graveyard pick that enters every chosen card together (zones.applyEachGraveyardPutOne), and the creature type on each
+  // creature you control (zones.applyAddCreatureTypeEachYouControl). The count and the creature type are read; nothing else varies.
+  {
+    const br = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^each player mills (\w+) cards\. for each player, choose a creature or planeswalker card in that player's graveyard\. put those cards onto the battlefield under your control\. then each creature you control becomes an? ([a-z]+) in addition to its other types$/);
+    const millN = br ? (NUM_WORD[br[1]] ?? (/^\d+$/.test(br[1]) ? parseInt(br[1], 10) : null)) : null;
+    if (br && Number.isInteger(millN) && CR_CREATURE_TYPES.has(br[2])) {
+      const atoms = [
+        { op: "mill", amount: millN, who: "eachPlayer", targetType: null },
+        { op: "each-graveyard-put-onto-battlefield", cardFilter: "creature|planeswalker", targetType: null },
+        { op: "add-creature-type-each-you-control", subtype: br[2].charAt(0).toUpperCase() + br[2].slice(1), targetType: null },
+      ];
+      if (atoms.every((a) => KNOWN.has(a.op))) return makeProgram({ confidence: "high", atoms, xSpell: false, unparsedTail: null });
+    }
+  }
+  // ===== THE THREE-WAY LOOK ===== (Expressive Iteration) → ONE impulse-dig atom with the exile-and-play second pick (see
+  // templateMatchers.matchLookThreeSplit). HIGH iff the op is KNOWN.
+  const l3 = matchLookThreeSplit(oracle);
+  if (l3 && KNOWN.has(l3.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [l3.atom], xSpell: false, unparsedTail: null });
   }
   // ===== CHAOS WARP ===== the owner-tuck-then-reveal-put compound → ONE atom (see templateMatchers.matchChaosWarp).
   const cw = matchChaosWarp(oracle);
@@ -4278,7 +4323,7 @@ export function programConfidence(program) {
 // programContains* heuristics …) moved to ./programQueries.js (decomposition slice 3 — a leaf over
 // targetTypes.js). Re-exported below so every existing `from "./effects/parser.js"` import stays valid;
 // programNeedsChosenTarget is also imported at the top of this file (assembly-time call sites).
-export { programNeedsChosenTarget, programContainsCounter, PERMANENT_TARGET_TYPES, programContainsChosenPermanentRemoval, atomTargetIntent, programTriggerTargetsResolvable, modalChooseOneRoutable, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog } from "./programQueries.js";
+export { programNeedsChosenTarget, programContainsCounter, PERMANENT_TARGET_TYPES, programContainsChosenPermanentRemoval, atomTargetIntent, programTriggerTargetsResolvable, modalChooseOneRoutable, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, programContainsCountedCombatShield } from "./programQueries.js";
 
 // ─── WAVE 1 clause-parser registration (see import note at the top) ────────────────────────────
 // Wire the new-module clause parsers into the additive seam. Runs after CLAUSE_PARSERS + the

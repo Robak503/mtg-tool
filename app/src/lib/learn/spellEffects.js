@@ -972,6 +972,14 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // ever have a legal target — the runtime-invisible FP class.)
         if (effect.excludeTriggeringCard && ctx?.triggeringCardId && card.id === ctx.triggeringCardId) continue;
         if (!cardMatchesGraveyardFilter(card, effect.cardFilter, state, pid)) continue;
+        // LESSER THAN THE TRIGGERING OBJECT (Scrap Trawler): strictly below the mana value the triggering permanent had as it last
+        // existed — its copy stamp when a copy effect named it (`triggeringCopyMv`, CR 707.2), else its card's (X counts 0, CR 107.3).
+        // No triggering card in the context → no cap to compare with → no target (never an uncapped return).
+        if (effect.cardFilter?.mvBelowTriggering) {
+          const cap = typeof ctx?.triggeringCopyMv === "number" ? ctx.triggeringCopyMv
+            : ctx?.triggeringCard ? (ctx.triggeringCard.cmc ?? ctx.triggeringCard.mana_value ?? 0) : null;
+          if (typeof cap !== "number" || !((card?.cmc ?? card?.mana_value ?? 0) < cap)) continue;
+        }
         // MILLED-THIS-TURN restriction (Tato Farmer — "target land card in a graveyard that was milled
         // this turn"): the card must appear in the millCards ledger stamped with the CURRENT turn (stale
         // entries are inert — the reader keys on state.turn, no cleanup pass needed).

@@ -30,7 +30,7 @@ import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d �
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent; + the shuffle-instead replacement for a spell leaving the stack (Nexus of Fate)
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
+import { resolveAtom, continueEachGraveyardPick, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
@@ -59,6 +59,7 @@ import { addContinuousEffect, boardSetsTypes, permanentHasTypeWord } from "../la
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 import { canPayWardCost } from "../ward.js"; // the ward-cost affordability the soft-counter settle and autoPickSoftCounterPay read (ward.js never reaches runProgram)
 import { punisherTakeable, punisherAutoTake } from "./atoms/punisher.js"; // the punisher (CR 118.12) — whether its decider can take it, and the default AI decision (a sibling atom module; runProgram already reaches atoms through effectAtoms)
+import { landDropAllowance } from "../staticAbilityParser.js"; // the AI's three-way-look exile pick reads whether a land play is left
 import { landSearchPickOrder } from "../fetchLand.js"; // a land search takes the colour the searcher needs (a leaf over abilities, the tutor filter and manaModel — none imports runProgram)
 import { characteristicTypeLine } from "../faceUp.js"; // the exiled card's type for "If it was a <type> card" (faceUp imports only splitCard, a leaf)
 
@@ -513,6 +514,26 @@ export function autoPickTutorCandidate(state, pendingChoice) {
 }
 
 /**
+ * THE THREE-WAY LOOK'S EXILE PICK (Expressive Iteration, the default AI — chosenTo "impulseExile"): the exiled card is playable this
+ * turn only, so take the one most likely to be played: a land while the controller has a land play left, else the nonland with the
+ * lowest mana value; ties by name then id (serialize-stable). The hand pick before it keeps the tutor order (the most mana value).
+ */
+export function autoPickImpulseExile(state, pendingChoice) {
+  const player = state.players?.[pendingChoice.controller] || {};
+  const byId = new Map((player.library || []).map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (!cards.length) return null;
+  const isLandCard = (c) => /\bLand\b/.test(String(c.type || c.type_line || "").split(" // ")[0]);
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const byName = (a, b) => cmp(String(a.name || ""), String(b.name || "")) || cmp(String(a.id || ""), String(b.id || ""));
+  const landLeft = (player.landsPlayedThisTurn || 0) < landDropAllowance(state, pendingChoice.controller);
+  const lands = cards.filter(isLandCard).sort(byName);
+  if (landLeft && lands.length) return lands[0].id;
+  const nonlands = cards.filter((c) => !isLandCard(c)).sort((a, b) => tutorManaValue(a) - tutorManaValue(b) || byName(a, b));
+  return (nonlands[0] || lands[0]).id;
+}
+
+/**
  * Settle a pending tutor choice: move the chosen card library→hand (or find nothing if
  * `cardId` is null), shuffle (CR 701.24a, threaded deterministic seed), clear the choice,
  * then RESUME the suspended program from where it paused. Hidden-info safe — the log
@@ -849,18 +870,51 @@ export function resolveImpulseDigChoice(state, cardId) {
   const keep = pc.keep ?? 1;
   const picked = [...(pc.chosenIds || []), ...(chosenId ? [chosenId] : [])];
   const lookedAt = pc.lookedAt ?? (pc.candidates || []).length;
+  // THE THREE-WAY LOOK (Expressive Iteration — "Put one of them into your hand, put one of them on the bottom of your library, and
+  // exile one of them. You may play the exiled card this turn."): every instruction is mandatory, so an answer that names no
+  // candidate takes the first. Stage one sends the pick to the hand; with two or more cards left a second pick among them is raised
+  // (chosenTo "impulseExile", the continuation carried on), else the one left goes to the bottom (the ruling: two cards, one to the
+  // hand and one to the bottom — no exile). Stage two exiles its pick face up with the this-turn play permission (the impulse stamp —
+  // legalChoices.actionsPlayImpulseFromExile offers it, cleanup ends it, CR 514.2) and the last card goes to the bottom.
+  if (pc.thenExilePlay || pc.chosenTo === "impulseExile") {
+    const pickId = chosenId ?? (pc.candidates || [])[0]?.id ?? null;
+    const rest = (pc.candidates || []).filter((c) => c.id !== pickId);
+    const pl = next.players[pc.controller];
+    const picked = pickId ? (pl.library || []).find((c) => c.id === pickId) : null;
+    if (pc.thenExilePlay) {
+      if (picked) next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== pickId), hand: [...(pl.hand || []), picked] } } };
+      if (rest.length >= 2) {
+        const raised = setPendingImpulseDigChoice(next, { controller: pc.controller, candidates: rest, restTo: "bottom", sourceName: pc.sourceName, keep: 1, lookedAt: rest.length, chosenTo: "impulseExile" });
+        return pc.resume ? { ...raised, pendingChoice: { ...raised.pendingChoice, resume: pc.resume } } : raised;
+      }
+      next = applyImpulseDig(next, { playerId: pc.controller, n: rest.length, chosenIds: [], restTo: "bottom" });
+      next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: picked ? 1 : 0, restTo: "bottom" });
+      return resumeAfterChoice(next, pc);
+    }
+    if (picked) {
+      const exiled = { ...picked, _impulse: true, _impulseTurn: next.turn };
+      next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== pickId), exile: [...(pl.exile || []), exiled] } } };
+      next = logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller: pc.controller, exiled: picked.name });
+    }
+    next = applyImpulseDig(next, { playerId: pc.controller, n: rest.length, chosenIds: [], restTo: "bottom" });
+    next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: 0, restTo: "bottom" });
+    return resumeAfterChoice(next, pc);
+  }
   // MULTI-KEEP: RE-RAISE until `keep` cards are picked (or the pool runs dry). Doing it as repeated
   // single-picks rather than a multi-select means every driver that already settles an impulse-dig in a
   // loop — learnSession, the tests, the UI — handles it unchanged; nothing downstream had to learn a new
   // choice shape. A DECLINE (chosenId null) ends the picking immediately: the player kept what they kept.
   const remaining = (pc.candidates || []).filter((c) => c.id !== chosenId);
   if (chosenId && picked.length < keep && remaining.length) {
-    return setPendingImpulseDigChoice(next, {
+    const raised = setPendingImpulseDigChoice(next, {
       controller: pc.controller, candidates: remaining, restTo: pc.restTo,
       sourceName: pc.sourceName, keep, chosenIds: picked, lookedAt,
       chosenTo: pc.chosenTo, restOrder: pc.restOrder, // ④-C — the riders ride every re-raise
       ...(pc.sourceId != null ? { sourceId: pc.sourceId } : {}),
     });
+    // …and so does the continuation (pw21, 2026-11-02): without it the last pick's settle had nothing to resume, so the program's later
+    // atoms never ran and the spell never reached its owner's graveyard (CR 608.2n) — Flow State's keep-two branch left the game.
+    return pc.resume && raised.pendingChoice ? { ...raised, pendingChoice: { ...raised.pendingChoice, resume: pc.resume } } : raised;
   }
   // CORPUS ④-C (Kinnan) — a BATTLEFIELD pick enters from the library FIRST (enterCardFromZone: ETBs fire, the
   // permanent is real); the remaining looked-at cards are then still the top (lookedAt − picks) and get bottomed
@@ -2390,6 +2444,23 @@ export function resolveMilledPickChoice(state, cardId) {
     const valid = pc.candidates.filter(live);
     const pick = valid.find((c) => c.id === cardId) || valid[0] || null;
     next = pick ? grantVoidPlay(next, pc.controller, pick.owner, pick.id) : logEvent(next, { kind: "spell-effect", effect: "void-play-grant", controller: pc.controller, granted: null });
+    return resumeAfterChoice(next, pc);
+  }
+  // BREACH THE MULTIVERSE (toZone "battlefieldYours" — zones.continueEachGraveyardPick): the pick is one player's card, chosen by the
+  // caster; it joins the picks so far, and the next player's pick is raised — or, every choice made, all of them enter together under
+  // the caster's control and the program goes on. Each choice is mandatory ("choose a creature or planeswalker card"): an answer that
+  // names no still-there candidate takes the first one still there.
+  if (pc.toZone === "battlefieldYours") {
+    if (!next.players[pc.controller]) return next; // the caster left the game mid-pause: the spell is gone with them (CR 800.4a)
+    const gyOwner = pc.owner || pc.controller;
+    const gyHere = next.players[gyOwner]?.graveyard || [];
+    const there = (pc.candidates || []).filter((c) => gyHere.some((g) => g.id === c.id));
+    const chosen = there.find((c) => c.id === cardId) || there[0] || null;
+    const collected = [...(pc.collected || []), ...(chosen ? [{ owner: gyOwner, id: chosen.id, name: chosen.name }] : [])];
+    next = continueEachGraveyardPick(next, { controller: pc.controller, collected, queue: pc.queue || [], sourceName: pc.sourceName, resume: pc.resume || null });
+    // A pause now is the next player's pick (it carries the continuation) or an entering card's own choice (a clone's copy pick —
+    // it takes the continuation, so the rest of the program runs after it).
+    if (next.pendingChoice) return next.pendingChoice.resume || !pc.resume ? next : { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
     return resumeAfterChoice(next, pc);
   }
   // T7 (2026-09-04): `owner` — the seat whose graveyard holds the candidates and whose hand receives the pick — is the

@@ -1941,6 +1941,11 @@ export function combatKeywordClauseParser(clause) {
   // shield is plain JSON (a saved game must restore byte-identical; JSON turns Infinity into null and the shield would
   // vanish). ALL_DAMAGE_SHIELD is consumed like any other (min(amount, hit)) and expires with the turn stamp.
   if (/^prevent all damage that would be dealt to you this turn$/.test(t)) return { op: "prevent-next-damage", amount: ALL_DAMAGE_SHIELD, who: "you", targetType: null };
+  // …and its COMBAT form (the play-weighted program — Druid's Deliverance #3945, and Inkshield's first sentence: "Prevent all combat
+  // damage that would be dealt to you this turn."): the same all-damage shield on the controller, consumed only by the combat damage
+  // step (`combatOnly` — consumePreventionShields, the noncombat path, passes over it). Inkshield's counted rider is folded on by the
+  // parser's whole-text collapse (parser.js — THE COUNTED PREVENTION), never read from this clause alone.
+  if (/^prevent all combat damage that would be dealt to you this turn$/.test(t)) return { op: "prevent-next-damage", amount: ALL_DAMAGE_SHIELD, who: "you", combatOnly: true, targetType: null };
   // ⭐ …and the two remaining cells of the SAME target vocabulary, found by tier-splitting the phrase again.
   // The family is native on ~48 carriers across "any target" / "target creature" / "you"; these two wordings
   // were native on ZERO.
@@ -3362,7 +3367,8 @@ function applyPreventNextDamage(state, atom, ctx) {
   if (atom.redirect && (!redirectTo || !findPermanent(next, redirectTo) || entries.some((e) => e.targetId === redirectTo))) {
     return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: [], redirect: null });
   }
-  for (const e of entries) next = addPreventionShield(next, { ...e, amount: atom.amount, turn: next.turn, ...(redirectTo ? { redirectTo } : {}) });
+  // + COMBAT ONLY and THE COUNTED RIDER (Inkshield, Druid's Deliverance): ride the shield; the creator makes the tokens.
+  for (const e of entries) next = addPreventionShield(next, { ...e, amount: atom.amount, turn: next.turn, ...(redirectTo ? { redirectTo } : {}), ...(atom.combatOnly ? { combatOnly: true } : {}), ...(atom.perPrevented ? { perPrevented: atom.perPrevented, controller: ctx.controller } : {}) });
   return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: entries.map((e) => e.targetId), ...(redirectTo ? { redirect: redirectTo } : {}) });
 }
 

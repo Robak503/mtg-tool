@@ -395,7 +395,16 @@ export function observe(state, seat) {
 //     line, its mana tagged with the haste rider).
 //   - "free-cast-decline": `paid: true` (the window offers a paid cast — Conduit of Worlds; the decline's label).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
-export const PLAY_API_VERSION = "1.12.0";
+// 1.13.0 (additive MINOR — the play-weighted slice pw21, 2026-11-02):
+//   - The impulse-dig decision carries `chosenTo` and `thenExilePlay` on the wire: Expressive Iteration's three-way look asks twice —
+//     a hand pick (`thenExilePlay: true`), then an exile pick among the rest (`chosenTo: "impulseExile"`; the pick is exiled and may be
+//     played this turn, the last card goes to the bottom). Answer shapes unchanged (a card id).
+//   - The milled-pick decision gains `toZone: "battlefieldYours"` (Breach the Multiverse — one creature or planeswalker card per
+//     graveyard, every pick entering together under the chooser's control after the last); a pilot's label reads "Put <card> onto the
+//     battlefield under your control". Answer shape unchanged (a card id).
+//   - A cast from your OWN exile may carry `freeCast: true` (Urza, Lord High Artificer; Mind's Desire — "you may play that card without
+//     paying its mana cost"), offered at the timing a paid cast of it needs.
+export const PLAY_API_VERSION = "1.13.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

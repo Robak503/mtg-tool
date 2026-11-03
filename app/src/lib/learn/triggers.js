@@ -4770,6 +4770,14 @@ const DISJUNCTION_DIES_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the
 // twice for one event; each half classifies through its own arm, and an unread half under-runs the shaped count and parks the
 // card, as for every split here.
 const DISJUNCTION_PIG_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or is put into a graveyard from the battlefield(,\\s*[^\\n]+)";
+// "dies or another artifact you control is put into a graveyard from the battlefield" (the play-weighted program — Scrap Trawler
+// #870: "Whenever this creature dies or another artifact you control is put into a graveyard from the battlefield, return to your
+// hand target artifact card in your graveyard with lesser mana value."): the same split over two DIFFERENT subjects — the self dies
+// half (dies/self, checkDiesTriggers) and the another-artifact PiG half (artifactYouControlPiG with excludeSelf, checkLeavesTriggers).
+// Disjoint by construction (this creature, or another permanent), so one event never fires both; the ruling's simultaneous case
+// ("If Scrap Trawler and another artifact you control are put into a graveyard at the same time, Scrap Trawler's ability triggers
+// for each of them.") fires each half once, off the look-back (CR 603.10a). Anchored to the exact printed pair.
+const DISJUNCTION_DIES_OR_ANOTHER_ARTIFACT_PIG_SRC = "\\b(When|Whenever)\\s+this creature dies or another artifact you control is put into a graveyard from the battlefield(,\\s*[^\\n]+)";
 // "enters or becomes monstrous" (Alpha Deathclaw — SHELF S7): the SAME split, third event pair. The
 // monstrous half classifies standalone (becomesMonstrous/self — fired by applyMonstrosity's transition).
 const DISJUNCTION_MONSTROUS_SRC = "\\b(When|Whenever)\\s+([^.\\n]+?)\\s+enters(?: the battlefield)? or becomes monstrous(,\\s*[^\\n]+)";
@@ -4837,6 +4845,8 @@ function splitCompoundTriggerSentences(oracle) {
       `Whenever ${subj} enters${eff}\nWhenever ${subj} dies${eff}`)
     .replace(new RegExp(DISJUNCTION_PIG_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} is put into a graveyard from the battlefield${eff}`)
+    .replace(new RegExp(DISJUNCTION_DIES_OR_ANOTHER_ARTIFACT_PIG_SRC, "gi"), (_m, _kw, eff) =>
+      `Whenever this creature dies${eff}\nWhenever another artifact you control is put into a graveyard from the battlefield${eff}`)
     .replace(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi"), (_m, _kw, subj, eff) =>
       `Whenever ${subj} enters${eff}\nWhenever ${subj} becomes monstrous${eff}`)
     .replace(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi"), (_m, _kw, subj, eff) =>
@@ -4863,7 +4873,8 @@ export function compoundTriggerCount(oracle) {
   const disjunctions = (s.match(new RegExp(DISJUNCTION_TRIGGER_SRC, "gi")) || [])
     .filter((m) => !/of the chosen type/i.test(m)).length;
   const diesDisjunctions = (s.match(new RegExp(DISJUNCTION_DIES_SRC, "gi")) || []).length
-    + (s.match(new RegExp(DISJUNCTION_PIG_SRC, "gi")) || []).length; // + the artifact wording (Ichor Wellspring)
+    + (s.match(new RegExp(DISJUNCTION_PIG_SRC, "gi")) || []).length // + the artifact wording (Ichor Wellspring)
+    + (s.match(new RegExp(DISJUNCTION_DIES_OR_ANOTHER_ARTIFACT_PIG_SRC, "gi")) || []).length; // + Scrap Trawler's two subjects
   const monstrousDisjunctions = (s.match(new RegExp(DISJUNCTION_MONSTROUS_SRC, "gi")) || []).length;
   const blocksDisjunctions = (s.match(new RegExp(DISJUNCTION_BLOCKS_SRC, "gi")) || []).length; // OR-1 "attacks or blocks"
   const ltbDisjunctions = (s.match(new RegExp(DISJUNCTION_LTB_SRC, "gi")) || []).length; // LV-1 "enters or leaves the battlefield"
@@ -5768,7 +5779,7 @@ export function detectTriggers(cardIn) {
         // controller IS "you", so the two wordings name the same untap step.
         effectClause = "the source creature doesn't untap during its controller's next untap step";
       } else if (cls.event === "etb" && cls.scope === "subtypeYouControl" && cls.subtypeFilter === "Equipment"
-        && /^(you may )?attach that equipment to target creature you control$/i.test(effectClause)) {
+        && /^(you may )?attach (?:that equipment|it) to target creature you control$/i.test(effectClause)) {
         // ⭐ NAZAHN-ATTACH (CAP7 — Hammer of Nazahn: "Whenever [this] or another Equipment you control
         // enters, you may attach THAT EQUIPMENT to target creature you control"). The subtype-ETB lane
         // already detects the condition (subtypeFilter Equipment, the union reduced); "that Equipment" is
@@ -5776,7 +5787,10 @@ export function detectTriggers(cardIn) {
         // sentinel stack.js parses into the self-attach atom's attachFrom:"triggering" variant; the
         // "you may " prefix is preserved for the parser's optional wrapper. Scope+event+filter-gated and
         // whole-clause anchored: a rider stays unrewritten → LOW → Arbiter (safe FN).
-        effectClause = effectClause.replace(/attach that equipment/i, "attach the triggering equipment");
+        // + SIGARDA'S AID (the pw21 recheck's R2 — "Whenever an Equipment you control enters, you may attach IT to target creature you
+        // control."): on an Equipment-enters watcher "it" is the entering Equipment too (CR 608.2c), never the watcher — before, it fell
+        // through to the self-attach atom's source, so the enchantment attached itself and the Equipment stayed where it was.
+        effectClause = effectClause.replace(/attach (?:that equipment|it) /i, "attach the triggering equipment ");
       } else if (cls.event === "combatDamageToCreature" && cls.exileThatCreature) {
         // ⭐ SELF combat-damage EXILE (CAP4) — the destroy twin's third sibling rewrite, identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the
@@ -6292,6 +6306,7 @@ export function detectTriggers(cardIn) {
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        excludeSelf: cls.excludeSelf,         // "ANOTHER artifact you control is put into a graveyard" (artifactYouControlPiG — Scrap Trawler): the watcher's own trip never fires it. ⚠️ Unlisted here = dropped = an artifact watcher fires on itself (Scrap Trawler's death fired both halves)
         onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
         creatureTokensOnly: cls.creatureTokensOnly, // TOKEN-CHANGE (Staff of the Storyteller): fires only for a CREATURE token — unlisted = dropped = fires for a Treasure
         winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
@@ -7557,6 +7572,9 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // Plain-data (the same card object the death look-back carried) — serializes trivially, ignored by every
     // other resolver.
     triggeringCard: triggeringPermanent?.card,
+    // ITS MANA VALUE UNDER A COPY EFFECT (Scrap Trawler's "with lesser mana value" — CR 603.10a, 707.2): a look-back stamped by
+    // layers.lkiCopyManaValueStamp carries the copied value its card does not; absent everywhere else (the card answers).
+    ...(typeof triggeringPermanent?.lkiCopyMv === "number" ? { triggeringCopyMv: triggeringPermanent.lkiCopyMv } : {}),
     // The triggering object's controller — for a self-dies copy the token enters under the DYING creature's
     // last controller (the ability's controller, already threaded as the trigger controller); carried for
     // parity with the id/name/token trio.
@@ -8071,7 +8089,7 @@ export function checkDiesTriggers(state, dead) {
     // lkiTypes (CR 603.10a): the types it had as it last existed — the creature scopes read them (isCreaturePerm), so a crewed
     // Vehicle or an animated land that died fires "whenever a creature dies".
     // + wasAttacking (Kardur, Doomscourge — "an attacking creature dies"): carried only when the death look-back recorded it.
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(Array.isArray(d.lkiSubtypes) ? { lkiSubtypes: d.lkiSubtypes } : {}), ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}), ...lookBackLoss(d) };
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [], lkiTypes: d.lkiTypes, ...(Array.isArray(d.lkiSubtypes) ? { lkiSubtypes: d.lkiSubtypes } : {}), ...(d.wasAttacking ? { wasAttacking: true } : {}), ...(typeof d.lkiFlying === "boolean" ? { lkiFlying: d.lkiFlying } : {}), ...(typeof d.lkiCopyMv === "number" ? { lkiCopyMv: d.lkiCopyMv } : {}), ...lookBackLoss(d) };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so
@@ -8327,7 +8345,7 @@ export function checkLeavesTriggers(state) {
     // + `lkiTypes`: the types it had as it left (CR 603.10a — recorded by gameState.recordLeaveEvent; the type-line audit), so a
     // God below its devotion leaving is not "another creature you control" leaving (Ninth Bridge Patrol, The Ozolith).
     // + `leftToExile` (play-weighted 2026-10-20 — Soulherder's "a creature is exiled from the battlefield"): the exit went to exile.
-    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...(Array.isArray(e.lkiSubtypes) ? { lkiSubtypes: e.lkiSubtypes } : {}), ...lookBackLoss(e) };
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard, ...(e.toExile ? { leftToExile: true } : {}), ...(Array.isArray(e.lkiTypes) ? { lkiTypes: e.lkiTypes } : {}), ...(Array.isArray(e.lkiSubtypes) ? { lkiSubtypes: e.lkiSubtypes } : {}), ...(typeof e.lkiCopyMv === "number" ? { lkiCopyMv: e.lkiCopyMv } : {}), ...lookBackLoss(e) };
     // EARTHBEND-RETURN (CR 603.7) — the animated land's "when it dies or is exiled, return it to the battlefield
     // tapped" delayed trigger. Flag-driven (combat.applyEarthbend set `earthbendReturn`; gameState.recordLeaveEvent
     // carried it + the destination zone onto this look-back). Fire ONLY on a graveyard (dies) or exile exit — never

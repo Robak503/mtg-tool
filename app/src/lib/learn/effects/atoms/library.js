@@ -517,7 +517,7 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   // `keep` defaults to 1, so every single-keep dig behaves exactly as before.
-  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null, keep: Math.max(1, atom.keep || 1), lookedAt: n , chosenTo: atom.chosenTo || "hand", restOrder: atom.restOrder || null });
+  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null, keep: Math.max(1, atom.keep || 1), lookedAt: n , chosenTo: atom.chosenTo || "hand", restOrder: atom.restOrder || null, ...(atom.thenExilePlay ? { thenExilePlay: true } : {}) }); // + Expressive Iteration
 }
 
 /**
@@ -1217,9 +1217,13 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   const extended = atom?.extendedWindow === "nextEndStep"
     ? !(state.activePlayer === controller && state.step !== "end" && state.step !== "cleanup")
     : !!atom?.extendedWindow;
+  // THE FREE PLAY (Urza, Lord High Artificer; Mind's Desire; Oracle's Vault — "you may play that card without paying its mana
+  // cost"): `_impulseFree` rides the same stamp (it comes off with the rest — gameState.withoutImpulseStamps); the action layer
+  // offers the card free at the timing a paid cast would need.
   const stamped = taken.map((c) => ({
     ...c, _impulse: true, _impulseTurn: state.turn,
     ...(extended ? { _impulseExtended: true, _impulseOwner: controller } : {}),
+    ...(atom?.free ? { _impulseFree: true } : {}),
   }));
   const next = {
     ...state,

@@ -129,6 +129,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // collapsed gain+draw template, and Feral Ghoul's rad payoff — so none of them can route off an event
     // that never sets it (an absent referent reads 0, i.e. a silently dropped clause: a forbidden FP).
     if (a?.countContext === "dyingPower" && event !== "dies") return false;
+    // LESSER THAN THE TRIGGERING OBJECT (Scrap Trawler — "target artifact card in your graveyard with lesser mana value"): the cap is the
+    // triggering permanent's last-known mana value, which only a death or a leave look-back supplies (ctx.triggeringCard). Anywhere else
+    // no card is offered and the return silently does nothing — a dropped payoff credited native.
+    if (a?.cardFilter?.mvBelowTriggering && event !== "dies" && event !== "permanentLeaves") return false;
     // DISCARDING-PLAYER (CR 701.9a): the just-discarded player, set ONLY by checkDiscardTriggers. On any
     // other event the referent is unset — and this one fails LOUDLY wrong rather than quietly: the recipient
     // is the controller's OPPONENT, so an unbound "that player loses 2 life" would drain nobody at all.

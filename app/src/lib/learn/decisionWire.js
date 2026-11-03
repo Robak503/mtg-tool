@@ -61,6 +61,8 @@ const PENDING_WIRE_FIELDS = [
   "remaining",
   "victim",
   "restTo",
+  "chosenTo", // impulse-dig — where the pick goes; ImpulseDigPanel words the three-way look's exile pick ("impulseExile") by it
+  "thenExilePlay", // impulse-dig — the three-way look's hand pick (Expressive Iteration): a second pick exiles one of the rest
   "from", // change-target (shelf D14) — the redirected object's current target, { id, name, type, controller }, for the panel's "from" line
   "toZone", // milled-pick — MilledPickPanel's banner switch ("exile": exile from your graveyard; "playFree": Dauthi Voidwalker's free play, P·28)
   "abilityText", // trigger-target (CR 603.3d) — the printed sentence of the triggered ability whose targets you choose

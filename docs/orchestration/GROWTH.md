@@ -13,7 +13,7 @@ rank order across the top 5,000.
 | Month | Corpus (native) | Top 1,000 | Top 2,500 | Top 5,000 | Tests | Releases | Commits |
 |---|---|---|---|---|---|---|---|
 | October 2026 | 15,154 → 15,957 (+803; 44.3% → 46.1%) | 826 → 935 (+109) | 1,653 → 1,904 (+251) | 2,630 → 2,941 (+311) | 17,379 → 23,002 | 8 (v0.162.0 – v0.169.0) | 270 (111 feat, 125 fix, 34 other) |
-| November 2026 (to date, 11-03) | 15,957 → 16,007 (+50; 46.2%) | 935 → 945 (+10) | 1,904 → 1,922 (+18) | 2,941 → 2,961 (+20) | 23,002 → 23,623 | 0 | 11: 4 card slices, 4 engine fixes (the Spirit Guide / Force of Will crash family, the castexplode follow-up, the two Kinnan loop slices), 3 ability-loss groundwork (S0a, S0b, the S0b review's fixes) |
+| November 2026 (to date, 11-03) | 15,957 → 16,014 (+57; 46.3%) | 935 → 950 (+15) | 1,904 → 1,927 (+23) | 2,941 → 2,968 (+27) | 23,002 → 23,717 | 0 | 12: 5 card slices, 4 engine fixes (the Spirit Guide / Force of Will crash family, the castexplode follow-up, the two Kinnan loop slices), 3 ability-loss groundwork (S0a, S0b, the S0b review's fixes) |
 
 ## How each number is measured
 

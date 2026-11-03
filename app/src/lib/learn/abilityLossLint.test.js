@@ -71,7 +71,7 @@ const CHARACTERISTIC_READERS = [
   { fn: "permHasChosenType", defs: ["triggers.js"], reads: "a chosen subtype against the type line" },
   { fn: "cardHasChosenType", defs: ["effects/atoms/library.js", "enterReplacements.js"], reads: "a chosen subtype against the creature types" },
   { fn: "isLand", defs: ["choicePolicy.js", "effects/atoms/library.js", "effects/atoms/zones.js", "effects/runProgram.js", "gameFeatures.js", "legalChoices.js", "mulliganPolicy.js", "trapDetector.js"], reads: "the Land type" },
-  { fn: "isLandCard", defs: ["discardLandToEnter.js", "effects/atoms/hideaway.js", "effects/atoms/shared.js", "manaUntapLine.js"], reads: "the Land type" },
+  { fn: "isLandCard", defs: ["discardLandToEnter.js", "effects/atoms/hideaway.js", "effects/atoms/shared.js", "effects/runProgram.js", "manaUntapLine.js"], reads: "the Land type" }, // + runProgram.autoPickImpulseExile (a library card's front face — pw21)
   { fn: "isLandFront", defs: ["fetchLand.js"], reads: "the front face's Land type" },
   { fn: "isPlaneswalker", defs: ["gameState.js"], reads: "the Planeswalker type" },
   { fn: "castsAsPlaneswalker", defs: ["gameState.js"], reads: "the front face's Planeswalker type" },

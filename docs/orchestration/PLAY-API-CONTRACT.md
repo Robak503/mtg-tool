@@ -10,7 +10,16 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.12.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.13.0"`
+
+> **v1.13.0 (additive MINOR, 2026-11-02 — the play-weighted slice pw21):**
+> - The impulse-dig decision carries `chosenTo` and `thenExilePlay` on the wire: Expressive Iteration asks twice — a hand pick
+>   (`thenExilePlay: true`), then an exile pick among the rest (`chosenTo: "impulseExile"` — exiled, playable this turn; the last card goes
+>   to the bottom). Answers unchanged (a card id).
+> - The milled-pick decision gains `toZone: "battlefieldYours"` (Breach the Multiverse — one creature or planeswalker card per graveyard,
+>   every pick entering together under the chooser's control after the last); a pilot's label reads "Put <card> onto the battlefield under
+>   your control". Answers unchanged (a card id).
+> - A cast from your own exile may carry `freeCast: true` (Urza, Lord High Artificer; Mind's Desire), offered at a paid cast's timing.
 
 > **v1.12.0 (additive MINOR, 2026-11-02 — new fields on existing action kinds; the play-weighted slice pw20):** each rides a kind a
 > driver already handles, so a driver that ignores them plays exactly as before (§3: "Additive fields on actions are MINOR"; §5).

@@ -713,21 +713,27 @@ export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
 export function MilledPickPanel({ decision, onChoose }) {
   // Dauthi Voidwalker's pick (toZone "playFree"): a void-countered card an opponent owns, to play this turn for free.
   const playFree = decision.toZone === "playFree";
+  // Breach the Multiverse's pick (toZone "battlefieldYours"): one creature or planeswalker card from one player's graveyard.
+  const breach = decision.toZone === "battlefieldYours";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner
-        icon={decision.toZone === "exile" ? "🕳️" : playFree ? "✨" : "🃏"}
+        icon={decision.toZone === "exile" ? "🕳️" : playFree ? "✨" : breach ? "🌀" : "🃏"}
         title={decision.toZone === "exile"
           ? `Exile a card from your graveyard${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
           : playFree
             ? `Play a card free${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
-            : `Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+            : breach
+              ? `Choose a card from a graveyard${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
+              : `Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
       >
         {decision.toZone === "exile"
           ? "Their effect makes you exile one card from your graveyard. Choose which."
           : playFree
             ? "Choose an exiled card an opponent owns with a void counter on it. You may play it this turn without paying its mana cost."
-            : "Put one of these just-milled cards into your hand."}
+            : breach
+              ? "Choose a creature or planeswalker card in this graveyard. Every card chosen this way, one from each graveyard, is put onto the battlefield under your control."
+              : "Put one of these just-milled cards into your hand."}
       </ChoiceBanner>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
         {(decision.candidates || []).map((c) => (
@@ -1348,7 +1354,14 @@ export function ImpulseDigPanel({ decision, onChoose }) {
           🔮 Dig{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Top {candidates.length} of your library — keep one in hand. The rest go to the {restWord}.
+          {/* The three-way look (Expressive Iteration): a hand pick, then an exile pick among the rest. */}
+          {decision.chosenTo === "impulseExile" ? (
+            <>Exile one — you may play it this turn. The other goes to the {restWord}.</>
+          ) : decision.thenExilePlay && candidates.length >= 3 ? (
+            <>Top {candidates.length} of your library — put one into your hand. Then you exile one of the others (you may play it this turn); the last goes to the {restWord}.</>
+          ) : (
+            <>Top {candidates.length} of your library — keep one in hand. The rest go to the {restWord}.</>
+          )}
         </div>
       </div>
 

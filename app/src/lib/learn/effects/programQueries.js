@@ -746,5 +746,21 @@ export function programContainsFog(program) {
   const atoms = program.structure === "modal"
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
-  return atoms.some(a => a.op === "fog");
+  // + the combat-only shield on you (Druid's Deliverance — "Prevent all combat damage that would be dealt to you this turn."): cast
+  // outside combat it prevents nothing, so it waits for the same moment a fog does.
+  return atoms.some(a => a.op === "fog" || isCombatShieldOnYou(a));
+}
+const isCombatShieldOnYou = (a) => a?.op === "prevent-next-damage" && a.who === "you" && !!a.combatOnly;
+
+/**
+ * Does the program carry THE COUNTED PREVENTION (Inkshield — a combat-only shield on you that makes a token for each 1 damage it
+ * prevents)? The AI casts it while combat damage is coming at its face at all (every point is a token), never outside combat, where it
+ * prevents nothing; programContainsFog also answers true for it, and the AI's fog gates ask this first.
+ */
+export function programContainsCountedCombatShield(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some((a) => isCombatShieldOnYou(a) && !!a.perPrevented);
 }

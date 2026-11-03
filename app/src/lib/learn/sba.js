@@ -50,7 +50,7 @@ import {
   updatePermanentSafe,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
-import { permanentIsCreature, permanentHasCardType, permanentColorsIfKnown, permanentProtectionColors } from "./layers.js";
+import { permanentIsCreature, permanentHasCardType, permanentColorsIfKnown, permanentProtectionColors, permanentTypes, boardSetsTypes } from "./layers.js";
 import { protectionApplies } from "./protection.js"; // CR 702.16c/d — the one quality matcher (colours and colorless)
 import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
 import { isRoleCard } from "./auraEntry.js"; // the one reading of "a Role" (CR 303.7) — the entry choice and the token copy share it
@@ -137,9 +137,28 @@ function sweepAttachmentLegality(state) {
       }
       if (perm.enchantedPlayerId) continue; // player-aura — legality is the enchanted player's existence
       const type = String(perm.card?.type || perm.card?.type_line || "");
-      const isAura = /\bAura\b/.test(type);
-      const isEquipment = /\bEquipment\b/.test(type);
-      if (!isAura && !isEquipment) continue; // an attachment shape we don't model — leave it alone (CREED)
+      // WHAT THE ATTACHMENT IS NOW: on a board that changes types (layers.boardSetsTypes — a layer-4 type effect, or a layer-1 copy: a
+      // Mizzium Transreliquat that is a Lightning Greaves until end of turn) its layer-aware types; on every other board the printed line,
+      // exactly as before.
+      const nowTypes = boardSetsTypes(next) ? permanentTypes(next, perm.id) : null;
+      const isAura = nowTypes ? nowTypes.subtypes.includes("Aura") : /\bAura\b/.test(type);
+      const isEquipment = nowTypes ? nowTypes.subtypes.includes("Equipment") : /\bEquipment\b/.test(type);
+      const isFortification = nowTypes ? nowTypes.subtypes.includes("Fortification") : /\bFortification\b/.test(type);
+      // CR 704.5p — "If a battle or creature is attached to an object or player, it becomes unattached and remains on the battlefield.
+      // Similarly, if any nonbattle, noncreature permanent that's neither an Aura, an Equipment, nor a Fortification is attached to an
+      // object or player, it becomes unattached and remains on the battlefield." A Transreliquat that was a Greaves when Brass Squire
+      // attached it and is a Solemn Simulacrum now (a creature — CR 301.5c), or whose copy ended at cleanup (an artifact that is no
+      // Equipment), is unattached. Reconfigure's attached Equipment is no creature (CR 702.151b, layers) and a bestowed Aura is handled
+      // above, so neither is touched. Fortifications keep today's behaviour (their legality is not modeled).
+      const isBattle = nowTypes ? nowTypes.types.includes("Battle") : /\bBattle\b/.test(type);
+      if (permanentIsCreature(next, perm.id) || isBattle || (!isAura && !isEquipment && !isFortification)) {
+        const hostId = perm.attachedTo;
+        next = updatePermanentSafe(next, perm.id, (p) => ({ ...p, attachedTo: null }));
+        next = updatePermanentSafe(next, hostId, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
+        next = logEvent(next, { kind: "attachment-unattached", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", reason: "CR 704.5p" });
+        continue;
+      }
+      if (!isAura && !isEquipment) continue; // a Fortification — an attachment shape we don't model; leave it alone (CREED)
       const host = findPermanent(next, perm.attachedTo);
       if (isEquipment) {
         // CR 704.5n — attached to an illegal permanent (or nothing) → becomes unattached, stays on

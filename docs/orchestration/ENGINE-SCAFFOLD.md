@@ -658,6 +658,12 @@ and `gameState.stampTriggeringLki` keeps its record if it leaves before the trig
 `TRIGGERING_LKI_CLAUSE_RE`, and the event to the `damageSource` pin in `triggerRouting`): the entering creature (Warstorm
 Surge), the turned-up creature (Pyrotechnic Performer), and the creature that was dealt damage (Brash Taunter's family — "it
 deals that much damage to …" on the self dealt-damage event, the amount `ctx.dealtDamageAmount`).
+A disjunction over two SUBJECTS (pw21, 2026-11-02 — Scrap Trawler's "Whenever this creature dies or another artifact you control is put
+into a graveyard from the battlefield") splits the same way, to the self dies half and the `artifactYouControlPiG` watcher half;
+`excludeSelf` now rides the built descriptor (it was dropped there, so an artifact watcher of "another artifact" fired on its own trip).
+Its target cap "with lesser mana value" is `cardFilter.mvBelowTriggering`: strictly below the triggering permanent's mana value as it
+last existed — `ctx.triggeringCopyMv` (the look-back's `lkiCopyMv`, under a copy effect) or `ctx.triggeringCard`'s — read by
+`spellEffects.addGraveyardCards`, and pinned by triggerRouting to the dies and permanentLeaves events that supply that card.
 
 **A referent is a scope-gated sentinel (2026-10-17 — the opponent's land, the damaged player's artifacts).** "That player" names
 a different player on every event, so it is never parsed raw: `detectTriggers` rewrites it, gated on the event AND scope that
@@ -834,6 +840,16 @@ ends in `finalizeStackResolution` (flush triggers + drain leave events). There a
 `pendingChoice.js` is the canonical vocabulary (contract-pinned by
 `pendingChoiceKinds.test.js` + `omnathSeam.test.js`; the PLAY-API-CONTRACT list is
 informative, the export is truth).
+**A kind reused for a new destination, and a settler that re-raises (pw21, 2026-11-02).** A choice the existing panels can show is a
+new destination on an existing kind, never a new kind: Expressive Iteration's three-way look is the `impulse-dig` pause twice — a hand
+pick (`thenExilePlay`), then an exile pick among the rest (`chosenTo: "impulseExile"` — the impulse stamp, the last card to the bottom;
+`autoPickImpulseExile` for the AI: a land while a land play is left, else the cheapest spell) — and Breach the Multiverse's one card
+per graveyard is the `milled-pick` pause with `toZone: "battlefieldYours"` (`owner` the graveyard's player, `collected` the picks so
+far, `queue` the players still to choose for; zones.continueEachGraveyardPick enters every pick together after the last). A settler
+that raises the next pause itself carries `pc.resume` onto it (an entering card's own pause takes it too — and the dig's multi-keep
+re-raise now does: without it Flow State's keep-two branch never finished and the spell left the game, CR 608.2n); `chosenTo` and
+`thenExilePlay` are on the wire (decisionWire) so the panel can word each pick. The free impulse play (Urza, Mind's Desire —
+`impulse-exile` with `free`, the `_impulseFree` stamp on your own exile) casts through the free builder, held to a paid cast's timing.
 
 **The resolution window — no state-based action mid-resolution** (2026-10-18, CR 704.3, 704.4, 608.2n). `resolveTopOfStack` opens
 `gameState.openResolutionWindow` before the resolver runs; `finalizeStackResolution` closes it just before its
@@ -1605,6 +1621,43 @@ last two bullets below.
     Skeleton in response is not put onto the battlefield.
     The S2 rulings name the case: each S2 Aura "may enchant a permanent that is only temporarily a creature, such as a Vehicle", and the
     permanent stays a creature after the temporary effect ends (its own setCardTypes, later in timestamp order).
+  - **a board with a become-copy (pw21, 2026-11-02)** — `boardSetsTypes` is also true while any layer-1 copy effect is on the board
+    (`boardCopyEffects` — Mizzium Transreliquat, Thespian's Stage, Shifting Woodland, Impossible Man): such a permanent's card types
+    are the copy's (CR 707.2, 613.1a), so the routed readers above read its derived line (a Shifting Woodland that became a Sol Ring
+    leaves as an artifact — Titania sees no land die). `boardSetsSubtypes` (the derive-internal test) is unchanged. Beside it:
+    `copiableBaseOf(state, perm)` (copyBaseOf, exported — a become-copy snapshots a target that is itself copying something as what it
+    copies, CR 707.3), `boardHasCopyEffect(state)` (the one board test a reader of a permanent's OWN abilities asks before reading
+    `copiableBaseOf(...).card` — legalChoices' two activated lanes, which drop a copy's Equip / Reconfigure (below); manaModel's
+    `manaCardOf` and now `ownManaCardOf`, the extra lines, the line's cost — a Transreliquat that is an Azorius Signet pays its {1} —
+    and the self untap lock), and `lkiCopyManaValueStamp(state, id)` → `{ lkiCopyMv }`, the copied mana value a death or leave
+    look-back carries when a copy effect named the permanent (Scrap Trawler's cap — CR 603.10a; save format v11).
+    ⛔ **THE COPY IS NOT READ EVERYWHERE YET — the copy-read-everywhere slice (why The Mycosynth Gardens is parked, land-partial).** These
+    still read the printed card of a permanent that became a copy: `liveTriggerCard` (triggers.js — its triggered abilities: Solemn
+    Simulacrum's dies trigger), `staticEffectsOf` (layers.js — its statics: Howling Mine, Coat of Arms; it runs inside
+    `rawContinuousEffects`, which fills the copy memo, so it must read the stored layer-1 effects directly), `selfPreventsUntap`
+    (gameState.js — Grim Monolith's "doesn't untap"), the attached bonus (layers.js — an Equipment's grant, `parseAttachedBonus` of the
+    attachment's card), `effectiveTypeIdentity`'s seed types (layers.js — Urborg gives a Sol Ring copy a Swamp subtype, Nature's
+    Revolt makes it a creature), and `applyLegendRule` (gameState.js — the printed name and supertype: a copy of Mox Amber beside a Mox
+    Amber is not put into the graveyard). Until those readers take the copy, legalChoices' `copyPayoffUnread` keeps a copy's
+    abilities whose payoff they would miss out of its activated lane: Equip / Reconfigure (the attached bonus — the pw21 review's F2),
+    level up and a Class's level-up (the LEVEL statics, `classLiveCard` — its recheck's R1: a Woodland that is a Wizard Class paid
+    {2}{U} and drew nothing), Monstrosity and Adapt (the "becomes monstrous" / "+1/+1 counters are put on" payoffs; Adapt left out whole,
+    an under-offer where the copied card has no payoff). Brass Squire can still attach an Equipment copy (its "target Equipment you
+    control" reads the copy's types) and it grants nothing. The Gardens' own noun ("target nontoken artifact you control with mana value X" — a `manaValue` restriction
+    with `op: "="` and `valueX`, the activated {X} lane walking X from 0, abilities.js's matching `costXTargetsReadX`) was built and
+    removed with the park; the design is in the pw21 RUN-LEDGER entry.
+  - **CR 704.5p (pw21)** — `sba.js` `sweepAttachmentLegality`: an attached permanent that is a creature or a battle, or is neither an
+    Aura, an Equipment nor a Fortification, becomes unattached and stays (a Transreliquat whose copy of a Greaves ended at cleanup, or
+    that became a Solemn Simulacrum while attached). Its types are read layer-aware on a board that sets types (`boardSetsTypes`), the
+    printed line otherwise; reconfigure's attached Equipment is no creature (CR 702.151b) and a bestowed Aura is handled before it.
+    The first A/B to run it found Sigarda's Aid attached to a creature by its own trigger: triggers.js's equipment-enters rewrite
+    (`event: "etb"`, `scope: "subtypeYouControl"`, `subtypeFilter: "Equipment"`) turned only Hammer of Nazahn's "attach that Equipment"
+    into the triggering-equipment sentinel, so the Aid's "attach it" reached the self-attach atom's source. It now reads "attach it"
+    there as the triggering Equipment too (pw21's recheck, R2).
+  - **a creature type only while a creature (pw21 — Breach the Multiverse)**: a layer-4 add with `op.creatureSubtypesOnly` contributes
+    its subtypes after the whole layer-4 pass, and only to an object whose final types include Creature (or Kindred) — the derive's
+    `applyTypeColorLayers` and the recursion-free `effectiveTypeIdentity` alike (CR 205.3d; the ruling: "Any of them that stops being a
+    creature will also stop being a Phyrexian until it becomes a creature again").
   - **the S1 recheck's R1** — `starCdaStats` reads `STAR_CDA_PATTERNS` (exported; the twin tool imports the same two): "is" / "are" and
     "each" optional, so Drop Bear's "has power and toughness each equal to" and Lydari Elephant's "… and its toughness equal to" are
     read. Over the bundled corpus the widening reads three more "*" stats, each a P/T-defining ability (those two and 1996 World
@@ -2351,6 +2404,11 @@ The offer side changed once for it: a required target with more than 64
 candidates lists the players first (`targeting.playersFirstOverCap`), so a face
 target survives the option cap on a wide board.
 
+**A pw21 lane (2026-11-02).** A FREE PLAY IS AN ORDINARY CAST: `actionsPlayImpulseFromExile` holds a `_impulseFree` card (yours —
+Urza, Mind's Desire; an opponent's — Dauthi Voidwalker) to the timing a paid cast of it needs before the free builder (which skips
+timing for casts made during a resolution). (The activated {X} lane for a target whose legality reads X — The Mycosynth Gardens — was
+removed with the Gardens' park; see the become-copy note in the layer section.)
+
 **The mana-untap line (`manaUntapLine.js`, added 2026-10-03).** Colton's rules:
 Candelabra of Tawnos / Magus of the Candelabra ("{X}, {T}: Untap X target lands")
 exist to untap Gaea's Cradle or a land carrying mana enchantments — "if it
@@ -3072,6 +3130,14 @@ replacement byte-identical). What it reads, and the seams a new carrier rides:
   combat half off and the affected player orders it first beside a doubler. A prevented hit deals nothing: no mark, no
   lifelink gain, no deathtouch kill (both funnels skip a 0). An "attacking" or "other" group with no controller, a duration,
   or any other qualifier stays unread.
+- **The counted prevention (pw21 — Inkshield, 2026-11-02)**: a PV-1 "you" shield may carry `combatOnly` (consumed only by the combat
+  step — `consumePreventionShields`, the noncombat path, passes over it; Druid's Deliverance too) and `perPrevented` + `controller` (the
+  create-token atom the prevention performs per 1 damage, CR 615.5). In `consultCombat` a player-target deal its counted shield covers is
+  settled FIRST: the consult with its preventions skipped and the order that leaves the MOST (`event.skipPrevention`, `event.maximize` —
+  `chooseOrder`'s max mode), then the shield (counted shields lead `pvConsume`'s order) — the CR 616.1 order its ruling gives the player,
+  after every increase and before the players-only fog, the dealer's walls, the consult's preventions and the other shields. The step's
+  tally (`prevented` on the local pool, stripped at write-back) becomes that many tokens after the deals, per step. Under a whole-turn
+  Fog the step is skipped before any deal is computed (the Fog applied first — a legal order, an under-delivery of tokens).
 - **Stored replacements** (CR 611.2a): `state.damageReplacementEffects` — created by a resolved ability (Lightning, Army of
   One's Stagger: `effects/atoms/misc.applyDamageReplacementUntilNextTurn`, `recipientPlayerSide`), read beside the statics,
   ended at the creator's next untap step (`gameState.expireDamageReplacementEffects`) or when the creator leaves the game.

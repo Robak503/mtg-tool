@@ -303,9 +303,15 @@ function boardSetsSubtypes(state) {
  * one (Lignify's "is a Treefolk") a Goblin no Goblin. On a board with a `setCardTypes` or `replaceCreatureTypes` effect those readers
  * ask the layer-aware ones (permanentHasTypeWord, permanentHasCardType); on every other board they read the printed line exactly as
  * before. Recursion-free (the raw layer-4 list) — never call it to decide a derive's own input.
+ * + A LAYER-1 COPY EFFECT on the board (a permanent that BECAME a copy — Mizzium Transreliquat, Thespian's Stage, Shifting Woodland,
+ * Impossible Man; CR 707.2, 613.1a): its card types are the copy's, not its printed line's — a Shifting Woodland that became a Sol Ring
+ * is an artifact and no land, so "Sacrifice a land", a return-a-land cost or a land condition must not see it as one. The raw layer-1
+ * list (boardCopyEffects), recursion-free like the layer-4 test. (An entering clone's card is its copy, so its printed line already
+ * answers.) ⛔ Only the routed type readers: the copy's statics, triggers, untap lock, Equipment grant and legendary name are still read
+ * off the printed card (the copy-read-everywhere slice — RUN-LEDGER, pw21; why The Mycosynth Gardens is parked).
  */
 export function boardSetsTypes(state) {
-  return !!state && boardSetsSubtypes(state);
+  return !!state && (boardSetsSubtypes(state) || boardCopyEffects(state).length > 0);
 }
 /**
  * A LOOK-BACK'S SUBTYPES (CR 603.10a — "the permanent as it last existed"), on a board that sets types: `{ lkiSubtypes }` = the subtypes
@@ -316,6 +322,34 @@ export function boardSetsTypes(state) {
  */
 export function lkiSubtypesStamp(state, permanentId) {
   return boardSetsTypes(state) && findPerm(state, permanentId) ? { lkiSubtypes: [...permanentTypes(state, permanentId).subtypes] } : {};
+}
+/**
+ * THE PERMANENT OVER ITS COPIABLE VALUES (CR 707.2, 613.1a) — copyBaseOf, exported for a become-copy's snapshot: what a copy effect
+ * copies of a permanent that is itself copying something (CR 707.3 — "Objects that copy the object will use the new copiable values":
+ * a Mizzium Transreliquat copying another that became a Mind Stone becomes a Mind Stone). The permanent itself when nothing copies it.
+ */
+export function copiableBaseOf(state, perm) {
+  return perm ? copyBaseOf(state, perm) : perm;
+}
+/** Is there a layer-1 copy effect anywhere on the board (a permanent that became a copy)? The memoized raw list — the board test a
+ *  reader of a permanent's own abilities asks once before reading copiableBaseOf per permanent. */
+export function boardHasCopyEffect(state) {
+  return !!state && boardCopyEffects(state).length > 0;
+}
+/**
+ * A LOOK-BACK'S MANA VALUE UNDER A COPY EFFECT (CR 603.10a, 707.2 — Scrap Trawler's rulings: "Use the artifact's mana value as it last
+ * existed on the battlefield"; "If an artifact is a copy of another artifact with greater mana value … Scrap Trawler's ability can target
+ * that artifact card"): `{ lkiCopyMv }` = the mana value of the copiable values a layer-1 copy effect gave the permanent (becomeCopy —
+ * Mizzium Transreliquat), read while it is still on the battlefield. An entering clone's card IS its copied
+ * snapshot, so its card already answers; with no copy effect naming it nothing is written and the look-back's card answers, as before.
+ */
+export function lkiCopyManaValueStamp(state, permanentId) {
+  if (!state || boardCopyEffects(state).length === 0) return {};
+  const perm = findPerm(state, permanentId);
+  if (!perm) return {};
+  const base = copyBaseOf(state, perm);
+  if (base === perm || !base?.card) return {};
+  return { lkiCopyMv: Number(base.card.cmc ?? base.card.mana_value ?? 0) || 0 };
 }
 /** Card types (its supertypes among them, as the derive lists them) and subtypes joined as a type line: "Legendary Creature — Elk". */
 function joinTypeLine(types, subtypes) {
@@ -1811,6 +1845,7 @@ function effectiveTypeIdentity(candidate, state) {
   let allTs = -Infinity;
   let setTs = -Infinity;
   let changelingOverridden = false;
+  const creatureOnlySubtypes = []; // Breach the Multiverse — added after the pass, only to a creature (CR 205.3d)
   for (const e of board) {
     // SET CARD TYPES / REPLACE EVERY CREATURE TYPE (the ability-loss program's two layer-4 prerequisites — Kenrith's Transformation's
     // "is a green Elk creature", Lignify's "is a Treefolk", Imprisoned in the Moon's "is a colorless land … loses all other card
@@ -1912,8 +1947,10 @@ function effectiveTypeIdentity(candidate, state) {
       setTs = Math.max(setTs, e.timestamp ?? 0);
     }
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
+    if (e.op?.creatureSubtypesOnly) { for (const st of e.op.subtypes || []) creatureOnlySubtypes.push(String(st).toLowerCase()); continue; } // the derive's rule (Breach)
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
   }
+  if (creatureOnlySubtypes.length && (types.includes("Creature") || types.includes("Kindred") || types.includes("Tribal"))) subtypes.push(...creatureOnlySubtypes);
   // Only a creature takes a creature type (CR 205.3d): Maskwood's grant reaches every permanent its controller controls in the loop
   // above, so a noncreature artifact beside it must be turned away here.
   return { types, subtypes, everyCreatureType: types.includes("Creature") && allTs > setTs, changelingOverridden };
@@ -2655,6 +2692,7 @@ function applyTypeColorLayers(perm, l4In, l5, state) {
   let types = new Set(cardTypesOf(perm.card));
   let subtypes = new Set(subtypesOf(perm.card));
   let changelingOverridden = false;
+  const creatureOnlySubtypes = []; // Breach the Multiverse — added after the layer-4 pass, only to a creature (CR 205.3d)
   const l4 = sortLayer4(l4In);
   for (const e of l4) {
     // SET CARD TYPES (CR 205.1a — "the new card type(s) replaces any existing card types"): the supertypes stay, and a subtype stays
@@ -2716,8 +2754,12 @@ function applyTypeColorLayers(perm, l4In, l5, state) {
       continue;
     }
     for (const t of e.op.types || []) types.add(t);
+    // A CREATURE TYPE ONLY WHILE A CREATURE (Breach the Multiverse — `creatureSubtypesOnly`, CR 205.3d; the ruling: "Any of them that stops
+    // being a creature will also stop being a Phyrexian until it becomes a creature again"): decided after every layer-4 effect, below.
+    if (e.op.creatureSubtypesOnly) { for (const st of e.op.subtypes || []) creatureOnlySubtypes.push(st); continue; }
     for (const st of e.op.subtypes || []) subtypes.add(st);
   }
+  if (creatureOnlySubtypes.length && (types.has("Creature") || types.has("Kindred") || types.has("Tribal"))) for (const st of creatureOnlySubtypes) subtypes.add(st);
   // Layer 5 (CR 613.1e) over the front-face seed — the applier boardCountColors shares.
   const colors = applyColorLayer(permanentPrintedColors(perm.card), l5);
   return { types: [...types], subtypes: [...subtypes], colors, everyCreatureType: everyCreatureTypeFrom(l4, types.has("Creature")), changelingOverridden };

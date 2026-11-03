@@ -593,6 +593,20 @@ export function matchImpulseExilePlay(oracle) {
   if (s === "exile the top card of that player's library. until end of turn, you may cast that card") {
     return { atom: { op: "impulse-exile", targetType: null, who: "damagedPlayer" } };
   }
+  // THE FREE PLAY (the play-weighted program — Urza, Lord High Artificer #805 "{5}: Shuffle your library, then exile the top card.
+  // Until end of turn, you may play that card without paying its mana cost."; Mind's Desire #3619 "Shuffle your library. Then exile
+  // the top card of your library. Until end of turn, you may play that card without paying its mana cost."; Oracle's Vault's "{T}:
+  // Exile the top card of your library. Until end of turn, you may play that card without paying its mana cost."): the same
+  // this-turn impulse stamp with `free` — actionsPlayImpulseFromExile offers a nonland cast without paying its mana cost (CR 118.9:
+  // no alternative cost beside it, X is 0, additional costs still paid — the shared free-cast builder) at the timing a paid cast of
+  // it would need (Urza's ruling: "Urza's last ability doesn't change when you can play the exiled card"), and a land as a land
+  // play (a land has no mana cost; it still takes the land drop, CR 305.2). The leading shuffle is the `shuffle` atom, run first.
+  // One card only, "that card", "until end of turn" leading — the three printed forms; every other free wording keeps parking.
+  const free = s.match(/^(shuffle your library, then exile the top card|shuffle your library\. then exile the top card of your library|exile the top card of your library)\. until end of turn, you may play that card without paying its mana cost$/);
+  if (free) {
+    const impulse = { op: "impulse-exile", targetType: null, free: true };
+    return free[1].startsWith("shuffle") ? { atoms: [{ op: "shuffle", targetType: null }, impulse] } : { atom: impulse };
+  }
   const m = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards)(?: this turn| until end of turn)|until end of turn, you may play (?:that card|it|them|those cards))$/);
   if (m) {
     const word = m[1] === "card" ? "one" : m[1].split(" ")[0];
@@ -620,6 +634,21 @@ export function matchImpulseExilePlay(oracle) {
   const eWord = e[1] === "card" ? "one" : e[1].split(" ")[0];
   const eCount = NUM[eWord] || 1;
   return { atom: { op: "impulse-exile", targetType: null, ...(eCount > 1 ? { count: eCount } : {}), extendedWindow: true } };
+}
+
+/**
+ * ===== THE THREE-WAY LOOK (the play-weighted program — Expressive Iteration #878) ===== "Look at the top three cards of your
+ * library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the
+ * exiled card this turn." ONE impulse-dig atom over the whole text (the sentences refer to one looked-at set, which the sentence split
+ * would orphan): the dig's pick goes to the hand, then — `thenExilePlay` — a second pick among the other two is exiled with the
+ * this-turn play permission (the impulse stamp, CR 601.3), and the last card goes to the bottom. Fewer than three cards: the
+ * instructions in the order given for the cards there (the card's ruling) — two cards, one to the hand and one to the bottom, no
+ * exile; one card, to the hand. The exact printed text only. Returns { atom }.
+ */
+export function matchLookThreeSplit(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (s !== "look at the top three cards of your library. put one of them into your hand, put one of them on the bottom of your library, and exile one of them. you may play the exiled card this turn") return null;
+  return { atom: { op: "impulse-dig", amount: 3, keep: 1, restTo: "bottom", chosenTo: "hand", thenExilePlay: true, targetType: null } };
 }
 
 /**

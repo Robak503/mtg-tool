@@ -314,7 +314,7 @@ export function setPendingImprintChoice(state, { controller, candidates, sourceI
  * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
  * it detects the pause. FIFO: one choice at a time.
  */
-export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null, chosenTo = "hand", restOrder = null, sourceId = null }) {
+export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null, chosenTo = "hand", restOrder = null, sourceId = null, thenExilePlay = false }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName, keep });
   return {
@@ -335,9 +335,12 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       // CORPUS ④-C (Kinnan): where the pick goes ("hand" | "battlefield") and how the rest are bottomed (null = printed
       // order | "random" = a seeded shuffle). Threaded explicitly — an unlisted field is a silent drop.
       // K7 (Make Your Own Luck): "plotExile" — the pick leaves for exile carrying the plot stamp (runProgram settles it).
-      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : chosenTo === "freeCastExile" ? "freeCastExile" : chosenTo === "top" ? "top" : chosenTo === "hideawayExile" ? "hideawayExile" : "hand", // + "top" (Thassa's Oracle, KN-1): the pick STAYS on top
+      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : chosenTo === "freeCastExile" ? "freeCastExile" : chosenTo === "top" ? "top" : chosenTo === "hideawayExile" ? "hideawayExile" : chosenTo === "impulseExile" ? "impulseExile" : "hand", // + "top" (Thassa's Oracle, KN-1): the pick STAYS on top
       restOrder: restOrder === "random" ? "random" : null,
       ...(sourceId != null ? { sourceId } : {}), // P·10 — HIDEAWAY links the hidden card to this permanent
+      // THE THREE-WAY LOOK (Expressive Iteration): this pick goes to the hand, then a second pick among the rest is exiled with the
+      // this-turn play permission (chosenTo "impulseExile") and the last card goes to the bottom — the settler raises that pick.
+      ...(thenExilePlay ? { thenExilePlay: true } : {}),
     },
   };
 }
@@ -861,7 +864,7 @@ export function setPendingOptionalDiscardPaymentChoice(state, { controller, avai
  * applier). The driver pauses a human and auto-picks the FIRST candidate for an AI (deterministic).
  * resolveMilledPickChoice moves the chosen card graveyard → hand. FIFO.
  */
-export function setPendingMilledPickChoice(state, { controller, candidates = [], sourceName = null, toZone = "hand", owner = null }) {
+export function setPendingMilledPickChoice(state, { controller, candidates = [], sourceName = null, toZone = "hand", owner = null, collected = null, queue = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "milled-pick-pending", controller, count: candidates.length, sourceName, toZone, ...(owner && owner !== controller && { owner }) });
   return {
@@ -871,7 +874,10 @@ export function setPendingMilledPickChoice(state, { controller, candidates = [],
     // T7 (2026-09-04): `owner` — whose graveyard the candidates sit in and whose hand receives the pick, when that is
     // NOT the chooser (Tasigur "a nonland card of an opponent's choice": the opponent chooses, the controller
     // receives). Absent → the chooser's own zones, every prior pause unchanged.
-    pendingChoice: { kind: "milled-pick", controller, candidates, sourceName, toZone, ...(owner && owner !== controller && { owner }) },
+    // + Breach the Multiverse (toZone "battlefieldYours"): `collected` — the cards chosen so far, one per player ({ owner, id, name });
+    // `queue` — the players still to choose for, each with its candidates. Listed explicitly (an unlisted field is a silent drop).
+    pendingChoice: { kind: "milled-pick", controller, candidates, sourceName, toZone, ...(owner && owner !== controller && { owner }),
+      ...(Array.isArray(collected) ? { collected: collected.map((p) => ({ ...p })) } : {}), ...(Array.isArray(queue) ? { queue: queue.map((q) => ({ owner: q.owner, candidates: [...q.candidates] })) } : {}) },
   };
 }
 

@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -156,6 +156,16 @@ export const MIGRATIONS = {
   // So a v9 save needs no backfill; this migration only stamps the version forward, as v8 → v9 does — and a v9 build refuses a v10
   // save (migrate throws on a newer version) instead of reading `doesNotUntapNext: "user"` as `true` and dropping the rest. (CONTRACT-MIG.)
   9: (doc) => ({ ...doc, schemaVersion: 10 }),
+
+  // v10 → v11 — the play-weighted slice pw21 (2026-11-02). New, optional stored fields, each absent on every older save and each meaning
+  // there what an older game already did: a leave event on `pendingLeaveEvents` (gameState.recordLeaveEvent) and a pending trigger's
+  // context may carry `lkiCopyMv` / `triggeringCopyMv` — the mana value of a permanent that left while a layer-1 copy effect named it
+  // (layers.lkiCopyManaValueStamp, CR 603.10a, 707.2; Scrap Trawler's cap — absent: its card's mana value answers); a prevention shield
+  // may carry `combatOnly` and `perPrevented` + `controller` (Inkshield, Druid's Deliverance); an impulse-dig pause `thenExilePlay` or
+  // chosenTo "impulseExile" (Expressive Iteration); a milled-pick pause toZone "battlefieldYours" with `collected` and `queue` (Breach the
+  // Multiverse); an exiled card of your own `_impulseFree` (Urza, Mind's Desire). No backfill: this migration stamps the version only.
+  // (CONTRACT-MIG.)
+  10: (doc) => ({ ...doc, schemaVersion: 11 }),
 };
 
 export class SaveMigrationError extends Error {

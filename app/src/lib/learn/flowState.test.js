@@ -22,7 +22,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
-import { parseEffectClause } from "./effects/parser.js";
+import { parseEffectClause, parseEffectProgram } from "./effects/parser.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -47,9 +47,15 @@ describe("the carrier and the shape", () => {
     expect(row.branchOn).toBe("there is an instant card and a sorcery card in your graveyard");
   });
 
-  it("⛔ the narrow gate does not over-claim: Expressive Iteration's three-way split stays parked", () => {
-    expect(classifyCard({ id: "c-ei", name: "Expressive Iteration", type: "Sorcery", mana: "{U}{R}",
-      oracle: "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn." })).toBe("arbiter-spell");
+  // GRADUATED (pw21, 2026-11-02): Expressive Iteration was this gate's parked control. It plays now through its OWN reader — the
+  // three-way look (templateMatchers.matchLookThreeSplit: one impulse-dig with the exile-and-play second pick, lookThreeSplit.test.js) —
+  // and the pin keeps its job: Flow State's look-inherit gate never reads it (no conditional, no keep:2).
+  it("⛔ the narrow gate does not over-claim: Expressive Iteration is read by its own three-way reader, never as this gate's keep", () => {
+    const ei = { id: "c-ei", name: "Expressive Iteration", type: "Sorcery", mana: "{U}{R}",
+      oracle: "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn." };
+    expect(classifyCard(ei)).toBe("native-spell");
+    const atoms = parseEffectProgram(ei)?.atoms || [];
+    expect(atoms.map((a) => ({ op: a.op, keep: a.keep, then: !!a.thenExilePlay }))).toEqual([{ op: "impulse-dig", keep: 1, then: true }]);
   });
 });
 

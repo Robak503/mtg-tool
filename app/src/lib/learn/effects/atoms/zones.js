@@ -532,6 +532,72 @@ function enterCardsTogether(state, entries) {
   return { state: next, results: results.map(({ permanent: _p, ...rest }) => rest) };
 }
 
+/**
+ * ===== ONE CARD FROM EACH GRAVEYARD (the play-weighted program — Breach the Multiverse #874: "For each player, choose a creature or
+ * planeswalker card in that player's graveyard. Put those cards onto the battlefield under your control.") ===== Not targeted: the
+ * caster chooses as the spell resolves (CR 608.2c), one card per player whose graveyard holds a matching card (the front face's types,
+ * CR 712.8a — cardMatchesGraveyardFilter). A lone candidate is no choice; two or more pause through the milled-pick (toZone
+ * "battlefieldYours", the graveyard's `owner`, the picks so far as `collected` and the players still to choose for as `queue`) — a
+ * person picks on the panel, the AI takes the first candidate, listed most mana value first. Every choice is made before any card
+ * moves, then all of them enter as ONE event under the caster's control (enterCardsTogether — CR 603.6a: each newcomer's enters
+ * triggers see the others), owners kept (CR 110.2). The ruling: "The cards you choose can be ones that were just milled or ones that
+ * were already in the graveyard."
+ */
+function eachGraveyardCandidates(state, pid, cardFilter) {
+  const mv = (c) => (typeof c?.cmc === "number" ? c.cmc : typeof c?.mana_value === "number" ? c.mana_value : 0);
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return (state.players?.[pid]?.graveyard || [])
+    .filter((c) => !c.token && cardMatchesGraveyardFilter(c, cardFilter, state, pid))
+    .sort((a, b) => mv(b) - mv(a) || cmp(String(a.name || ""), String(b.name || "")) || cmp(String(a.id || ""), String(b.id || "")))
+    .map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" }));
+}
+function applyEachGraveyardPutOne(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state;
+  const seats = Object.keys(state.players);
+  const start = Math.max(0, seats.indexOf(controller));
+  const order = [...seats.slice(start), ...seats.slice(0, start)]; // the caster first, then turn order
+  const collected = [];
+  const queue = [];
+  for (const pid of order) {
+    const cands = eachGraveyardCandidates(state, pid, atom.cardFilter);
+    if (cands.length === 1) collected.push({ owner: pid, id: cands[0].id, name: cands[0].name });
+    else if (cands.length > 1) queue.push({ owner: pid, candidates: cands });
+  }
+  return continueEachGraveyardPick(state, { controller, collected, queue, sourceName: ctx.cardName || null });
+}
+/** Raise the next player's pick, or — every choice made — put the chosen cards onto the battlefield together (see above). */
+export function continueEachGraveyardPick(state, { controller, collected = [], queue = [], sourceName = null, resume = null }) {
+  if (queue.length) {
+    const [first, ...rest] = queue;
+    const paused = setPendingMilledPickChoice(state, { controller, candidates: first.candidates, sourceName, toZone: "battlefieldYours", owner: first.owner, collected, queue: rest });
+    return resume && paused.pendingChoice ? { ...paused, pendingChoice: { ...paused.pendingChoice, resume } } : paused;
+  }
+  // A chosen card still in its owner's graveyard, an owner still in the game (CR 800.4a — a leaver's graveyard left with them).
+  const entries = collected
+    .filter((p) => (state.players?.[p.owner]?.graveyard || []).some((c) => c.id === p.id))
+    .map((p) => ({ playerId: controller, cardId: p.id, fromZone: "graveyard", fromPlayerId: p.owner }));
+  const { state: next, results } = enterCardsTogether(state, entries);
+  return logEvent(next, { kind: "spell-effect", effect: "each-graveyard-put-onto-battlefield", controller, entered: results.filter((r) => r.entered).map((r) => r.cardId) });
+}
+
+/**
+ * ===== EACH CREATURE YOU CONTROL BECOMES A <TYPE> IN ADDITION (Breach the Multiverse — "Then each creature you control becomes a
+ * Phyrexian in addition to its other types.") ===== A continuous effect from a resolving spell (CR 611.2c — it affects the creatures
+ * you control as it resolves, the newcomers included, and no later one), lasting while each stays on the battlefield (a later object is
+ * a new one, CR 400.7): the creature type in layer 4 (CR 613.1d) on those permanents, applied only while each is a creature
+ * (`creatureSubtypesOnly`, CR 205.3d — the ruling: "Any of them that stops being a creature will also stop being a Phyrexian until it
+ * becomes a creature again"). The word must be a creature type (CR 205.3m — the closed vocabulary).
+ */
+function applyAddCreatureTypeEachYouControl(state, atom, ctx) {
+  const controller = ctx.controller;
+  const ids = (state.players?.[controller]?.battlefield || []).filter((p) => permanentIsCreature(state, p.id)).map((p) => p.id);
+  if (!ids.length || !atom.subtype) return logEvent(state, { kind: "spell-effect", effect: "add-creature-type-each-you-control", controller, subtype: atom.subtype || null, affected: [] });
+  const next = addContinuousEffect(state, { layer: 4, op: { subtypes: [atom.subtype], creatureSubtypesOnly: true }, affects: { mode: "fixed", permanentIds: ids },
+    duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
+  return logEvent(next, { kind: "spell-effect", effect: "add-creature-type-each-you-control", controller, subtype: atom.subtype, affected: ids });
+}
+
 // Mana value of a graveyard Card (CR 202.3) — cmc/mana_value when present (Scryfall cards carry cmc), else a
 // pip sum ({X}=0, generic-hybrid = its number, everything else = 1). Local leaf (zones.js can't import the
 // sibling library.tutorManaValue without a cycle) — mirrors it for the REANIMATE-DRAIN MV stamp.
@@ -969,6 +1035,18 @@ export function graveyardReturnClauseParser(clause) {
   // ctx.triggeringCardId (stamped by makePendingTrigger); with the referent ABSENT (the activated
   // path — targets chosen before the sacrifice is paid, CR 601.2b — or the ETB half) the source
   // card cannot be in the pool, so the exclusion deliberately no-ops (see the enumeration note).
+  // LESSER THAN THE TRIGGERING OBJECT (the play-weighted program — Scrap Trawler #870: "… return to your hand target artifact card in
+  // your graveyard with lesser mana value."): the cap is the mana value of the permanent whose death or graveyard trip triggered the
+  // ability, as it last existed on the battlefield (its ruling; CR 603.10a) — a copy's copied value (the second ruling, Sculpting Steel),
+  // X counting 0 (the third, CR 107.3). `mvBelowTriggering` rides the filter into the enumeration (spellEffects.addGraveyardCards reads
+  // the trigger context's triggering card and its copy stamp); triggerRouting routes it only off the events that supply that object
+  // (dies, permanentLeaves). The filter word goes through parseGraveyardFilter like every return-to-hand arm.
+  const lesserM = /^return to your hand target (.*?)card in your graveyard with lesser mana value$/.exec(t);
+  if (lesserM) {
+    const typeFilter = parseGraveyardFilter(lesserM[1].trim());
+    if (typeFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { typeFilter, mvBelowTriggering: true } };
+    return null;
+  }
   const anotherM = /^return another target (.*?)card from your graveyard to your hand$/.exec(t);
   if (anotherM) {
     const cardFilter = parseGraveyardFilter(anotherM[1]);
@@ -2332,6 +2410,8 @@ function applyReturnAttachedFromGraveyard(state, atom, ctx) {
 }
 
 export const zoneResolvers = {
+  "each-graveyard-put-onto-battlefield": applyEachGraveyardPutOne, // Breach the Multiverse — one creature or planeswalker card from each graveyard, entering together under your control
+  "add-creature-type-each-you-control": applyAddCreatureTypeEachYouControl, // Breach the Multiverse — each creature you control becomes a Phyrexian in addition
   "return-attached-from-graveyard": applyReturnAttachedFromGraveyard, // shelf D41 — Mantle of the Ancients
   "gy-cast-permission": applyGyCastPermission, // shelf D30 — Emry's "you may cast that card this turn" (a permission by card id)
   "gy-batch-to-battlefield": applyGyBatchToBattlefield, // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield"

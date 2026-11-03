@@ -240,13 +240,15 @@ describe("cast-spell", () => {
     // JOB is the cast→low→Arbiter payload ordering and it needs a GENUINELY-unmodeled oracle;
     // Expressive Iteration's three-way top-3 split (hand/bottom/exile-play) is deliberately
     // unmodeled (the Telling Time class) and verified arbiter-spell the same day.
-    const unmodeled = { ...card("Expressive Iteration", "Sorcery", "{U}{R}"), oracle: "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn." };
+    // ⚠️ ROTATED AGAIN 2026-11-02 (pw21): Expressive Iteration plays now (the three-way look). Fact or Fiction — an OPPONENT separates
+    // the revealed cards into two piles — is genuinely unmodeled (arbiter-spell, lookThreeSplit.test.js's control), and an instant.
+    const unmodeled = { ...card("Fact or Fiction", "Instant", "{3}{U}"), oracle: "Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one pile into your hand and the other into your graveyard." };
     let state = withHand(stateWith(), [unmodeled]);
-    state = withMana(state, { U: 1, R: 1 });
+    state = withMana(state, { U: 4 });
 
     state = dispatchAction(state, {
-      kind: "cast-spell", playerId: "user", cardId: unmodeled.id, name: "Expressive Iteration",
-      cost: parseManaCost("{U}{R}"), cmc: 2,
+      kind: "cast-spell", playerId: "user", cardId: unmodeled.id, name: "Fact or Fiction",
+      cost: parseManaCost("{3}{U}"), cmc: 4,
     });
     expect(state.stack[0].payload.resolver).toBe(RESOLVER_KEYS.EFFECT_PROGRAM);
     expect(state.stack[0].payload.params.program.confidence).toBe("low");
@@ -254,7 +256,7 @@ describe("cast-spell", () => {
 
     const resolved = resolveTopOfStack(state);
     expect(resolved.stack).toHaveLength(0);
-    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Expressive Iteration", controller: "user" });
+    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Fact or Fiction", controller: "user" });
     expect(resolved.log.some(e => e.kind === "spell-unresolved")).toBe(true);
   });
 

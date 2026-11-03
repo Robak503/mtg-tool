@@ -386,12 +386,35 @@ describe("migrate", () => {
     const v10 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v10.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v10)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 10, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // + pw21: the chain now runs on to v11
     const s = back.session.state;
     const bounced = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "hand", cardId: "giant" });
     expect({ hand: bounced.players.user.hand.map((c) => c.name), exile: bounced.players.user.exile.map((c) => c.name) }).toEqual({ hand: [], exile: ["Hill Giant"] });
     const untapped = untapAll(s, { playerId: "user" }).players.user.battlefield.find((p) => p.id === "arena");
     expect({ tapped: untapped.tapped, flag: untapped.doesNotUntapNext ?? null }).toEqual({ tapped: true, flag: null });
+  });
+  // CONTRACT-MIG (the play-weighted slice pw21): a v11 leave event may carry `lkiCopyMv` (its mana value under a layer-1 copy effect —
+  // layers.lkiCopyManaValueStamp, CR 603.10a, 707.2; Scrap Trawler's cap). A v10 save has none; absent means its card's mana value, so the
+  // migration stamps the version only, and a v11 leave event's stamp survives save → JSON → migrate.
+  it("carries a v10 save forward to v11 (stamp-only; a v11 leave event's copy mana value round-trips)", () => {
+    const leave = { id: "perm-0", controller: "user", card: { id: "card-0", name: "Mizzium Transreliquat", type: "Artifact", cmc: 3, oracle: "" }, toGraveyard: true, counters: {} };
+    const v10 = {
+      schemaVersion: 10, kind: "learn-session-save", savedAt: "2026-11-02T00:00:00.000Z", sessionId: "learn-v10", serializable: true,
+      session: { id: "learn-v10", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, pendingLeaveEvents: [leave],
+          players: { user: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] }, ai: { life: 20, battlefield: [], hand: [], graveyard: [], exile: [], library: [] } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(typeof MIGRATIONS[9]).toBe("function"); // a continuous chain from v9
+    expect(typeof MIGRATIONS[10]).toBe("function"); // the v10 → v11 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[10](JSON.parse(JSON.stringify(v10)))).toEqual({ ...v10, schemaVersion: 11 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v10)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded) }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true });
+    expect(upgraded.session.state.pendingLeaveEvents).toEqual([leave]); // no field added: absent means its card's mana value
+    const stamped = { ...leave, lkiCopyMv: 1 };
+    const v11 = { ...upgraded, session: { ...upgraded.session, state: { ...upgraded.session.state, pendingLeaveEvents: [stamped] } } };
+    expect(migrate(JSON.parse(JSON.stringify(v11))).session.state.pendingLeaveEvents).toEqual([stamped]);
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

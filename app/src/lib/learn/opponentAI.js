@@ -41,7 +41,7 @@ import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack pol
 import { parseLoyaltyAbilities } from "./effects/loyaltyAbilities.js"; // the planeswalker attack policy — an opposing walker's ultimate (the runtime's own loyalty reader)
 import { startingLoyalty } from "./gameState.js"; // the planeswalker attack policy — an ultimate costs more than the printed starting loyalty
 import { lifePaymentContext } from "./manaModel.js"; // the planeswalker attack policy — a Phyrexian attack tax paid with life, as legalChoices.canPayAttackTax pays it
-import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, programContainsCountedCombatShield, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
 import { changeTargetAlternatives, atomForStackTarget } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
@@ -574,7 +574,8 @@ function pickSpreeCast(state, aiPlayerId, actions, pol = {}) {
     if (programContainsFog(prog)) {
       if (pol.fog === "v1" || (state.step !== "declare-blockers" && state.step !== "combat-damage")) return false;
       const life = state.players?.[aiPlayerId]?.life ?? 0;
-      if (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life) return false;
+      // THE COUNTED PREVENTION (Inkshield): any damage coming at its face is worth preventing — each point is a token.
+      if (programContainsCountedCombatShield(prog) ? incomingFaceDamage(state, aiPlayerId, pol) <= 0 : (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life)) return false;
     }
     for (const t of targets) {
       const atom = atoms[t.atomIndex];
@@ -1725,7 +1726,8 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.fog === "v1") continue;
       if (state.step !== "declare-blockers" && state.step !== "combat-damage") continue;
       const life = state.players?.[aiPlayerId]?.life ?? 0;
-      if (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life) continue;
+      // THE COUNTED PREVENTION (Inkshield): any damage coming at its face is worth preventing — each point is a token.
+      if (programContainsCountedCombatShield(actions[0].program) ? incomingFaceDamage(state, aiPlayerId, pol) <= 0 : (life <= 0 || incomingFaceDamage(state, aiPlayerId, pol) < life)) continue;
     }
     // W7e (AI-F6) — AURAS: cast on-intent only. A permanent host's side comes from parseAuraBonus
     // (the SAME parse the layer engine applies on attach, so the read can't drift): a beneficial
