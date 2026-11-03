@@ -72,6 +72,9 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   "eachOpponentNonlandPermanent", // play-weighted #651 — "destroy all nonland permanents your opponents control" (Ruinous
   //                               Ultimatum). One-sided: the caster's board is never in the set, so the AI need not hold it
   //                               the way it holds a symmetric wipe. Resolved in atomTargets (shared.js).
+  "eachNonlandPermanentDamagedBySource", // play-weighted #1184 — Steel Hellkite's "destroy each nonland permanent with mana value X
+  //                               whose controller was dealt combat damage by this creature this turn": the players its source dealt
+  //                               combat damage to — opponents in play — so no symmetric wipe the AI holds. Resolved in atomTargets.
   "eachOpponentCreature",       // R1.2 (audit 2026-07-09) — mass bounce over every OPPONENT creature
   //                               (Scourge-of-Fleets class, zones.js). Was emitted but missing here, so
   //                               "needs a chosen target?" checks treated it as targeted and the live

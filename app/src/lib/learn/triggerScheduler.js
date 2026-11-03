@@ -72,8 +72,12 @@ export function detectPhaseTrigger(condition /*, cardName, typeLine */) {
   // gameState's phase order carries "postcombat-main" with step "main", and gameEngine fires this event at
   // that entry — gated on the PHASE, because both mains share step "main" and a step-only gate would
   // double-fire. Michelangelo, the Heart (Halfshell heroes) is the shelf card behind it.
+  // + "each of your postcombat main phases" (play-weighted #1195 — Neheb, the Eternal; Kirri, Talented Sprout): the event already fires at
+  // the beginning of EVERY postcombat main — an additional main after an additional combat included (CR 505.1a: every main phase after the
+  // first is a postcombat main) — which is exactly what "each of your postcombat main phases" says.
   if (c === "beginning of your second main phase"
-      || c === "beginning of your postcombat main phase") {
+      || c === "beginning of your postcombat main phase"
+      || c === "beginning of each of your postcombat main phases") {
     return { event: "secondMain", scope: "you", whose: "yours" };
   }
   // CARPET OF FLOWERS (POD-SIM THREE · KT-10a, 2026-09-05): "at the beginning of each of your main phases" — BOTH mains,

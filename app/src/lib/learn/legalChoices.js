@@ -3247,9 +3247,11 @@ function actionsActivateAbility(state, playerId) {
         !sacCountManaExcluded.has(s.permanentId));
       // SG-18: the activation spend context every affordability check below passes.
       const spendCtx = { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(typeLineNow(state, perm, perm.card?.type || perm.card?.type_line || "")), activatingColors: permanentColors(state, perm.id), ...lifePaymentContext(state, playerId) }; // + the activator's life — a Phyrexian symbol may be paid with 2 life (CR 107.4f)
-      // The cheapest cost the lane can offer: the printed one, or X = 1 on the {X} lane (X = 0 is never offered). Every check
-      // above the X walk judges this one; affordability is monotonic in X, so a victim that can't pay it can't pay any X.
-      const gateCost = xLane ? xResolvedCost(cost, 1) : cost;
+      // The cheapest cost the lane can offer: the printed one, or the lowest X on the {X} lane — 1, or 0 where the effect reads X = 0
+      // as a value of its own (`mvEqX` — Steel Hellkite's "mana value X", its ruling: X = 0 destroys the mana-value-0 permanents). Every
+      // check above the X walk judges this one; affordability is monotonic in X, so a victim that can't pay it can't pay any X.
+      const xFloor = xLane && (ab.program?.atoms || []).some((a) => a.mvEqX) ? 0 : 1;
+      const gateCost = xLane ? xResolvedCost(cost, xFloor) : cost;
       // W3: a γ1b sacOther ability's affordability is PER-VICTIM (a one-shot mana victim can't also
       // be cracked for the {mana} part) — checked inside the victim loop below; non-sac abilities
       // keep this fast path.
@@ -3482,7 +3484,9 @@ function actionsActivateAbility(state, playerId) {
         const variants = [];
         if (!xLane) variants.push({ x: null, cost, choices });
         else {
-          for (let x = 1; x <= xCeiling; x++) {
+          // X = 0 is offered only where the effect reads it as a value of its own (`mvEqX` — Steel Hellkite's "mana value X": X = 0
+          // destroys the mana-value-0 permanents, its ruling); every other {X} activation's walk starts at 1, as before.
+          for (let x = xFloor; x <= xCeiling; x++) {
             const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
             if (!(ab.sacOther ? affordsWithSacVictim(xCost, victim) : canAfford(player.manaPool, sources, xCost, spendCtx))
               || (ab.tapCreature && !affordsWithTapVictim(xCost, tapVictim))

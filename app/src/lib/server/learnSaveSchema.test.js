@@ -568,7 +568,7 @@ describe("migrate", () => {
         decisionLog: [] },
       checksum: "sha256:stale-but-unused-after-verify",
     };
-    expect([typeof MIGRATIONS[14], typeof MIGRATIONS[15]]).toEqual(["function", "undefined"]); // the v14 → v15 step exists and is the last (CONTRACT-MIG)
+    expect([typeof MIGRATIONS[14], typeof MIGRATIONS[15]]).toEqual(["function", "function"]); // the v14 → v15 step exists (CONTRACT-MIG); graduated (pw27): v15 → v16 follows it
     expect(MIGRATIONS[14](JSON.parse(JSON.stringify(v14)))).toEqual({ ...v14, schemaVersion: 15 }); // the version only
     const upgraded = migrate(JSON.parse(JSON.stringify(v14)));
     expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v14.session.state });
@@ -595,7 +595,7 @@ describe("migrate", () => {
     const v15 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v15.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v15)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 15, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // graduated (pw27): the chain runs on to v16
     const settled = resolveDiscardChoice(back.session.state, "h0");
     const lki = back.session.state.pendingTriggers[0].context.abilitySourceLki;
     expect({
@@ -614,6 +614,47 @@ describe("migrate", () => {
     const backWaiting = migrate(JSON.parse(JSON.stringify({ ...v15, session: { ...v15.session, state: waiting } }))).session.state;
     expect(backWaiting).toEqual(waiting);
     expect(raiseTriggerTargetChoice(backWaiting).pendingChoice?.candidates.map((c) => c.targets.map((x) => x.id))).toEqual([["ai2sol"], []]);
+  });
+  // CONTRACT-MIG (the play-weighted slice pw27): a v16 game may carry the turn's combat damage ledger (`combatDamageToPlayersThisTurn` —
+  // Steel Hellkite), the life lost this turn by a seat that left (`departedLifeLostThisTurn` — Neheb, the Eternal) and a search's top four
+  // (`searchTopIds` on a pending tutor choice — Aven Mindcensor). An earlier save has none, and absent means what every earlier game says,
+  // so v15 → v16 stamps the version only. The round trip: each survives save → JSON → migrate and still reads.
+  it("carries a v15 save forward to v16 (stamp-only; a v16 game's pw27 shapes round-trip and still read)", async () => {
+    const { nonlandPermanentsDamagedBySourceWithManaValue, countForSpec } = await import("../learn/effects/atoms/shared.js");
+    const { resolveTutorChoice } = await import("../learn/effects/runProgram.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v15 = {
+      schemaVersion: 15, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v15", serializable: true,
+      session: { id: "learn-v15", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 7, idSeq: 3, stack: [], log: [], rngSeed: 11, continuousEffects: [], timestampCounter: 2, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([typeof MIGRATIONS[15], typeof MIGRATIONS[16]]).toEqual(["function", "undefined"]); // the v15 → v16 step exists and is the last (CONTRACT-MIG)
+    expect(MIGRATIONS[15](JSON.parse(JSON.stringify(v15)))).toEqual({ ...v15, schemaVersion: 16 }); // the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v15)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v15.session.state });
+    const perm = (id, card, controller) => ({ id, card: { id: `c-${id}`, ...card }, controller, tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, enteredOnTurn: 1 });
+    const lib = ["l1", "l2", "l3", "l4", "l5"].map((id, i) => ({ id, name: i === 4 ? "Plains" : "Forest", type: i === 4 ? "Basic Land — Plains" : "Basic Land — Forest", oracle: "" }));
+    const state = { ...v15.session.state, activePlayer: "user", priorityHolder: "user", phase: "postcombat-main", step: "main", turnOrder: ["user", "ai"], mode: "standard", pendingTriggers: [],
+      players: { user: { ...empty, lifeLostThisTurn: 0, library: lib, battlefield: [perm("hk", { name: "Steel Hellkite", type: "Artifact Creature — Dragon", cmc: 6, power: "5", toughness: "5", oracle: "" }, "user")] },
+        ai: { ...empty, lifeLostThisTurn: 5, battlefield: [perm("stone", { name: "Mind Stone", type: "Artifact", cmc: 2, oracle: "" }, "ai"), perm("ring", { name: "Sol Ring", type: "Artifact", cmc: 1, oracle: "" }, "ai")] } },
+      combatDamageToPlayersThisTurn: { turn: 7, bySource: { hk: ["ai"] } },
+      departedLifeLostThisTurn: [{ playerId: "ai2", amount: 4, turn: 7 }],
+      pendingChoice: { kind: "tutor-search", controller: "user", candidates: [{ id: "l1", name: "Forest" }, { id: "l2", name: "Forest" }], sourceName: "Explosive Vegetation", filterLabel: "basic land card",
+        filter: { groups: [["basic", "land"]] }, sourceZone: "library", sourceZones: null, destination: "hand", entersTapped: false, remaining: 2, destinations: null, mayFailToFind: true,
+        searchTopIds: ["l1", "l2", "l3", "l4"] } };
+    const v16 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v16.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v16)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state });
+    const s = back.session.state;
+    const second = resolveTutorChoice(s, "l1").pendingChoice;
+    expect({
+      destroyed: nonlandPermanentsDamagedBySourceWithManaValue(s, { sourceId: "hk", xValue: 2 }).map((t) => t.id),
+      lifeLost: countForSpec(s, { controller: "user" }, { kind: "opponentsLifeLostThisTurn" }),
+      secondPick: { cands: (second?.candidates || []).map((c) => c.id), top: second?.searchTopIds },
+    }).toEqual({ destroyed: ["stone"], lifeLost: 9, secondPick: { cands: ["l2"], top: ["l1", "l2", "l3", "l4"] } });
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

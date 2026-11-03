@@ -307,6 +307,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // sized Killer Service's ETB up): the seat's live opponents (countForSpec → opponentsOf). Exactly the printed phrase —
   // "each opponent" as a SCOPE is a different thing and untouched.
   if (/^opponents? you have$/.test(p)) return { kind: "opponents" };
+  // THE OPPONENTS' LIFE LOST THIS TURN (play-weighted #1195 — Neheb, the Eternal: "add {R} for each 1 life your opponents have lost this
+  // turn", the singular remainder a "for each" caller hands over): the total of every opponent's lifeLostThisTurn ledger (damage, paid
+  // life and drains — CR 119.3, 119.4, 120.3a), and of an opponent who has left the game this turn (countForSpec). Exactly the printed
+  // phrase; the "total amount of life your opponents lost this turn" wording (Florian) is not read here.
+  if (/^1 life your opponents have lost this turn$/.test(p)) return { kind: "opponentsLifeLostThisTurn" };
   // CARDS DRAWN THIS TURN (SHELF-85 V5 — Proft's Eidetic Memory "put X +1/+1 counters on target creature you control,
   // where X is the number of cards you've drawn this turn minus one"): the controller's per-turn draw tally, read by
   // countForSpec; the printed "minus one" rides as `minus` and is floored at 0 there (never a negative count).

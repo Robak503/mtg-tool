@@ -461,7 +461,16 @@ export function observe(state, seat) {
 //   - state: a layer-6 addKeyword "toxic" with `toxicAmount` and a `cantBeBlockedByColor` effect with `color` (Skrelv); an ability-source
 //     record's `attachedTo` (Tarrian's Soulcleaver, Ghost Lantern — CR 608.2h).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
-export const PLAY_API_VERSION = "1.18.0";
+// 1.19.0 (additive MINOR — new fields on existing kinds, 2026-11-03, the play-weighted slice pw27; after pw26's 1.18.0):
+//   - "activate-ability" with an {X} cost may now be offered at `xValue: 0` — only for an effect that reads X = 0 as a value of its own
+//     (Steel Hellkite's "Destroy each nonland permanent with mana value X …": X = 0 destroys the mana-value-0 permanents, its ruling); every
+//     other {X} activation is still offered from X = 1.
+//   - A "tutor-search" decision may carry `searchTopIds` (Aven Mindcensor — an opponent of the searcher controls one: the search sees the
+//     top four cards of the library as it began, the same four for every pick, CR 614.1a); its `candidates` are already limited to them.
+//   - state: `combatDamageToPlayersThisTurn` `{ turn, bySource }` (the players each object dealt combat damage to this turn — Steel
+//     Hellkite) and `departedLifeLostThisTurn` (the life a seat that left the game lost this turn — Neheb, the Eternal).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
+export const PLAY_API_VERSION = "1.19.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

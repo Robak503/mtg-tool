@@ -254,6 +254,14 @@ export function removePlayerFromGame(state, playerId) {
     const kept = (s.departedDamageThisTurn || []).filter((d) => d.turn === state.turn);
     base = { ...base, departedDamageThisTurn: [...kept, { playerId, amount: damageTaken, turn: state.turn }] };
   }
+  // THE LIFE THEY LOST THIS TURN outlives the seat the same way (Neheb, the Eternal's "for each 1 life your opponents have lost this turn" —
+  // its bundled ruling counts the loss of an opponent who then lost the game): the turn total goes onto `departedLifeLostThisTurn`
+  // (countForSpec's opponentsLifeLostThisTurn). Same bookkeeping as the damage above; a seat that lost no life this turn adds nothing.
+  const lifeLost = gone.lifeLostThisTurn || 0;
+  if (lifeLost > 0) {
+    const kept = (s.departedLifeLostThisTurn || []).filter((d) => d.turn === state.turn);
+    base = { ...base, departedLifeLostThisTurn: [...kept, { playerId, amount: lifeLost, turn: state.turn }] };
+  }
   // PLAYER-AURA sweep (CR 303.4c — "the player it was attached to has left the game"): an Aura enchanting the departed
   // player is put into its owner's graveyard, through moveCardToZone so the leave and graveyard events record normally.
   for (const pid of Object.keys(base.players)) {

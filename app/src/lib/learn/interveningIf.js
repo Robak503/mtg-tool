@@ -910,6 +910,23 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     }
   }
 
+  // ===== SPENT OVER POWER (play-weighted #1251 — Liberator, Urza's Battlethopter: "Whenever you cast a spell, if the amount of mana
+  // spent to cast that spell is greater than Liberator's power, …"; the trigger layer rewrites the self-name to "this creature",
+  // triggers.rewriteSelfNameInterveningIf) ===== the cast context's `manaSpentAmount` (the dispatcher's payment plan — the mana
+  // actually spent, {X} and additional costs included, a reduction excluded; 0 for a free cast) strictly greater than the SOURCE's
+  // power as it is now (layer-aware: its counters and pumps), read when the spell is cast and again as the ability resolves (CR 603.4).
+  // No amount (an alternative cost the plan can't price) or no source on the battlefield → null, never a guess.
+  if (c === "the amount of mana spent to cast that spell is greater than this creature's power") {
+    if (typeof context?.manaSpentAmount !== "number") return null;
+    const sourceId = context?.sourcePermanentId;
+    if (!sourceId) return null;
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of state.players[pid]?.battlefield || []) {
+        if (p.id === sourceId) return context.manaSpentAmount > creaturePower(p, state);
+      }
+    }
+    return null;
+  }
   // ===== NOT-A-MANA-ABILITY (CAP-BRACERS, 2026-09-03 — Illusionist's Bracers / Rings of Brighthearth, CR 605.3b)
   // ===== "…, if it isn't a mana ability, …" on an ability-activated trigger. Reads the activation context's
   // `activatedIsManaAbility` (threaded by checkAbilityActivatedTriggers — a mana ability never uses the stack,
@@ -2256,7 +2273,7 @@ export function interveningIfParseable(condition) {
   // threads the real declaration off checkAttackTriggers' opponent-attacks pass.
   // `triggeringPermanentController`: the TRIGGERING PERMANENT'S CONTROLLER compare (Archaeomancer's Map, 2026-10-17) probes as
   // readable; the runtime binds the real player off every triggering permanent (makePendingTrigger).
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false, declaredAttackers: [], triggeringPermanentController: "__probe__" }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, manaSpentAmount: 0, activatedIsManaAbility: false, declaredAttackers: [], triggeringPermanentController: "__probe__" }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast. manaSpentAmount: a definite number so the SPENT-OVER-POWER shape (Liberator) probes as readable; the runtime threads the plan's total off every cast (checkCastTriggers)
 }
 
 /**

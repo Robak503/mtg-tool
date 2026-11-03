@@ -2638,6 +2638,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 6, op: { layerOp: "emptyDrawWins" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
     return;
   }
+  // THE TOP FOUR (play-weighted #1244 — Aven Mindcensor: "If an opponent would search a library, that player searches the top four cards
+  // of that library instead."): a replacement on every library search an opponent of its controller makes (CR 614.1a, 701.23a). The same
+  // INERT layer-6 op shape as emptyDrawWins; its reader is layers.librarySearchLimit, consulted by every search site (library.applyTutor,
+  // the tempting offer's searches). Exactly the printed sentence.
+  if (/^if an opponent would search a library, that player searches the top four cards of that library instead$/.test(c)) {
+    out.push({ layer: 6, op: { layerOp: "searchTopFour" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
   {
     const TAIL = "assigns? combat damage equal to (?:its|their) toughness rather than (?:its|their) power";
     if (new RegExp(`^each creature ${TAIL}$`).test(c)) {

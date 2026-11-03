@@ -114,7 +114,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false, searchEnteredIds = null, pickFilters = null, entrySourceId = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false, searchEnteredIds = null, pickFilters = null, entrySourceId = null, searchTopIds = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -169,6 +169,10 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // KODAMA OF THE EAST TREE (play-weighted #991) — the permanent whose ability is putting this card: the card enters stamped
       // `enteredViaAbilityOf` (its "if it wasn't put onto the battlefield with this ability"). Absent on every other search.
       ...(entrySourceId ? { entrySourceId } : {}),
+      // THE TOP FOUR (Aven Mindcensor, play-weighted #1244) — the library cards this one search may find (the top four of the library as
+      // it began, an opponent's Mindcensor limiting it): every chained pick reads its library candidates from these. Absent on every
+      // other search (the whole library).
+      ...(Array.isArray(searchTopIds) ? { searchTopIds } : {}),
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",

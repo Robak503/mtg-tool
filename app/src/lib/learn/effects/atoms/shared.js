@@ -237,6 +237,31 @@ export function nonlandPermanentsWithManaValueAtMost(state, mvMax) {
 }
 
 /**
+ * "EACH NONLAND PERMANENT WITH MANA VALUE X WHOSE CONTROLLER WAS DEALT COMBAT DAMAGE BY THIS CREATURE THIS TURN" (Steel Hellkite,
+ * play-weighted #1184) — the set fixed as the ability resolves (CR 608.2h): every permanent controlled by a player the SOURCE object dealt
+ * combat damage to this turn (combatResolution's ledger `combatDamageToPlayersThisTurn`, keyed by ctx.sourceId — the record of the
+ * object that activated it, still read if it has left the battlefield since; a new object has none, CR 400.7), not a land and with mana
+ * value exactly X (ctx.xValue, 0 included) — the land and mana-value reads of Culling Ritual's set above (the object's copiable values,
+ * a token's 0). Its rulings: who controlled the permanent when the damage was dealt, and whether it was on the battlefield then, don't
+ * matter — the permanent's controller now is the player read. No record, no X → no permanent.
+ */
+export function nonlandPermanentsDamagedBySourceWithManaValue(state, ctx) {
+  const rec = state.combatDamageToPlayersThisTurn;
+  const damaged = rec?.turn === state.turn && ctx?.sourceId ? (rec.bySource?.[ctx.sourceId] || []) : [];
+  const x = ctx?.xValue;
+  if (!damaged.length || !Number.isInteger(x) || x < 0) return [];
+  const out = [];
+  for (const pid of Object.keys(state.players)) {
+    if (!damaged.includes(pid)) continue;
+    for (const perm of state.players[pid].battlefield) {
+      if (deriveCharacteristics(state, perm.id).types.includes("Land") || permanentManaValue(state, perm) !== x) continue;
+      out.push({ type: "permanent", id: perm.id, controller: pid });
+    }
+  }
+  return out;
+}
+
+/**
  * Every creature CONTROLLER controls right now, as target descriptors — the affected set for a
  * controller-scoped TEAM pump (`scope:"youControl"`: Overrun / Trumpet Blast). Gathered AT
  * RESOLUTION so applyPumpEffect locks the set into per-creature fixed effects (CR 611.2c — a
@@ -351,6 +376,7 @@ const ATOM_TARGETS_MASS_HANDLED = new Set([
   "eachCreature", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment",
   "eachArtifactCreatureOrEnchantment",
   "eachOpponentCreature",
+  "eachNonlandPermanentDamagedBySource", // Steel Hellkite (play-weighted #1184) — nonlandPermanentsDamagedBySourceWithManaValue
 ]);
 for (const tt of MASS_WIPE_SCOPES) {
   if (!ATOM_TARGETS_MASS_HANDLED.has(tt)) {
@@ -409,6 +435,10 @@ export const atomTargets = (state, atom, ctx) => {
   // battlefield card-type reader: layer-aware (an animated land is still a land; Arixmethes is one while it has a slumber counter) and
   // read on the face that is up (CR 712.8d). Fixed as the effect is applied (CR 608.2h). The controller's own permanents are never in
   // the set.
+  // STEEL HELLKITE (play-weighted #1184): the nonland permanents with mana value X of the players this ability's source dealt combat
+  // damage to this turn (nonlandPermanentsDamagedBySourceWithManaValue). A NON-wipe scope (targetTypes) — the activating player's own
+  // board is in it only if the source dealt them combat damage.
+  if (atom.targetType === "eachNonlandPermanentDamagedBySource") return nonlandPermanentsDamagedBySourceWithManaValue(state, ctx);
   if (atom.targetType === "eachOpponentNonlandPermanent") {
     return opponentsOf(state, ctx.controller).flatMap((pid) => (state.players?.[pid]?.battlefield || [])
       .filter((perm) => !permanentHasCardType(state, perm.id, "Land"))
@@ -859,6 +889,19 @@ export function countForSpec(state, ctx, spec) {
   // OPPONENT COUNT (Big Apple, 3 a.m. — "for each opponent you have"): the seat's live opponents, the same read every
   // "each opponent" effect makes (opponentsOf). An eliminated seat is not an opponent you have.
   if (spec.kind === "opponents") return opponentsOf(state, ctx?.controller).length;
+  // THE OPPONENTS' LIFE LOST THIS TURN (Neheb, the Eternal — "for each 1 life your opponents have lost this turn"): each opponent's
+  // lifeLostThisTurn (tallied at gameState.loseLife — the life actually lost, never the net change; reset for every seat at untap), plus
+  // the life lost this turn by a player who has since left the game (playerLeavesGame's `departedLifeLostThisTurn` — Neheb's bundled
+  // ruling: "If an opponent loses life and subsequently loses the game before your postcombat main phase, Neheb's last ability counts
+  // that loss of life"; every other player is an opponent in this engine). An absent tally is 0.
+  if (spec.kind === "opponentsLifeLostThisTurn") {
+    const me = ctx?.controller;
+    if (!me || !state?.players?.[me]) return 0;
+    const live = opponentsOf(state, me).reduce((sum, pid) => sum + Math.max(0, state.players[pid]?.lifeLostThisTurn || 0), 0);
+    const departed = (state.departedLifeLostThisTurn || []).filter((d) => d.turn === state.turn && d.playerId !== me)
+      .reduce((sum, d) => sum + Math.max(0, d.amount || 0), 0);
+    return live + departed;
+  }
   // INSTANT/SORCERY SPELLS CAST THIS TURN (K9 — Lock and Load "for each OTHER instant and sorcery spell you've cast this
   // turn"): the controller's own tally (player.instantSorcerySpellsCastThisTurn, stamped at the cast chokepoint, reset at
   // untap), less `minus` for the printed "other" — the resolving spell itself is already counted (CR 608.2h). Floored at 0.

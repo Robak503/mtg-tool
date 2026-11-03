@@ -4062,6 +4062,23 @@ export function playerEmptyDrawWins(state, playerId) {
   return false;
 }
 
+/**
+ * THE TOP FOUR (Aven Mindcensor — "If an opponent would search a library, that player searches the top four cards of that library
+ * instead.", CR 614.1a): how many cards from the top of a library a search by `searcherId` may see — 4 while a live searchTopFour static
+ * (staticAbilityParser) is controlled by an opponent of the searcher (every other player, CR 102.2), else null (the whole library).
+ * Read through the board's continuous effects, so a Mindcensor that lost its abilities limits nothing (CR 613.1f). Two Mindcensors say
+ * the same four. Consumers: effects/atoms/library.applyTutor and the tempting offer's searches (applyTemptingOfferLand, runProgram).
+ */
+export function librarySearchLimit(state, searcherId) {
+  if (!searcherId || !state?.players?.[searcherId]) return null;
+  for (const e of collectContinuousEffects(state)) {
+    if (e.op?.layerOp !== "searchTopFour") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller && src.controller !== searcherId) return 4;
+  }
+  return null;
+}
+
 export function playerCantGainLife(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);

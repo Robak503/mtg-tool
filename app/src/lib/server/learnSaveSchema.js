@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 import { faceManaValue } from "../learn/modalDfc.js"; // a leaf chain (splitCard, spellColors): the face's own mana value, v13 → v14's one rewrite
 
-export const CURRENT_SCHEMA_VERSION = 15;
+export const CURRENT_SCHEMA_VERSION = 16;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -233,6 +233,19 @@ export const MIGRATIONS = {
   // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v15 save
   // (migrate throws on a newer version) instead of dropping a connive's tally or a per-opponent target's player. (CONTRACT-MIG.)
   14: (doc) => ({ ...doc, schemaVersion: 15 }),
+
+  // v15 → v16 — the play-weighted slice pw27 (2026-11-03) persists these new shapes, each ABSENT meaning what every earlier game says:
+  //   · `state.combatDamageToPlayersThisTurn` `{ turn, bySource: { [dealer permanent id]: [player ids] } }` (combatResolution — the players
+  //     each object dealt combat damage to this turn; Steel Hellkite's "whose controller was dealt combat damage by this creature this
+  //     turn"): absent, no record — written by every combat that deals a player damage, so a v15 game resumed mid-turn after combat has
+  //     none for that turn (a Hellkite activated then destroys nothing — an under-read, never a wrong one);
+  //   · `state.departedLifeLostThisTurn` (`{ playerId, amount, turn }` — the life a seat that left the game lost this turn; Neheb, the
+  //     Eternal's "for each 1 life your opponents have lost this turn"): absent, none;
+  //   · a pending tutor choice's `searchTopIds` (Aven Mindcensor — the top four library cards one search may find, for every pick of
+  //     it): absent, the whole library.
+  // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v16 save
+  // (migrate throws on a newer version) instead of widening a Mindcensor-limited search to the whole library. (CONTRACT-MIG.)
+  15: (doc) => ({ ...doc, schemaVersion: 16 }),
 };
 
 /** v13 → v14's rewrite: each battlefield permanent that is a modal DFC's land face carries that face's own mana value. */

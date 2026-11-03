@@ -509,7 +509,11 @@ function applyCastSpell(state, action) {
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
     // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
     manaSpent = Object.values(plan.spend || {}).some((n) => (n || 0) > 0);
-    manaSpentAmount = Object.values(plan.spend || {}).reduce((acc, n) => acc + (Number(n) || 0), 0); // ④-Z — the same plan
+    // ④-Z — the same plan; + the mana spent from restricted pool entries (pw27's review, F3): planPayment pays a qualifying tagged entry
+    // first and reports it only in `entrySpends`, never in `spend`, so a spell paid from Geosurge's or Klauth's mana counted none of it.
+    // The colour tallies around this line still read `spend` alone (a found-not-fixed of pw27).
+    manaSpentAmount = Object.values(plan.spend || {}).reduce((acc, n) => acc + (Number(n) || 0), 0)
+      + (plan.entrySpends || []).reduce((acc, es) => acc + Object.values(es?.spend || {}).reduce((a, n) => a + (Number(n) || 0), 0), 0);
     manaSpentByColor = Object.fromEntries(["W", "U", "B", "R", "G", "C"].map((c) => [c, Number(plan.spend?.[c]) || 0])); // shelf D4 — the same plan
     // CAP-CAVERN (CR 106.6 / Cavern of Souls): mana whose restriction carries `uncounterableIfSpent` was spent on
     // THIS spell — off the SAME plan (a tap, or a tagged pool entry priced by the plan). Stamped below with the

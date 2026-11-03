@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { taintedPactStep, wheelOnePlayer, startEachPlayerSearch } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
+import { taintedPactStep, wheelOnePlayer, startEachPlayerSearch, searchTopIdsFor } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats; + searchTopIdsFor (Aven Mindcensor — the tempting offer's searches see the top four)
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice, setPendingProtectionColorChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f) // + the protection-color pause (CR 608.2d)
 import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d — a person announces the colour of "protection from the color of your choice" as it resolves (call-time binding)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
@@ -723,14 +723,16 @@ export function resolveTutorChoice(state, cardId) {
   // search's completion wait for the last pick, and the entries are one event (searchEnteredIds).
   if (Array.isArray(pc.pickFilters) && pc.pickFilters.length && remaining >= 1 && next.players?.[pc.controller]) {
     const [head, ...tail] = pc.pickFilters;
+    // THE TOP FOUR (Aven Mindcensor): the same four cards the search began with (its ruling — finding one card adds no fifth).
     const candidates = (next.players[pc.controller].library || [])
-      .filter((c) => cardMatchesTutorFilter(c, head.filter, next, pc.controller))
+      .filter((c) => (!pc.searchTopIds || pc.searchTopIds.includes(c.id)) && cardMatchesTutorFilter(c, head.filter, next, pc.controller))
       .map((c) => ({ id: c.id, name: c.name }));
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates, sourceName: pc.sourceName, filterLabel: head.filterLabel, filter: head.filter,
       mayFailToFind: true, destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone: "library",
       searchEnteredIds: enteredPermId ? [...searchEnteredIds, enteredPermId] : searchEnteredIds,
       pickFilters: tail,
+      searchTopIds: pc.searchTopIds || null,
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
@@ -749,9 +751,16 @@ export function resolveTutorChoice(state, cardId) {
     // line is read off its card, still in the searched zone.
     const fetchedTypes = pc.filter?.shareLandType ? frontSubtypes(chosenCardObj) : null;
     const searchedCard = (id) => (next.players[pc.controller]?.[sourceZone] || []).find((c) => c.id === id);
-    const rest = (pc.candidates || []).filter((c) => c.id !== cardId
-      && !(pc.filter?.distinctNames && fetchedName && String(c.name || "").toLowerCase() === fetchedName)
-      && !(fetchedTypes && !frontSubtypes(searchedCard(c.id)).some((lt) => fetchedTypes.includes(lt))));
+    // TEMPTING OFFER'S BONUS SEARCHES ARE EACH THEIR OWN SEARCH (its ruling: "the effect happens again for you a number of times equal
+    // to the number of opponents who accepted" — pw27's review, F4): under an opponent's Aven Mindcensor each one sees the top four of the
+    // library as IT begins, so after a find the next card down is among them. Without one, every land still in the library, as before.
+    const bonusTopIds = pc.temptingOffer?.stage === "bonus" ? searchTopIdsFor(next, pc.controller) : null;
+    const rest = bonusTopIds
+      ? (next.players[pc.controller].library || []).filter((c) => bonusTopIds.includes(c.id) && cardMatchesTutorFilter(c, pc.filter, next, pc.controller))
+        .map((c) => ({ id: c.id, name: c.name }))
+      : (pc.candidates || []).filter((c) => c.id !== cardId
+        && !(pc.filter?.distinctNames && fetchedName && String(c.name || "").toLowerCase() === fetchedName)
+        && !(fetchedTypes && !frontSubtypes(searchedCard(c.id)).some((lt) => fetchedTypes.includes(lt))));
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate
@@ -765,6 +774,7 @@ export function resolveTutorChoice(state, cardId) {
       destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
       temptingOffer: pc.temptingOffer || null, // TEMPTING OFFER — the offer's running state rides every chained bonus search
       searchEnteredIds: oneEvent && enteredPermId ? [...searchEnteredIds, enteredPermId] : searchEnteredIds, // MULTI-PICK, ONE EVENT (CR 614.12)
+      searchTopIds: bonusTopIds || pc.searchTopIds || null, // THE TOP FOUR (Aven Mindcensor) — one search's chained pick: its candidates are already among them, carried on; a tempting offer's next bonus search: its own four
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume, ...(pc.eachPlayerSearch ? { eachPlayerSearch: pc.eachPlayerSearch } : {}) } };
   }
@@ -775,7 +785,12 @@ export function resolveTutorChoice(state, cardId) {
   const searchedLibrary = Array.isArray(pc.sourceZones) && pc.sourceZones.length
     ? pc.sourceZones.includes("library")
     : sourceZone === "library";
-  if (searchedLibrary && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
+  // TEMPTING OFFER — the offerer's FIRST search doesn't shuffle here: "Then each player who searched a library this way shuffles" is
+  // written last (CR 608.2c), so the bonus searches read the library as the first search left it (under an opponent's Aven Mindcensor,
+  // their top four — pw27's review, F1). The offerer's library is shuffled after its last search: the bonus stage's settle below, or
+  // advanceTemptingOffer's exit when no opponent accepted. It is still a search (the library-search triggers fire now).
+  const holdShuffle = pc.temptingOffer?.stage === "offerer-first";
+  if (searchedLibrary && !topAlreadyShuffled && !holdShuffle) next = shuffleControllerLibrary(next, pc.controller);
   if (searchedLibrary) next = checkLibrarySearchTriggers(next, pc.controller); // LIBRARY SEARCH (KN-5b): the settle is the search's completion
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
@@ -809,15 +824,18 @@ export function advanceTemptingOffer(state, pc) {
   const offerer = state.players?.[to.offerer];
   if (accepted > 0 && offerer) {
     const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
-    const candidates = (offerer.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+    const searchTopIds = searchTopIdsFor(state, to.offerer); // THE TOP FOUR (Aven Mindcensor) — an opponent's Mindcensor limits the bonus searches
+    const candidates = (offerer.library || []).filter((c) => isLand(c) && (!searchTopIds || searchTopIds.includes(c.id))).map((c) => ({ id: c.id, name: c.name }));
     const paused = setPendingTutorChoice(state, {
       controller: to.offerer, candidates, sourceName: pc.sourceName || null, filterLabel: "land card", filter: { groups: [["land"]] },
-      destination: "battlefield", entersTapped: false, mayFailToFind: true, remaining: accepted,
+      destination: "battlefield", entersTapped: false, mayFailToFind: true, remaining: accepted, searchTopIds,
       temptingOffer: { stage: "bonus", offerer: to.offerer, opponents: [], accepted },
     });
     return pc.resume ? { ...paused, pendingChoice: { ...paused.pendingChoice, resume: pc.resume } } : paused;
   }
-  return resumeAfterChoice(state, pc);
+  // No bonus search: the offerer's first search was their last, and their library is shuffled now (the shuffle its settle held back —
+  // "Then each player who searched a library this way shuffles", CR 608.2c).
+  return resumeAfterChoice(offerer ? shuffleControllerLibrary(state, to.offerer) : state, pc);
 }
 
 /**
@@ -832,11 +850,12 @@ export function resolveTemptingOfferChoice(state, accept) {
   const base = { offerer: pc.offerer, opponents: pc.opponents || [], accepted: pc.accepted || 0 };
   if (accept === true) {
     const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
-    const candidates = (next.players?.[pc.controller]?.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+    const searchTopIds = searchTopIdsFor(next, pc.controller); // THE TOP FOUR (Aven Mindcensor) — an opponent's Mindcensor limits this search
+    const candidates = (next.players?.[pc.controller]?.library || []).filter((c) => isLand(c) && (!searchTopIds || searchTopIds.includes(c.id))).map((c) => ({ id: c.id, name: c.name }));
     next = logEvent(next, { kind: "tempting-offer-answer", controller: pc.controller, accepted: true, sourceName: pc.sourceName || null });
     const paused = setPendingTutorChoice(next, {
       controller: pc.controller, candidates, sourceName: pc.sourceName || null, filterLabel: "land card", filter: { groups: [["land"]] },
-      destination: "battlefield", entersTapped: false, mayFailToFind: true,
+      destination: "battlefield", entersTapped: false, mayFailToFind: true, searchTopIds,
       temptingOffer: { stage: "opponent-search", ...base, accepted: base.accepted + 1 },
     });
     return pc.resume ? { ...paused, pendingChoice: { ...paused.pendingChoice, resume: pc.resume } } : paused;

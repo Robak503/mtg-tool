@@ -2947,7 +2947,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX || a.mvEqX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -4096,7 +4096,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms) && chooseTargetBoundOk(mode.atoms))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX || a.mvEqX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -4243,7 +4243,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
     // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
     // A program whose X a `bind-x` defines (ONE X ACROSS CONJUNCTS — bindXAcrossConjuncts) chooses no X at cast: never an X spell.
-    const xSpell = !seq.some((a) => a.op === "bind-x") && seq.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX);
+    const xSpell = !seq.some((a) => a.op === "bind-x") && seq.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX || a.mvEqX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 

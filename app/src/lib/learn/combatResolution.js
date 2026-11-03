@@ -152,6 +152,22 @@ function drainEndOfCombatEffects(state) {
   return next;
 }
 
+/**
+ * THE TURN'S COMBAT DAMAGE LEDGER (Steel Hellkite): `state.combatDamageToPlayersThisTurn` = { turn, bySource: { [dealer permanent id]:
+ * [player ids] } } — the players each object dealt combat damage to this turn. A record of an earlier turn is replaced by the first of this
+ * turn; nothing is written when no player was dealt combat damage, so a combat with none leaves the state as it was.
+ */
+function recordCombatDamageToPlayers(state, events) {
+  if (!events.length) return state;
+  const cur = state.combatDamageToPlayersThisTurn?.turn === state.turn ? state.combatDamageToPlayersThisTurn.bySource : {};
+  const bySource = { ...cur };
+  for (const ev of events) {
+    const prev = bySource[ev.attackerId] || [];
+    if (!prev.includes(ev.defender)) bySource[ev.attackerId] = [...prev, ev.defender];
+  }
+  return { ...state, combatDamageToPlayersThisTurn: { turn: state.turn, bySource } };
+}
+
 // Combat keyword checks go through the layer engine (permanentHasKeyword) so a
 // GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
 // printed one (Phase-7 PR-12). Vanilla creatures resolve via the empty-board
@@ -844,6 +860,13 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     if (amount > 0 && playerProtectedFromEverything(next, pid)) { next = logEvent(next, { kind: "combat-damage-prevented", playerId: pid, amount, via: "protection from everything" }); continue; }
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
+  // THE TURN'S COMBAT DAMAGE TO PLAYERS, BY THE DEALING OBJECT (play-weighted #1184 — Steel Hellkite: "Destroy each nonland permanent with
+  // mana value X whose controller was dealt combat damage by this creature this turn"): each attacker that dealt a player combat damage in
+  // this step (after replacement and prevention — the event's amount, and protection from everything prevents it all, CR 702.16b), keyed
+  // by its permanent id: a new object after a zone change has no record (CR 400.7), and the record outlives the dealer leaving the
+  // battlefield (the ability reads the turn's history, not the source). Infect damage is damage dealt too (CR 702.90b).
+  next = recordCombatDamageToPlayers(next, playerEvents.filter((ev) => ev.kind === "combat-damage-player" && ev.amount > 0 && ev.defender != null
+    && !playerProtectedFromEverything(next, ev.defender)));
   // KW-POISON (CR 702.90c infect / 702.80a wither): infect/wither combat damage to a creature is dealt
   // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
   // destroyed in the SAME step (CR 704.5f) and fires its dies-triggers — exactly like marked lethal

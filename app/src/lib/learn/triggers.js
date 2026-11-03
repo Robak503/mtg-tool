@@ -4527,6 +4527,11 @@ function rewriteSelfNameInterveningIf(ifText, cardName) {
     // tapped" makes at the trigger and again on resolution (CR 603.4).
     const tm = ifText.trim().match(new RegExp(`^${esc} is (un)?tapped$`, "i"));
     if (tm) return `this permanent is ${tm[1] ? "un" : ""}tapped`;
+    // The mana spent on the triggering spell against the source's own power (play-weighted #1251 — Liberator, Urza's Battlethopter:
+    // "Whenever you cast a spell, if the amount of mana spent to cast that spell is greater than Liberator's power, …"): the name is
+    // the source itself (CR 201.5), so the condition reads the source permanent's power (interveningIf's SPENT-OVER-POWER reader).
+    if (new RegExp(`^the amount of mana spent to cast that spell is greater than ${esc}'s power$`, "i").test(ifText.trim()))
+      return "the amount of mana spent to cast that spell is greater than this creature's power";
   }
   return ifText;
 }

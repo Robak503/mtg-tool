@@ -1099,7 +1099,7 @@ function applyOrdealThresholdSac(state, atom, ctx) {
  * controllerRider cards (Beast Within / Generous Gift / Assassin's Trophy / Swords / Buy Your Silence …) keep
  * folding even though the bare matchers now live here. Pure (no helper). Registered via registerClauseParser.
  */
-export function destroyExileClauseParser(clause) {
+export function destroyExileClauseParser(clause, ctx = {}) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // SOLITUDE (SHELF-85 · Shalai's last card, 2026-09-05): "exile up to one OTHER target creature" / "exile ANOTHER target
   // creature" — the other/another qualifier is the not-source restriction on whatever the plain form parses to (the
@@ -1531,6 +1531,15 @@ export function destroyExileClauseParser(clause) {
   // every destroy, so indestructible, a shield counter, regeneration and umbra armor each keep a permanent exactly as they do from
   // any destroy. Exactly this sentence: the symmetric "destroy all nonland permanents" and every filtered or exile form stay unparsed.
   if (/^destroy all nonland permanents your opponents control$/.test(t)) return { op: "destroy", targetType: "eachOpponentNonlandPermanent" };
+  // THE PLAYERS THIS CREATURE DEALT COMBAT DAMAGE TO THIS TURN, MANA VALUE EXACTLY X (play-weighted #1184 — Steel Hellkite: "{X}: Destroy
+  // each nonland permanent with mana value X whose controller was dealt combat damage by this creature this turn."): its own mass scope
+  // (atomTargets eachNonlandPermanentDamagedBySource — the turn's combat damage ledger, keyed by the source object; layer-aware nonland;
+  // layers.permanentManaValue, a copy's being the copied card's), the X the activation chose (`mvEqX`, read off ctx.xValue — 0 included,
+  // so the {X} walk starts at 0 for it). Only under a bound X (an {X} cost); exactly this sentence — "X or less" and every other
+  // filtered form stay unparsed.
+  if (ctx?.hasX && /^destroy each nonland permanent with mana value x whose controller was dealt combat damage by this creature this turn$/.test(t)) {
+    return { op: "destroy", targetType: "eachNonlandPermanentDamagedBySource", mvEqX: true };
+  }
   const mc = t.match(/^destroy all (non-?)?([a-z]+) creatures$/);
   if (mc) {
     const sub = MASS_CREATURE_SUBTYPES[mc[2]];

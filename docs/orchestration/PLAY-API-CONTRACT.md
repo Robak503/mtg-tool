@@ -10,7 +10,17 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.18.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.19.0"`
+
+> **v1.19.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw27, after pw26's 1.18.0):** each rides a
+> kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").
+> - `"activate-ability"` with an {X} cost may be offered at `xValue: 0` — only for an effect that reads X = 0 as a value of its own (Steel
+>   Hellkite: "Destroy each nonland permanent with mana value X …" — X = 0 destroys the mana-value-0 permanents, its ruling); every other
+>   {X} activation is still offered from X = 1.
+> - `"tutor-search"` may carry `searchTopIds` (Aven Mindcensor — the top four cards of the library as the search began, the same four
+>   for every pick, CR 614.1a); its `candidates` are already limited to them.
+> - state: `combatDamageToPlayersThisTurn` `{ turn, bySource }` (Steel Hellkite) and `departedLifeLostThisTurn` (Neheb, the Eternal).
+> - Save format **v16** (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[15]`).
 
 > **v1.18.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw26, after pw25's 1.17.0):** each rides a kind a driver already handles (§5: "new additive fields on
 > decisions/actions/answers/state").

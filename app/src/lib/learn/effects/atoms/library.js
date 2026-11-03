@@ -4,7 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard, apnapOrder } from "../../gameState.js";
-import { permanentIsCreature, permanentManaValue } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + a permanent's mana value (Kodama's cap)
+import { permanentIsCreature, permanentManaValue, librarySearchLimit } from "../../layers.js"; // + librarySearchLimit (Aven Mindcensor — a search sees the top four); CR 613 — an animated permanent is a creature RIGHT NOW; + a permanent's mana value (Kodama's cap)
 import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
 import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
 import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
@@ -361,12 +361,19 @@ export function applyTutor(state, atom, ctx) {
   // list (a Curse, Animate Dead) is never offered here either.
   const enters = (c) => atom.destination !== "battlefield" || !/\bAura\b/.test(String(c.type || c.type_line || "").split(" // ")[0])
     || auraEntryHasHost(state, c, controller);
+  // THE TOP FOUR (Aven Mindcensor, CR 614.1a): while an opponent of the searcher controls one, a library search sees the top four cards of
+  // the library as the search begins and nothing below them (its ruling: they "can't be found in the search, even if they're
+  // identifiable"); the same four for every card this one search finds (its ruling) — `searchTopIds` rides the pending choice to the
+  // chained picks. The library is still shuffled afterwards and it is still a search (the library-search triggers). The hand or
+  // graveyard part of a search is untouched; the revealed top card (Eladamri's "libraryTop") is no search.
+  const searchTopIds = searchesLibrary ? searchTopIdsFor(state, controller) : null;
+  const searchable = (zone, c) => zone !== "library" || !searchTopIds || searchTopIds.includes(c.id);
   const candidates = sourceZones
     ? sourceZones.flatMap((zone) => zoneCards(zone)
-        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
+        .filter((c) => searchable(zone, c) && cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
         .map((c) => ({ id: c.id, name: c.name, zone: zone === "libraryTop" ? "library" : zone })))
     : (player[sourceZone] || [])
-        .filter((c) => cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
+        .filter((c) => searchable(sourceZone, c) && cardMatchesTutorFilter(c, effFilter, state, controller) && enters(c))
         .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
@@ -412,6 +419,8 @@ export function applyTutor(state, atom, ctx) {
     ...(atom.stampEntrySource && ctx?.sourceId ? { entrySourceId: ctx.sourceId } : {}),
     // TWO CARDS, EACH WITH ITS OWN QUALITY (Krosan Verge) — the later picks' filters, in order; resolveTutorChoice raises each.
     ...(Array.isArray(atom.pickFilters) && atom.pickFilters.length ? { pickFilters: atom.pickFilters } : {}),
+    // THE TOP FOUR (Aven Mindcensor) — the library cards this one search may find, for every pick of it.
+    ...(searchTopIds ? { searchTopIds } : {}),
     // AI-F10 — may the searcher legally fail to find? A search WITH a stated quality (any
     // structured filter — type group / MV cap / color) may fail (CR 701.23b); a quantity-only
     // unfiltered search ("search your library for a card" — effFilter null) MUST find when a
@@ -3033,6 +3042,16 @@ export function applyPickMilledToHand(state, atom, ctx) {
 }
 
 /**
+ * THE TOP FOUR (Aven Mindcensor): the ids of the library cards a search by `searcherId` may find — the top four of their library as the
+ * search begins while an opponent controls a live Mindcensor (layers.librarySearchLimit), else null (the whole library). Every search
+ * site reads it: applyTutor, the tempting offer's first search here and its two in runProgram.
+ */
+export function searchTopIdsFor(state, searcherId) {
+  const limit = librarySearchLimit(state, searcherId);
+  return limit != null ? (state.players?.[searcherId]?.library || []).slice(0, limit).map((c) => c.id) : null;
+}
+
+/**
  * TEMPTING-OFFER-LAND (Tempt with Discovery, 2026-09-03): "Search your library for a land card and put it onto the
  * battlefield. Each opponent may search their library for a land card and put it onto the battlefield. For each
  * opponent who searches a library this way, search your library for a land card and put it onto the battlefield.
@@ -3047,10 +3066,12 @@ export function applyTemptingOfferLand(state, atom, ctx) {
   const player = state.players?.[controller];
   if (!player) return state;
   const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
-  const candidates = (player.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+  const searchTopIds = searchTopIdsFor(state, controller); // THE TOP FOUR (Aven Mindcensor) — an opponent's Mindcensor limits this search too
+  const candidates = (player.library || []).filter((c) => isLand(c) && (!searchTopIds || searchTopIds.includes(c.id))).map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
     candidates,
+    ...(searchTopIds ? { searchTopIds } : {}),
     sourceName: ctx.cardName || null,
     filterLabel: "land card",
     filter: { groups: [["land"]] },

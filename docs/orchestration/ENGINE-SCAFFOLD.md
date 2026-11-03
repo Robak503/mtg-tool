@@ -816,6 +816,10 @@ intervening-ifs (a fail-open board read would re-fire unboundedly): `renowned`, 
   (Spinerock Knoll, 2026-11-02 — interveningIf's `OPP_DEALT_N_DAMAGE_RE`) reads one opponent's total; a seat that left the game this
   turn keeps its total on `state.departedDamageThisTurn` (`{ playerId, amount, turn }`, written by `removePlayerFromGame`, read only
   for the current turn). Infect damage to a player is poison, never this ledger (an under-read).
+- **`lifeLostThisTurn`** — the life actually lost (gameState.loseLife — damage, paid life, drains), reset at untap; a seat that left the
+  game this turn keeps its total on `state.departedLifeLostThisTurn` (pw27 — Neheb, the Eternal's count reads both).
+- **`state.combatDamageToPlayersThisTurn`** — `{ turn, bySource }`, the players each object dealt combat damage to this turn (pw27 —
+  Steel Hellkite; combatResolution writes it, a stale turn reads as none).
 - **`activatedOncePerTurn`** — the activation-limit ledger, `{ turn, n }` keyed `permId:rawLine`. An
   ability carries `activationLimit` (a COUNT, 1 for the "Activate only once each turn" frame); the offer
   gate refuses at `used >= limit` and the dispatcher increments, restarting when the stored turn is
@@ -1104,6 +1108,47 @@ a chosen colour's toxic, hexproof and evasion.**
   Chupacabra a Hill Giant over Grizzly Bears; a destroy scores nothing on an indestructible permanent (CR 702.12b — Darksteel Colossus is
   passed over). A modal trigger (which mode is not a target's value — Aether Channeler's Bird), a row aiming at a spell (a spell scores
   nothing — Venser, Shaper Savant still returns the spell on the stack) or at a player keeps the first correct-side row, as before.
+
+**The play-weighted pw27 readers (2026-11-03) — the mana spent over the source's power, the opponents' life lost this turn, the turn's
+combat damage by object, the top four of a search.**
+- **"If the amount of mana spent to cast that spell is greater than <name>'s power"** (Liberator, Urza's Battlethopter — CR 603.4):
+  `triggers.rewriteSelfNameInterveningIf` names the source "this creature", and interveningIf's SPENT-OVER-POWER reader compares the
+  cast context's `manaSpentAmount` (the dispatcher's payment plan: the mana actually spent — {X} and additional costs in, a reduction out,
+  mana from a restricted pool entry in — the plan reports it only in `entrySpends`, added since pw27's review, F3 — 0 for a free cast; null for an alternative cost the plan can't price) with the source's layer-aware power, at the trigger and again
+  as it resolves. `interveningIfParseable`'s probe context carries `manaSpentAmount: 0` so the shape probes readable (no other trigger
+  intervening-if in the corpus reads the amount — the "five or more mana" Opus halves are atom conditions).
+- **"At the beginning of each of your postcombat main phases"** (`triggerScheduler.detectPhaseTrigger` → `secondMain`, fired at every
+  postcombat main, an additional one included — CR 505.1a). Kirri, Talented Sprout, Tymna the Weaver, Florian, Voldaren Scion, Brazen
+  Cannonade, Sphinx of the Second Sun, Sorin of House Markov and Megatron, Tyrant carry the phrase too (eight cards with Temple of Atropos, a
+  Plane, which never plays here): their trigger is now DETECTED (it reached no descriptor before) and, their effects unread, routes to the
+  manual (Arbiter) lane like any detected unread trigger — a log line and a pop, no state change; none is credited.
+- **The opponents' life lost this turn** (`parseCountSource` "1 life your opponents have lost this turn" → `countForSpec`'s
+  `opponentsLifeLostThisTurn` — Neheb, the Eternal): every opponent's `lifeLostThisTurn` (gameState.loseLife — damage, paid life,
+  drains; the life lost, never the net change) plus `state.departedLifeLostThisTurn` (`{ playerId, amount, turn }`, written by
+  `removePlayerFromGame` beside `departedDamageThisTurn` — the ruling counts an opponent who then lost the game). Read by the add-mana
+  ritual arm ("add {R} for each …"), so the mana is added as the trigger resolves and empties as the phase ends (CR 500.4).
+- **The turn's combat damage to players, by object** (`combatResolution.recordCombatDamageToPlayers` → `state.combatDamageToPlayersThisTurn`
+  `{ turn, bySource: { [permanent id]: [player ids] } }` — Steel Hellkite): written after each combat damage step's life loss from the
+  step's player events (after replacement and prevention; protection from everything leaves no record), keyed by the dealing OBJECT (a
+  blinked creature is a new one, CR 400.7) and outliving the dealer leaving the battlefield; a stale turn reads as none. Its reader is
+  the mass scope `eachNonlandPermanentDamagedBySource` (`shared.nonlandPermanentsDamagedBySourceWithManaValue` — Culling Ritual's land and
+  mana-value reads, mana value exactly `ctx.xValue`, the controller NOW in the damaged set), a NON-wipe scope (targetTypes). The atom's
+  `mvEqX` makes the program an X spell (the three xSpell sites) and starts the activated {X} walk at X = 0 for it alone
+  (`legalChoices.actionsActivateAbility`'s `xFloor`, the gate cost too) — its ruling destroys mana value 0 at X = 0. The default AI
+  never activates it (every AI picker skips an {X} activation); the destroy is no trigger, so `chooseTriggerTargets`' value ranking
+  never meets it.
+- **The top four of a search** (Aven Mindcensor — `staticAbilityParser`'s `searchTopFour` layer-6 op, inert; `layers.librarySearchLimit`
+  → `library.searchTopIdsFor`; CR 614.1a, 701.23a): while an opponent of the searcher controls a live one (through the board's
+  continuous effects, so an ability loss turns it off), a library search's candidates are the top four cards of the library as the search
+  begins. The ids ride the pending choice as `searchTopIds`, and every later pick of the ONE search reads them (the chained pick, the
+  `pickFilters` pick — its ruling: no fifth card joins). The search sites: `applyTutor` (every "search your library" atom, the each-player
+  search, Path to Exile's rider, the from-graveyard-and-library search's library part) and the tempting offer's three searches
+  (`applyTemptingOfferLand`, `runProgram.advanceTemptingOffer`, `resolveTemptingOfferChoice`). The library still shuffles and the search
+  still counts as one (the library-search triggers). Tempt with Discovery (pw27's review, F1 and F4): the offerer's FIRST search's settle
+  holds its shuffle (`holdShuffle` — "Then each player who searched a library this way shuffles" is written last), so the bonus searches
+  read the library as it was left; it is shuffled after the last bonus search, or at `advanceTemptingOffer`'s exit when nobody accepted;
+  and each bonus search is its own search with its own top four (`bonusTopIds` — its ruling: the effect happens again). Demonic Consultation's name pick, Eladamri's revealed top card and the seek atom are
+  no searches.
 
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
