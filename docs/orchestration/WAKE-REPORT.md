@@ -9,9 +9,9 @@
 
 ## 🎯 2026-10-01 — **THE PLAY-WEIGHTED PROGRAM** (Colton's order) — runnable: the top-2,500 worklist (phase 2), in rank order
 
-> **NOW (2026-11-01 ~00:10Z) — v0.169.0 RELEASED · PHASE 2 RUNNABLE.** Top 1,000 **935 / 1,000**; top 2,500 **1,904 / 2,500
-> (76.2%) → +346 to 90%**; corpus 15,957 (46.1%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
-> scripts/measure-coverage.mjs --played=2500` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
+> **NOW (2026-11-03 ~18:49Z) — v0.170.0 TAGGED · PHASE 2 RUNNABLE (TOP 5,000).** Top 1,000 **965 / 1,000**; top 2,500 **1,950 / 2,500
+> (78.0%) → +300 to 90%**; top 5,000 **2,993 / 5,000 (59.9%)**; corpus 16,056 (46.4%); shelf 29 / 30 ≥90 (Atraxa 74 deferred). Runnable: `MTG_APP_ROOT=… node
+> scripts/measure-coverage.mjs --played=5000` (from `app/`), highest-ranked buildable miss first — read the last five play-weighted
 > RUN-LEDGER entries' "Not taken" lists before picking. **Decided (Colton, 10-21):** the automatic payment holds back
 > restricted-line lands (Cavern of Souls, Mech Hangar — 27) — spent last, "play with reason", until reasoned mana tapping exists.
 
@@ -74,6 +74,23 @@
 > creatures triggered only for itself — fixed (CR 603.10a look-back). Sims with board wipes under Aristocrats watchers under-counted.
 > **Fix (10-01, ledger):** mana abilities with a mana cost (Signets, filter lands, Cabal Coffers) tapped for FREE in every sim
 > before this — fixed; the planner funds them from other mana. Sim data from before it over-credits those decks.
+
+## 🚀 2026-11-03 — **v0.170.0 TAGGED** (release run watching) — 21 commits since v0.169.0, every push CI green
+
+> **The release (+99 cards, no false credit removed; the top 5,000 opened; a run of rules fixes):** the play-weighted program widened
+> to the top 5,000 in pure rank order (Colton, 11-02) and landed seven card slices (Coat of Arms through Muldrotha, Ocelot Pride
+> and Nezahal, with the exert template's eight creatures), each through a blind adversarial review before it landed. **Ability
+> loss** is in: "loses all abilities" and "loses all other card types" are real for every reader (Kenrith's Transformation, Frogify,
+> Lignify, Turn to Frog, Humble and the rest — the first cards that turn a creature into something else). Rules: **a spell with several
+> targets can aim at any legal target in each** on a busy table (the 64-combination offer started at your own permanents); **an MDFC
+> played as its land face has mana value 0**; **a bestowed creature counts as the Aura it is**; a "becomes a copy" permanent uses the
+> copied card's abilities, types and keywords; myriad is real; **you choose the cards for a counted discard or graveyard-exile cost**
+> (it used to throw away your cheapest); **an opponent's "enter tapped" static taps the tokens you create** (Blind Obedience, Authority
+> of the Consuls, Thalia); a token made this turn is summoning sick. Stability: the Spirit Guide / Force of Will crash family, the
+> Kinnan and Tidespout Tyrant loops, and the Squirrel Girl big-board crash are gone; the self-play hot reads are computed once (no
+> game plays differently). Corpus **16,056 / 34,620 (46.4%)**; top 1,000 **965**; top 2,500 **1,950 (78.0%)**; top 5,000 **2,993
+> (59.9%)**. PLAY_API 1.17.0, save schema v14. Omnath's self-play epoch: the action set changed (exert, Muldrotha's graveyard
+> casts, the MDFC land-face mana value) — the cut is his call.
 
 ## 🚀 2026-10-31 — **v0.169.0 RELEASED** (published 2026-11-01T00:04:44Z) — 33 commits since v0.168.0, every push CI green
 

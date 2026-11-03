@@ -5,8 +5,8 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.169.0** (tagged 2026-10-31 on the `[0.169.0]` CHANGELOG cut):
-> **20 commits**, corpus **46.1% (15,957)** at the tag (v0.168.0 → v0.169.0: +133 gained, −5 false credit removed, 33 commits) → **46.4% (16,056)**; engine gains since the tag: **+99** (+99 gained, −0 false credit removed). The next tag
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.170.0** (tagged 2026-11-03 on the `[0.170.0]` CHANGELOG cut):
+> **0 commits**, corpus **46.4% (16,056)** at the tag (v0.169.0 → v0.170.0: +99 gained, −0 false credit removed, 21 commits); engine gains since the tag: **+0**. The next tag
 > comes after ~100 cards of gains (or a user-facing fix).
 > Update this line when a slice lands or a tag cuts.
 > **Growth, month to date ([GROWTH.md](GROWTH.md)):** November — corpus +99 (16,056) · top 1,000 **965** · top 2,500 **1,950 / 2,500 (78.0%)** · top 5,000 **2,993 / 5,000 (59.9%)**.
