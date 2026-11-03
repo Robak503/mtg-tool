@@ -51,6 +51,7 @@ import { becomeCopyResolvers } from "./atoms/becomeCopy.js";
 import { conniveResolvers } from "./atoms/connive.js";
 import { suspectResolvers } from "./atoms/suspect.js";
 import { speedResolvers } from "./atoms/speed.js";
+import { myriadResolvers } from "./atoms/myriad.js"; // KW-MYRIAD (CR 702.116a, play-weighted #898) — the token copies attacking each other opponent
 import { classLevelUpResolvers } from "./atoms/classLevelUp.js"; // CLASS (CR 716.2a) — the class level bar's "this Class's level becomes N"
 import { apnapOrder } from "./atoms/removal.js"; // YOU-AND-ATTACKING-OPPONENTS — the opponents who do the same go in APNAP order (the edict chain's own ordering)
 import { findPermanent, opponentsOf, logEvent } from "../gameState.js"; // YOU-AND-ATTACKING-OPPONENTS — who is attacking the attacked player as the ability resolves
@@ -100,6 +101,11 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...faceDownExileResolvers, // face-down-exile-top + face-down-exile-return (Necropotence, CR 406.3 + 603.7) — exile face down, return that card at your next end step
   ...discardedCardExileResolvers, // exile-discarded-card (Necropotence, CR 603.6) — the discard trigger's "exile that card from your graveyard"
   conditional: applyConditional, // CONDITIONAL REPLACEMENT (CR 608.2) — "<base>. If <cond>, <alt> instead." Defined below; recurses through resolveAtom, so it lives in the barrel.
+  // ONE X ACROSS CONJUNCTS (parser.bindXAcrossConjuncts — Descent into Avernus, 2026-11-03): runEffectProgram reads the count into the
+  // program's X itself, before the atoms that read it. Anywhere else (a conditional's branch, an Arbiter verdict) nothing can carry the
+  // X to the atoms after it, so the resolver answers "can't model" (null) and that caller rejects the whole thing rather than resolve
+  // the halves with no X.
+  "bind-x": () => null,
   "you-and-attacking-opponents": applyYouAndAttackingOpponents, // CURSE OF OPULENCE (#699) — "<effect>. Each opponent attacking that player does the same." Defined below; recurses through resolveAtom.
   ...controlResolvers, // gain-control (CR 613.1b layer-2 / 302.6) — indefinite control-change of a target creature/subtype (Sliver Overlord "Gain control of target Sliver")
   ...becomeCopyResolvers, // become-copy (CR 613.1a / 707.9) — a permanent becomes a copy of a chosen target until end of turn
@@ -107,6 +113,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...conniveResolvers, // connive (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard (pause) → +1/+1 if a nonland was discarded
   ...suspectResolvers, // suspect / unsuspect-all (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block via the layer reads)
   ...speedResolvers,   // start-engines (KW-ENGINES, CR 702.179b) — the synthesized "Start your engines!" ETB sets controller speed to 1 if none
+  ...myriadResolvers, // myriad (CR 702.116a) — the attack trigger's token copies, tapped and attacking each other opponent, exiled at end of combat
   ...classLevelUpResolvers, // class-level-become (CR 716.2a) — the level-up resolution: the source's level becomes N, then its becomes-level-N triggers
 });
 

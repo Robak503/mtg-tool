@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf, updatePermanentSafe } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
+import { logEvent, destroyLethalCreaturesAfterEffect, findPermanent, createPermanent, mintId, attachPermanent, opponentsOf, updatePermanentSafe, apnapOrder } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -246,7 +246,44 @@ function mintTokenKind(state, atom, ctx, creatorId, count) {
   return { state: next, mintedIds };
 }
 
+/**
+ * THE TOKEN COPY'S ENTRY REPLACER (2026-11-03): `{ apply, settle }` — enterReplacements.applyEnterReplacements / settleEnterReplacements,
+ * registered by effects/atoms/myriad.js at load, read by applyCreateTokenCopy only for an atom flagged `withEnterReplacements`.
+ */
+let tokenCopyEntryReplacer = null;
+
+/** Does a creation's count read a TARGET (a target opponent's lands, hand or tapped creatures; the counters on a target)? "Each player creates"
+ *  names each creator through ctx.targets, so such a count would read the creator instead — those creations are unread there. */
+const countReadsTarget = (atom) => !!atom?.countFor && (/target/i.test(String(atom.countFor.kind || "")) || atom.countFor.who === "target");
+export function registerTokenCopyEntryReplacer(replacer) {
+  tokenCopyEntryReplacer = replacer;
+}
+
+/**
+ * EACH PLAYER CREATES (play-weighted #891, 2026-11-03 — Descent into Avernus: "Then each player creates X Treasure tokens …"):
+ * `atom.whoCreates === "each"`. Every player still in the game creates the tokens, under their own control (CR 111.2), in APNAP order
+ * (CR 101.4), through the single-creator path with that player named as the creator (whoCreates "target" — their token doubler and
+ * additive apply to their own tokens). The count is read on the effect's own terms (ctx.controller stays the effect's controller), and a
+ * once-per-turn latch is one gate for the whole instruction, not one per player.
+ */
+function createForEachPlayer(state, atom, ctx, createOne) {
+  const gateKey = `${ctx.sourceId || ""}_${atom.op}`;
+  if (atom.oncePerTurn && (state.onceTriggersFiredThisTurn || {})[gateKey]) {
+    return logEvent(state, { kind: "spell-effect", effect: atom.op, count: 0, oncePerTurnLatched: true, controller: ctx.controller });
+  }
+  const { oncePerTurn: _gate, ...rest } = atom;
+  const one = { ...rest, whoCreates: "target" };
+  let next = state;
+  for (const pid of apnapOrder(state, Object.keys(state.players || {}))) {
+    if (!next.players?.[pid]) continue;
+    next = createOne(next, one, { ...ctx, targets: [{ type: "player", id: pid }] });
+  }
+  if (atom.oncePerTurn) next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  return next;
+}
+
 export function applyCreateToken(state, atom, ctx) {
+  if (atom.whoCreates === "each") return createForEachPlayer(state, atom, ctx, applyCreateToken);
   let next = state;
   // ONCE-PER-TURN gate (Screeching Scorchbeast — "…create that many … tokens. Do this only once each turn.",
   // SHELF M1b): the same per-source frequency latch discover/draw/gain-life honor (parser.js
@@ -500,6 +537,7 @@ function namedTokenCard(spec, mintedId) {
 export function applyCreateNamedToken(state, atom, ctx) {
   const spec = NAMED_TOKENS[atom.token];
   if (!spec) return state;
+  if (atom.whoCreates === "each") return createForEachPlayer(state, atom, ctx, applyCreateNamedToken);
   let next = state;
   // ===== TARGET-OPPONENT-CREATES ===== whoCreates:"target" — the token's controller/owner is the CHOSEN
   // opponent (ctx.targets player), not the effect's controller (Generous Plunderer's reflexive "target
@@ -731,8 +769,13 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).
-  const count = Math.max(0, atom.count || 1) * tokenMultiplier(next, ctx.controller);
+  const multiplier = tokenMultiplier(next, ctx.controller);
+  const count = Math.max(0, atom.count || 1) * multiplier;
   const mintedIds = [];
+  // MYRIAD'S GROUPS (effects/atoms/myriad.js): one call mints every copy of one myriad trigger — one creation event — and `atom.count`
+  // is the number of opponents it makes copies for. Copy i belongs to opponent floor(i / multiplier) (a doubler's extras attack the
+  // same player as the copy they double); the indexes ride `_lastMintedTokenGroups`, parallel to `_lastMintedTokenIds`.
+  const mintedGroups = [];
   // A COPY OF AN AURA (2026-10-16) is an Aura token entering without being cast: its controller chooses what it enchants as it
   // is created (CR 303.4f — auraEntry.enteringAuraHost, nothing targeted), on the board as the creation began, so never
   // another token this call makes; with nothing it may enchant, "If the Aura is a token, it isn't created" (CR 303.4g). It is
@@ -782,16 +825,31 @@ export function applyCreateTokenCopy(state, atom, ctx) {
     // copied card. Recorded on the permanent so combat reads it; never written to the card (which would leak
     // into the copiable values). Only the clean tapped/attacking riders reach here (parser-gated).
     if (atom.entersAttacking) entered = { ...entered, attacking: true };
+    // MYRIAD'S COPIES (effects/atoms/myriad.js, 2026-11-03): `myriadToken` stamps the copy (the legend rule's house pick reads it), and
+    // `withEnterReplacements` runs it through the entry replacements as it enters — the copied creature's "enters with" counters and "as
+    // this enters" choices (CR 707.5, 614.1c; the myriad rulings) — on the board as the creation began, before the lethal check below
+    // sees it. The replacer is registered by myriad.js (enterReplacements reaches this module, so it can't be imported here); every
+    // other copy effect passes neither flag and mints as before.
+    if (atom.myriadToken) entered = { ...entered, myriadToken: true };
+    let entrySettle = null;
+    if (atom.withEnterReplacements) {
+      if (!tokenCopyEntryReplacer) throw new Error("create-token-copy: the entry replacer is unregistered — load effects/atoms/myriad.js (the engine always does)");
+      const r = tokenCopyEntryReplacer.apply(asCreated, entered, {});
+      entered = r.perm;
+      entrySettle = r.settle;
+    }
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
+    if (entrySettle) next = tokenCopyEntryReplacer.settle(next, entered, entrySettle);
     // attachPermanent keeps both sides of the link and is where a control Aura takes its creature (a copied Control Magic).
     if (hostId) next = attachPermanent(next, { equipId: minted.id, targetId: hostId });
     mintedIds.push(minted.id);
+    if (atom.myriadToken) mintedGroups.push(Math.floor(i / multiplier));
   }
   // MINTED-TOKEN REFERENT (shelf D26 — Kiki-Jiki, Tempestra): "It gains haste. Sacrifice it at the beginning of the next end
   // step." — "it" is every token this call made (a doubler's extras included). Stamped for the end-step sacrifice that
   // follows (removal.applyScheduleMintedLeave). "It gains haste" with no duration is a layer-6 grant that lasts (CR 611.2a) — NOT part
   // of the copy's copiable values, unlike "except it has haste" (CR 707.9b).
-  next = { ...next, _lastMintedTokenIds: [...mintedIds] };
+  next = { ...next, _lastMintedTokenIds: [...mintedIds], ...(atom.myriadToken ? { _lastMintedTokenGroups: mintedGroups } : {}) };
   if (atom.gainsHaste && mintedIds.length) {
     next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [...mintedIds] },
       duration: { kind: "permanent" }, source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null } }).state;
@@ -910,6 +968,15 @@ export function createNamedTokenClauseParser(clause) {
     const atom = { op: "create-named-token", token: m[3], count: 1, targetType: m[1], whoCreates: "target" };
     if (m[2]) atom.tapped = true;
     return atom;
+  }
+  // EACH PLAYER CREATES (play-weighted #891, 2026-11-03 — Descent into Avernus: "Then each player creates X Treasure tokens …"): every
+  // player creates the tokens under their own control (CR 111.2), in APNAP order (CR 101.4) — applyCreateNamedToken runs the inner
+  // creation once per player still in the game, that player its creator (their doubler and their Xorn apply). Recurses on the
+  // "create …" form, so every count rule stays in one place; an inner that already names a creator or a target (a Role) is unread.
+  m = t.match(/^each player creates (.+)$/);
+  if (m) {
+    const inner = createNamedTokenClauseParser(`create ${m[1]}`);
+    return inner && inner.op === "create-named-token" && !inner.whoCreates && !inner.targetType && !countReadsTarget(inner) ? { ...inner, whoCreates: "each" } : null;
   }
   m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
   if (m) return { op: "create-named-token", token: "clue", count: m[1] === "twice" ? 2 : (m[1] ? NUM_WORD[m[1].split(" ")[0]] : 1), targetType: null };
@@ -1189,6 +1256,16 @@ function createTokenClauseParserCore(clause) {
     const inner = createTokenClauseParser("create " + toc[2]);
     if (inner && inner.op === "create-token") return { ...inner, targetType: toc[1], whoCreates: "target" };
     return null;
+  }
+  // EACH PLAYER CREATES A CREATURE TOKEN (play-weighted #891's twin arm, 2026-11-03): the named-token arm's sibling — the inner "create …"
+  // read by this parser, then created once per player still in the game, that player its creator (CR 111.2, 101.4). A rider the
+  // single-player creation carries that names a defender, a source or a count of its own (attacking, per opponent, an attach) is unread.
+  const eac = t.match(/^each player creates (.+)$/);
+  if (eac) {
+    const inner = createTokenClauseParser("create " + eac[1]);
+    const plain = inner && inner.op === "create-token" && !inner.whoCreates && !inner.targetType && !inner.perOpponent
+      && !inner.entersAttacking && !inner.attachSourceToCreated && !inner.countContext && !countReadsTarget(inner);
+    return plain ? { ...inner, whoCreates: "each" } : null;
   }
   // SHELF-85 S4 (2026-09-04 — Parhelion II "create two 4/4 white Angel creature tokens with flying and vigilance THAT ARE
   // ATTACKING"): the trailing attacking disposition on the fixed-count arm. The rider is peeled BEFORE the main match

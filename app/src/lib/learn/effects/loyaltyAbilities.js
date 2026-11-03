@@ -86,7 +86,9 @@ export function parseLoyaltyAbilities(card) {
     const effectClause = rewriteSelfLoyaltyCounter(m[2].trim(), card);
     // A loyalty ability's effect resolves exactly as a spell would; parse it as Instant text so
     // the spell-effect vocabulary (draw / damage / destroy / token / …) engages off a permanent.
-    const program = parseEffectClause(effectClause, "Instant");
+    // `noBindX`: no ONE-X-ACROSS-CONJUNCTS read (parser.bindXAcrossConjuncts) — planeswalkers are their own program, which takes that
+    // reader up when it takes them up (Nissa, Voice of Zendikar's −7 stays unmodeled, as before the reader existed).
+    const program = parseEffectClause(effectClause, "Instant", { noBindX: true });
     const modeled = !!program && programConfidence(program) === "high" && program.structure !== "modal" && !program.xSpell;
     out.push({
       index: index++,

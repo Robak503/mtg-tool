@@ -111,6 +111,9 @@ export const GRANTABLE_STATIC_KEYWORDS = new Set([
   "defender", "shadow", "flanking", "exalted",
   "infect", "wither", "intimidate", "skulk", "horsemanship",
   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "nonbasic landwalk",
+  // MYRIAD (CR 702.116a — 2026-11-03, effects/atoms/myriad.js): read at the attack by its instance count (layers.keywordInstanceCount),
+  // printed or granted — an Equipment's (Blade of Selves), an Aura's or a team grant's — so a layer-6 grant of it is the whole keyword.
+  "myriad",
 ]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */

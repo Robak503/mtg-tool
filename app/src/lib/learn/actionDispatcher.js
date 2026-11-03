@@ -59,6 +59,7 @@ import {
   abilityHasChosenTargets, // a targeted ability keeps its departed source's record too: the CR 608.2b re-check judges its targets by it
 } from "./gameState.js";
 import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+import { landEntryCopySpec, landCopyFor } from "./landEntryCopy.js"; // VESUVA (play-weighted #923) — the land drop entering as a copy of a land (a leaf over cloneCopy, layers and the colour reader)
 import { withoutExileStamps } from "./gameState.js"; // shelf D3 — a card cast out of exile leaves every exile-only permission behind (CR 400.7)
 import { parseTeamworkCost } from "./kicker.js"; // TEAMWORK (shelf D16) — the N a kicked teamwork cast must tap; kicker.js imports only leaves (parseHelpers, keywords)
 
@@ -181,7 +182,16 @@ function applyPlayLand(state, action) {
   // card that leaves is a new object (CR 400.7): the face and the printed card both drop the exile-only stamps (the
   // adventure permission among them — gameState.withoutExileStamps), or the whole card, exiled again later, would still be
   // playable. A card with no stamp is returned as is, so every hand drop is unchanged.
-  const card = action.faceCard ? { ...withoutExileStamps(action.faceCard), id: realCard.id } : realCard;
+  // VESUVA (play-weighted #923, 2026-11-03 — landEntryCopy.js): a play that names a land to copy enters AS that copy (CR 614.1c, 707.2),
+  // tapped — the copy is read off the board as the land enters (it is not on the battlefield yet), and the card itself rides as
+  // `printedCard`, which every zone move restores (the face hook below). A named land no longer there, or no longer a land, refuses.
+  let copyCard = null;
+  if (action.copyOfPermanentId != null) {
+    if (!landEntryCopySpec(realCard)) throw new DispatcherError(`${realCard.name} doesn't enter as a copy of a land`, "BAD_LAND_COPY");
+    copyCard = landCopyFor(state, realCard, action.copyOfPermanentId);
+    if (!copyCard) throw new DispatcherError(`No land ${action.copyOfPermanentId} on the battlefield to copy (gone, or a land the engine reads only in part)`, "BAD_LAND_COPY");
+  }
+  const card = copyCard || (action.faceCard ? { ...withoutExileStamps(action.faceCard), id: realCard.id } : realCard);
 
   let next = moveCardToZone(state, {
     playerId: action.playerId,
@@ -190,7 +200,7 @@ function applyPlayLand(state, action) {
     cardId: action.cardId,
     becomePermanent: true,
   });
-  if (action.faceCard) {
+  if (action.faceCard || copyCard) {
     const bf0 = next.players[action.playerId].battlefield;
     const enteredId = bf0[bf0.length - 1]?.id;
     next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId],
@@ -220,7 +230,7 @@ function applyPlayLand(state, action) {
       const chosenType = autoPickCreatureType(state, action.playerId);
       if (chosenType) next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId], battlefield: bf.map((p) => (p.id === entered.id ? { ...p, chosenType } : p)) } } };
     }
-    if (entered && (entersTapped(ownLand) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, ownLand, action.playerId, entered.id) || revealLandEntersTapped(next, ownLand, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
+    if (entered && (copyCard || entersTapped(ownLand) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, ownLand, action.playerId, entered.id) || revealLandEntersTapped(next, ownLand, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c); VESUVA: the copy enters tapped
       next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
     } else if (entered) {
       // THE SHOCKLAND CLAUSE (LANDS-TIER slice 2, CR 614.1c + 119.4): "you may pay N life. If you don't, it
@@ -303,6 +313,7 @@ function applyPlayLand(state, action) {
     kind: "play-land",
     playerId: action.playerId,
     cardName: card.name,
+    ...(copyCard ? { printedName: realCard.name, asCopy: true } : {}), // VESUVA — the land played and what it entered as
   });
   // LANDFALL (CR 603 — a triggered ability via the landfall ability word, CR 207.2c; not a replacement
   // effect) — the land just entered under this player's control, so fire any landfall watchers

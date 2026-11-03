@@ -71,7 +71,7 @@ function castTargetText(o) {
 /** The three parts a hand-card play's label is built from: the verb and the face played, the target, the variant clauses. */
 export function playLabelParts(o) {
   return {
-    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}`,
+    head: `${o.kind === "play-land" ? "Play" : "Cast"} ${o.name}${o.kind === "play-land" && o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`, // VESUVA — the land it enters as
     target: o.kind === "cast-spell" ? castTargetText(o) : null,
     clauses: castVariantClauses(o),
   };
@@ -145,7 +145,7 @@ function kindLabel(o, seat) {
       const { head, target, clauses } = playLabelParts(o);
       return `${head}${target ? ` → ${target}` : ""}${clauses.length ? ` (${clauses.join("; ")})` : ""}`;
     }
-    case "play-land": return `Play ${o.name}`;
+    case "play-land": return `Play ${o.name}${o.copyOfName ? ` as a copy of ${o.copyOfName} (tapped)` : ""}`; // VESUVA (play-weighted #923) — the land drop that enters as a copy
     case "declare-attacker": {
       // The player's own attacks never aim at "user"; an opponent's attack on the player (a log line) reads "Attack you".
       const at = o.targetName || o.defenderName || (o.defenderId === "user" ? "you" : SEAT_LABELS[o.defenderId]) || "";

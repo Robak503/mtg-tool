@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
+import { taintedPactStep, wheelOnePlayer, startEachPlayerSearch } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice, setPendingAuraEntryHostChoice, setPendingProtectionColorChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler // + the aura-entry-host pause (CR 303.4f) // + the protection-color pause (CR 608.2d)
 import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d — a person announces the colour of "protection from the color of your choice" as it resolves (call-time binding)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
@@ -37,7 +37,7 @@ import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf 
 import { changeTargetAlternatives, atomForStackTarget, resolutionTargetVerdicts } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom; + the CR 608.2b target re-check
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
 import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
-import { isLandCard, sacrificesByIn, spellSourceQualities } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch // + spellSourceQualities: a resolving spell's colours and types as a damage source
+import { isLandCard, sacrificesByIn, spellSourceQualities, countForSpec } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch // + spellSourceQualities: a resolving spell's colours and types as a damage source
 import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree milled-pick settles into Dauthi Voidwalker's grant (voidPlay imports gameState + pendingChoice only)
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
@@ -250,7 +250,10 @@ function resolveAtomAsking(state, atom, ctx) {
 
 export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacrificed = false, recheckTargets = false } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets: recordedTargets = [], xValue = null, sourceId = null, context: recordedContext = {}, kicked = false } = params;
+  const { program, controller, targets: recordedTargets = [], xValue: recordedX = null, sourceId = null, context: recordedContext = {}, kicked = false } = params;
+  // The program's X: the X chosen at cast, or — after a `bind-x` step (ONE X ACROSS CONJUNCTS) — the count that step read. Every resume
+  // record below carries the current value, so a program resumed after a pause keeps the X it bound.
+  let xValue = recordedX;
   // THE SPELL AS A DAMAGE SOURCE (CR 609.7c): a resolving spell has no permanent, so its colours and card types ride its context
   // (`spellSource`) — every atom's ctx and every resume record of this program carry them — for the source-filtered damage
   // replacements (Torbran's "red source"; effects/atoms/shared.damageSourceFor). An ability (a permanent's sourceId) gets none.
@@ -325,6 +328,14 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     sacrificedByPrev = false;
     if (atom.ifSacrificed && !prevDidSacrifice) continue;
     if (atom.ifExiledCardType && !exiledCardIsType(next, exiledFromGraveyard, atom.ifExiledCardType)) continue;
+    // ONE X ACROSS CONJUNCTS (parser.bindXAcrossConjuncts): the count is read ONCE, here, on the board as the resolution reaches this
+    // instruction (CR 608.2h — after the atoms before it, so Descent into Avernus counts the two counters it just put), and is the X
+    // every later atom of this program reads, through any pause (the resume records below carry it).
+    if (atom.op === "bind-x") {
+      xValue = Math.max(0, countForSpec(next, { ...context, controller, targets: [], cardName, sourceId }, atom.countFor) || 0);
+      next = logEvent(next, { kind: "spell-effect", effect: "bind-x", controller, x: xValue });
+      continue;
+    }
     // A REFLEXIVE TRIGGER (CR 603.12 — parser.matchReflexiveTrigger's `reflexiveTrigger` atoms): the action happened (a gated one
     // passed the gate above), so the reflexive triggers now. Its run of atoms leaves this resolution as a pending triggered ability
     // of its own, put on the stack at the next flush with its targets chosen then, against the game after the action (CR 603.3d).
@@ -695,7 +706,7 @@ export function resolveTutorChoice(state, cardId) {
       temptingOffer: pc.temptingOffer || null, // TEMPTING OFFER — the offer's running state rides every chained bonus search
       searchEnteredIds: oneEvent && enteredPermId ? [...searchEnteredIds, enteredPermId] : searchEnteredIds, // MULTI-PICK, ONE EVENT (CR 614.12)
     });
-    return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+    return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume, ...(pc.eachPlayerSearch ? { eachPlayerSearch: pc.eachPlayerSearch } : {}) } };
   }
   // A library search shuffles afterward (no CR rule states this directly); a from-HAND put (LAND-FROM-HAND) doesn't touch the
   // library; a FETCH-TO-TOP already shuffled-then-placed above, so re-shuffling would knock the card off top.
@@ -708,6 +719,13 @@ export function resolveTutorChoice(state, cardId) {
   if (searchedLibrary) next = checkLibrarySearchTriggers(next, pc.controller); // LIBRARY SEARCH (KN-5b): the settle is the search's completion
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
+  // EACH PLAYER SEARCHES (Field of Ruin — library.startEachPlayerSearch): the next player still to search starts theirs, carrying the
+  // program's resume; after the last, the program resumes.
+  if (pc.eachPlayerSearch?.rest?.length) {
+    const started = startEachPlayerSearch(next, pc.eachPlayerSearch.atom, { cardName: pc.eachPlayerSearch.cardName ?? null }, pc.eachPlayerSearch.rest);
+    if (started.pendingChoice) return pc.resume ? { ...started, pendingChoice: { ...started.pendingChoice, resume: pc.resume } } : started;
+    next = started;
+  }
   // TEMPTING OFFER (Tempt with Discovery) — a search that belongs to a tempting offer advances the offer instead
   // of resuming the program: ask the next opponent, pay the offerer, or (after the last bonus search) resume.
   if (pc.temptingOffer) return advanceTemptingOffer(next, pc);
@@ -1619,6 +1637,14 @@ export function optionalAutoTakeValue(state, pc) {
     const r = pc.resume || {};
     const atom = programAtoms(r.program || { atoms: [] }, r.chosenMode)[pc.atomIndex];
     return atom ? punisherAutoTake(state, who, r.controller, atom, r.context || {}) : true;
+  }
+  // MYRIAD (effects/atoms/myriad.js, 2026-11-03): the copies are taken, unless the creature is legendary — the legend rule would leave one
+  // of them (CR 704.5j), and the house keeps the creature that attacked, so the copies would only enter and go.
+  if (pc?.effectOp === "myriad" && (!who || !policyEvalEnabledFor(state, who))) {
+    const r = pc.resume || {};
+    const src = r.sourceId != null ? findPermanent(state, r.sourceId)?.permanent : null;
+    const card = src?.card || r.context?.myriadLastKnown || null;
+    return !/\bLegendary\b/.test(String(card?.type || card?.type_line || "").split(" // ")[0]);
   }
   if (!who || !policyEvalEnabledFor(state, who)) return true;
   const taken = resolveOptionalChoice(state, true);

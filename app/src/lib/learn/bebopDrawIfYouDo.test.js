@@ -17,7 +17,7 @@ import { chooseTriggerTargets, flushTriggers, resolveTopOfStack } from "./gameEn
 import { resolveOptionalChoice } from "./effects/runProgram.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { parseEffectClause, programConfidence } from "./effects/parser.js";
+import { parseEffectClause, parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -128,8 +128,15 @@ describe("the unaimed gains, in play", () => {
 });
 
 describe("⛔ the two the first build reached falsely stay fenced", () => {
-  it("Camaraderie's \"You gain X life and draw X cards, where X is …\" stays unclaimed — one X across conjuncts isn't split onto the cost X", () => {
+  // GRADUATED (play-weighted pw22, 2026-11-03): this pinned Camaraderie unclaimed because the first Bebop build split its sentence on
+  // " and " and read the first half's X as the spell's COST X — a card with no {X}, so a gain of nothing. One X across conjuncts has its
+  // reader now (parser.bindXAcrossConjuncts): the X is the count, bound ONCE by a leading `bind-x` (CR 608.2h), and the program is no X
+  // spell — no X is chosen or paid at cast. The cast itself (3 creatures: 3 life, 3 cards) is witnessed in descentIntoAvernus.test.js.
+  it("Camaraderie's \"You gain X life and draw X cards, where X is …\" — read with the X bound to the count, never split onto a cost X", () => {
     const CAMARADERIE = { name: "Camaraderie", type: "Sorcery", mana: "{4}{G}{W}", keywords: [], oracle: "You gain X life and draw X cards, where X is the number of creatures you control. Creatures you control get +1/+1 until end of turn." };
-    expect(classifyCard(CAMARADERIE)).not.toMatch(/^native/);
+    const p = parseEffectProgram(CAMARADERIE);
+    expect({ tier: classifyCard(CAMARADERIE), xSpell: p.xSpell, lead: p.atoms[0] }).toEqual({
+      tier: "native-spell", xSpell: false, lead: { op: "bind-x", countFor: { kind: "permanentsYouControl", cardType: "creature" }, targetType: null },
+    });
   });
 });

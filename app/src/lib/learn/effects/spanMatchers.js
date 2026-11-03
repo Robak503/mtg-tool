@@ -21,7 +21,7 @@
  * rider paths (parseControllerRider / matchRemovalControllerRider).
  */
 import { stripReminder } from "./textNormalize.js";
-import { parseTutorFilter, parseTokenKeywords, NUM_WORD, UP_TO_N_WORD } from "./parseHelpers.js";
+import { parseTutorFilter, parseTokenKeywords, NUM_WORD, UP_TO_N_WORD, parseCountSource } from "./parseHelpers.js";
 import { destroyExileClauseParser } from "./atoms/removal.js";
 import { counterClauseParser } from "./atoms/stack.js";
 
@@ -517,6 +517,24 @@ export function matchImpulseDig(oracle) {
     if (rb[3]) filter.notSubtype = rb[3].toLowerCase();
     const label = `${rb[2] ? rb[2].toLowerCase() + " " : ""}${rb[4].trim().toLowerCase()} card`;
     return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label, chosenTo: "battlefield", restOrder: "random" }, rest: oracle.slice(rb[0].length).trim() };
+  }
+  // (2b') A MANA VALUE CAPPED BY A COUNT (play-weighted #883, 2026-11-03 — Loot, Exuberant Explorer's "{4}{G}{G}, {T}: Look at the top six
+  // cards of your library. You may reveal a creature card with mana value less than or equal to the number of lands you control from
+  // among them and put it onto the battlefield. Put the rest on the bottom in a random order."): (2b)'s battlefield dig, revealed, with
+  // its cap a COUNT of permanents you control (`mvMaxCount`, the shared count reader's permanentsYouControl kind) that applyImpulseDigAtom
+  // reads once as the ability resolves (CR 608.2h) and applies as the filter's mana-value ceiling — a card's mana value, so an {X} in
+  // its cost counts 0 (CR 202.3e; the bundled ruling). The reveal shows only the card that enters. Any other count is unread here.
+  const rm = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may reveal an? ([a-z][a-z ]*?) card with mana value less than or equal to the number of ([a-z][a-z ]*?) from among them and put (?:it|that card) onto the battlefield\. put the rest on the bottom(?: of your library)? in a random order\.?/i,
+  );
+  if (rm) {
+    const word = rm[2].trim().toLowerCase();
+    if (word === "land") return null;
+    const amount = DIG_NUM[rm[1].toLowerCase()];
+    const filter = parseTutorFilter(word);
+    const mvMaxCount = parseCountSource(rm[3].trim().toLowerCase());
+    if (!amount || !filter || filter.mv || mvMaxCount?.kind !== "permanentsYouControl") return null;
+    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, mvMaxCount, filterLabel: `${word} card with mana value less than or equal to the number of ${rm[3].trim().toLowerCase()}`, chosenTo: "battlefield", restOrder: "random" }, rest: oracle.slice(rm[0].length).trim() };
   }
   // (2c) COUNTED DIG-TO-BATTLEFIELD (SHELF-85 · Atraxa A3 — Deploy the Gatewatch, 2026-09-05): "Look at the top seven cards
   // of your library. Put up to two planeswalker cards from among them onto the battlefield. Put the rest on the bottom of

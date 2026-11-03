@@ -10,7 +10,12 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.13.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.14.0"`
+
+> **v1.14.0 (additive MINOR, 2026-11-03 — new fields on an existing action kind; the play-weighted slice pw22):** `"play-land"`: `copyOfPermanentId` and `copyOfName` — Vesuva's
+> land drop entering tapped as a copy of that land (one action per land it may copy; the plain play carries neither). An
+> `"optional-effect"` decision may name `effectOp: "myriad"` (the myriad trigger's yes/no), and a `"tutor-search"` decision may be a
+> seat's own search inside another player's ability (Field of Ruin's each-player search). No kind, decision or answer shape changed.
 
 > **v1.13.0 (additive MINOR, 2026-11-02 — the play-weighted slice pw21):**
 > - The impulse-dig decision carries `chosenTo` and `thenExilePlay` on the wire: Expressive Iteration asks twice — a hand pick

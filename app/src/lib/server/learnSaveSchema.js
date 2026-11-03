@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -166,6 +166,22 @@ export const MIGRATIONS = {
   // Multiverse); an exiled card of your own `_impulseFree` (Urza, Mind's Desire). No backfill: this migration stamps the version only.
   // (CONTRACT-MIG.)
   10: (doc) => ({ ...doc, schemaVersion: 11 }),
+
+  // v11 → v12 — the play-weighted slice pw22 (2026-11-03) persists five new shapes, each written only by its own card and each ABSENT
+  // meaning what every earlier game says:
+  //   · a pending tutor choice's `eachPlayerSearch` (Field of Ruin — the atom and the players still to search after this one,
+  //     effects/atoms/library.startEachPlayerSearch): absent, the search is the only one;
+  //   · a permanent's `myriadToken` (a copy myriad made — the legend rule's house pick keeps the permanent that isn't one): absent, none;
+  //   · a pending trigger with `event: "myriad"` (its inline program, the `myriad` atom, and its context's `defendingPlayerId` and
+  //     `myriadLastKnown`), and a delayed record whose `fireStep` is `"end-of-combat"` (the copies' exile): absent, none;
+  //   · a resume record's `xValue` may be a bound count (ONE X ACROSS CONJUNCTS — runEffectProgram's `bind-x`): the same field, read as
+  //     the program's X as before.
+  //   · a stack object's `abilitySourceLki` may carry `counters` (the source's counter pile as it left, written only for an ability that
+  //     counts its source's named counters — gameState.stampAbilitySourceLki, CR 608.2h; Descent into Avernus): absent, the record
+  //     every earlier build writes.
+  // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v12 save
+  // (migrate throws on a newer version) instead of dropping the players still to search or resolving an unknown atom. (CONTRACT-MIG.)
+  11: (doc) => ({ ...doc, schemaVersion: 12 }),
 };
 
 export class SaveMigrationError extends Error {

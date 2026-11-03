@@ -386,7 +386,7 @@ describe("migrate", () => {
     const v10 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v10.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v10)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // + pw21: the chain now runs on to v11
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // + pw21: the chain now runs on to v11 (and on to v12 since pw22 — the shapes ride forward unchanged)
     const s = back.session.state;
     const bounced = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "hand", cardId: "giant" });
     expect({ hand: bounced.players.user.hand.map((c) => c.name), exile: bounced.players.user.exile.map((c) => c.name) }).toEqual({ hand: [], exile: ["Hill Giant"] });
@@ -415,6 +415,46 @@ describe("migrate", () => {
     const stamped = { ...leave, lkiCopyMv: 1 };
     const v11 = { ...upgraded, session: { ...upgraded.session, state: { ...upgraded.session.state, pendingLeaveEvents: [stamped] } } };
     expect(migrate(JSON.parse(JSON.stringify(v11))).session.state.pendingLeaveEvents).toEqual([stamped]);
+  });
+  // CONTRACT-MIG (the play-weighted slice pw22): a v12 game may carry a pending tutor choice's `eachPlayerSearch` (Field of Ruin), a
+  // permanent's `myriadToken`, a pending `myriad` trigger, an `end-of-combat` delayed record (the copies' exile) and a stack object's
+  // last-known source record with `counters` (Descent into Avernus). An earlier save has none, and absent means what every earlier game
+  // says, so v11 → v12 stamps the version only. The round trip: a v12 game holding each new shape survives save → JSON → migrate, and the
+  // legend rule still keeps the creature that isn't a copy.
+  it("carries a v11 save forward to v12 (stamp-only; a v12 game's each-player search, myriad copy, trigger, delayed exile and last-known counters round-trip)", async () => {
+    const { applyLegendRule } = await import("../learn/gameState.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [] };
+    const v11 = {
+      schemaVersion: 11, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v11", serializable: true,
+      session: { id: "learn-v11", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 5, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([typeof MIGRATIONS[10], typeof MIGRATIONS[11]]).toEqual(["function", "function"]); // a continuous chain; the v11 → v12 step exists (CONTRACT-MIG)
+    expect(MIGRATIONS[11](JSON.parse(JSON.stringify(v11)))).toEqual({ ...v11, schemaVersion: 12 }); // and stamps the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v11)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: 12, resumable: true, state: v11.session.state });
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, ...extra });
+    const legend = { name: "Isamaru, Hound of Konda", type: "Legendary Creature — Dog", power: "2", toughness: "2", oracle: "" };
+    const original = perm("isamaru", legend, { timestamp: 1 });
+    const copy = perm("tok-1", { ...legend, token: true }, { timestamp: 2, tapped: true, myriadToken: true });
+    const descentLki = { permanentId: "desc", controller: "user", isCreature: false, colors: ["R"], types: ["Enchantment"], keywords: [], power: 0, counters: { descent: 4 } };
+    const state = { ...v11.session.state,
+      stack: [{ id: "stk-1", kind: "ability", controller: "user", source: { permanentId: "desc", name: "Descent into Avernus" },
+        payload: { resolver: "manual", params: { controller: "user", sourceId: "desc", targets: [], context: { abilitySourceLki: descentLki } } } }],
+      players: { user: { ...empty, battlefield: [original, copy] }, ai: { ...empty, library: [{ id: "ai-lib0", name: "Forest", type: "Basic Land — Forest", oracle: "" }] } },
+      pendingChoice: { kind: "tutor-search", controller: "user", candidates: [], sourceName: "Field of Ruin", filterLabel: "basic land card", filter: { groups: [["basic", "land"]] }, destination: "battlefield", entersTapped: false, remaining: 1, sourceZone: "library", sourceZones: null, destinations: null, mayFailToFind: true,
+        eachPlayerSearch: { atom: { op: "tutor", eachPlayer: false, filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: false, targetType: null }, rest: ["ai"], cardName: "Field of Ruin" } },
+      pendingTriggers: [{ event: "myriad", source: { permanentId: "isamaru", cardId: "c-isamaru", name: legend.name }, controller: "user", descriptor: { event: "myriad" }, context: { defendingPlayerId: "ai", myriadLastKnown: original.card }, targets: [],
+        reflexiveProgram: { structure: "sequence", atoms: [{ op: "myriad", optional: true, targetType: null }] }, xValue: null, payload: { resolver: "manual", params: { controller: "user", targets: [], context: { defendingPlayerId: "ai" } } } }],
+      delayedTriggers: [{ id: "dly-1-5", controller: "user", fireStep: "end-of-combat", fireScope: "any", effectClause: "[minted-leave exile tok-1]", sourceName: legend.name, sourceCardId: null, sourcePermanentId: "isamaru", createdTurn: 5 }] };
+    const v12 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v12.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v12)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 12, state });
+    const kept = applyLegendRule(back.session.state).state.players.user.battlefield.map((p) => p.id);
+    expect(kept).toEqual(["isamaru"]);
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

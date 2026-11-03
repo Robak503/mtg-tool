@@ -404,7 +404,13 @@ export function observe(state, seat) {
 //     battlefield under your control". Answer shape unchanged (a card id).
 //   - A cast from your OWN exile may carry `freeCast: true` (Urza, Lord High Artificer; Mind's Desire — "you may play that card without
 //     paying its mana cost"), offered at the timing a paid cast of it needs.
-export const PLAY_API_VERSION = "1.13.0";
+// 1.14.0 (additive MINOR — new fields on an existing action kind, 2026-11-03, the play-weighted slice pw22):
+//   - "play-land": `copyOfPermanentId` + `copyOfName` (Vesuva — the land drop that enters tapped as a copy of that land on the
+//     battlefield; the plain play beside it carries neither and enters the land as itself).
+//   - The "optional-effect" decision may carry `effectOp: "myriad"` (myriad's one yes/no — the copies attacking each other opponent), and a
+//     "tutor-search" decision may now belong to a seat that is not the ability's controller (Field of Ruin — each player's own search).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
+export const PLAY_API_VERSION = "1.14.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

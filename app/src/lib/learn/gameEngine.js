@@ -102,6 +102,7 @@ import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep, applySuspendUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
+import { myriadAttackTriggers } from "./effects/atoms/myriad.js"; // KW-MYRIAD (CR 702.116a) — the attack trigger, queued at the declaration's close (the atom module imports gameState, layers, keywords and two sibling atoms — none reaches gameEngine)
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
@@ -1145,7 +1146,9 @@ export function attackDeclarationOpen(state) {
 export function closeAttackDeclaration(state) {
   const declared = (state.combat?.attackers || []).length;
   const recorded = { ...state, combat: { ...state.combat, declaredAttackerCount: declared } };
-  const triggered = checkAttackTriggers(recorded);
+  // KW-MYRIAD (CR 702.116a — effects/atoms/myriad.js): each myriad instance on a declared attacker triggers too, beside the printed
+  // attack triggers (one pending trigger each, on the stack at the flush below).
+  const triggered = myriadAttackTriggers(checkAttackTriggers(recorded));
   // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach): resolves
   // draw-that-many + may-put-a-permanent synchronously, enqueuing its cardDrawn / ETB sub-triggers for the flush below.
   // Fired AFTER checkAttackTriggers so its draw lands after the printed attack triggers' enqueue.

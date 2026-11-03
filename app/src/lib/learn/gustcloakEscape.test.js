@@ -25,6 +25,7 @@ import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { classifyCard } from "./coverage.js";
+import { parseActivatedAbilities } from "./effects/abilities.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -78,8 +79,13 @@ describe("GC-1 parser + classify — the escape clause parses to ONE optional se
     // If they do, untap this creature and remove it from combat.") is not a leading "you may" optional.
     expect(classifyCard(cr("Shakedown Heavy", "Menace\nWhenever this creature attacks, defending player may have you draw a card. If they do, untap this creature and remove it from combat.", "Creature — Ogre Warrior"))).toBe("body-only");
     // Reconnaissance — the TARGETED, reversed-order activated form ("Remove target attacking creature you
-    // control from combat and untap it") fails the self anchor.
-    expect(classifyCard({ name: "Reconnaissance", type: "Enchantment", oracle: "{0}: Remove target attacking creature you control from combat and untap it." })).toBe("body-only");
+    // control from combat and untap it") still fails the SELF anchor. GRADUATED (play-weighted pw22, 2026-11-03): it has its own
+    // targeted arm now (atoms/combat.js — the same resolver on the chosen attacking creature you control; reconnaissance.test.js), so the
+    // card is native; what this guard still holds is that the self form never claims it — its atom names a target, not the source.
+    const recon = { name: "Reconnaissance", type: "Enchantment", oracle: "{0}: Remove target attacking creature you control from combat and untap it." };
+    expect({ tier: classifyCard(recon), atom: parseActivatedAbilities(recon)[0].program.atoms[0] }).toEqual({
+      tier: "native-activated", atom: { op: "untap-remove-from-combat", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "combat", value: "attacking" }] },
+    });
     // Ydwen Efreet — the blocker-side coin-flip removal with the unblocked-rewrite rider.
     expect(classifyCard(cr("Ydwen Efreet", "Whenever this creature blocks, flip a coin. If you lose the flip, remove this creature from combat and it can't block this turn. Creatures it was blocking that had become blocked by only this creature this combat become unblocked.", "Creature — Efreet"))).toBe("body-only");
   });

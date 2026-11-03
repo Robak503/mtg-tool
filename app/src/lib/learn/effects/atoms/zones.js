@@ -17,6 +17,7 @@ import { permanentProtectionColors, permanentIsCreature, permanentHasTypeWord, a
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
+import { landEntryCopySpec, landCopyCandidates, houseLandCopyPick } from "../../landEntryCopy.js"; // VESUVA (play-weighted #923) — the land entry copy on a put onto the battlefield (a leaf over cloneCopy, layers and the colour reader)
 import { temporaryEntryCopySpec, cloneCandidates, pickTemporaryCopy, snapshotCopiedCard } from "../../cloneCopy.js"; // CURSED MIRROR (play-weighted #448, CR 614.1c / 614.12) — the as-enters copy until end of turn on a put; a leaf over gameState / layers / keywords / staticAbilityParser (becomeCopy.js, a sibling atom, already imports it)
 import { characteristicColors } from "../../faceUp.js"; // a graveyard card's colours — a double-faced card is its front face's (CR 712.8a) (a leaf)
 import { ENFORCED_KEYWORD_COUNTER_KINDS } from "../../staticAbilityParser.js"; // PERSIST — the keyword-counter kinds the engine enforces (CR 122.1b); counters.js gates on the same set
@@ -407,6 +408,17 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     }
     state = logEvent(state, { kind: "temporary-copy-choice", controller: playerId, cardName: card?.name, copiedName: source?.card?.name ?? null, auto: true });
   }
+  // VESUVA (play-weighted #923, 2026-11-03 — landEntryCopy.js, CR 614.1c, 707.2): "You may have this land enter tapped as a copy of any land
+  // on the battlefield." applies however it enters; on this road no player is asked, so the house policy picks the land (the colour its
+  // player needs — houseLandCopyPick), on the board as it enters (never a land entering with it — the bundled ruling). Copied, it enters
+  // tapped as that land with its own card as printedCard; with nothing to copy it enters as itself, untapped.
+  let enteringTapped = tapped;
+  if (landEntryCopySpec(card)) {
+    const asEntering = replacementState || state;
+    const pick = houseLandCopyPick(asEntering, playerId, landCopyCandidates(asEntering, card));
+    if (pick) { entering = pick.copy; enteringTapped = true; }
+    state = logEvent(state, { kind: "land-copy-choice", controller: playerId, cardName: card?.name, copiedName: pick?.name ?? null, auto: true });
+  }
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(entering?.type || entering?.type_line || ""));
@@ -418,8 +430,8 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // destroyed object "is put on top of its owner's graveyard"; CR 700.4 — dies = put into a graveyard
   // from the battlefield). The common same-player entry stamps nothing → byte-identical.
   // K9 (Fblthp "if it entered from your library"): the zone this permanent arrived from, for ETB riders that ask.
-  const base = { ...createPermanent({ id: permId, card: entering, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }),
-    ...(copyStamp ? { printedCard: card, copyUntilEndOfTurn: copyStamp } : {}) };
+  const base = { ...createPermanent({ id: permId, card: entering, controller: playerId, summoningSick: isCreatureCard, tapped: enteringTapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }),
+    ...(copyStamp ? { printedCard: card, copyUntilEndOfTurn: copyStamp } : {}), ...(entering !== card && !copyStamp ? { printedCard: card } : {}) };
   // THE ENTRY REPLACEMENTS (CR 614.1c, 614.1d, 614.12) — the same reader the cast entry (resolvers.enterPermanent) uses, so a
   // permanent that wasn't cast enters exactly as its replacement effects say: "enters tapped" (Diregraf Ghoul), "enters with
   // N +1/+1 counters" (Spike Feeder), the planeswalker's loyalty (CR 306.5b), fading / vanishing / Saga lore, another

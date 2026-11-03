@@ -64,6 +64,7 @@ import { boardHasDamageReplacement } from "./damageReplacements.js"; // a damage
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // damage to the seat dealt to a creature instead (CR 614.9)
 import { selfDamagePreventionBy, attachedDamagePrevention, cantAttackAlone, attackControllerRequirementOf, attackDefenderRequirementOf } from "./combatEvasion.js";
 import { attackOtherThanRequirementsOf, assignsCombatDamageWithToughness, withAbilityLoss, enteringAbilityCard, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has none to plan around) and the entering side's (CR 614.12)
+import { landCopyCandidates, landCopyKept } from "./landEntryCopy.js"; // VESUVA (play-weighted #923) — the lands a copy play may become, and whether its player keeps one (a leaf: no AI module)
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities, parseDiscardCostAbility } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent; + the discard abilities' combat window (inDefaultAIActivationWindow)
@@ -392,18 +393,42 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
   // one reader the land searches share.
   const { needed } = colourNeed(state, aiPlayerId);
   const reach = castsOutOfReach(state, aiPlayerId);
+  // VESUVA (2026-11-03 — landEntryCopy.js): a land that may enter as a copy of a land is offered once per land it may copy beside
+  // its plain play. A copy the AI would not keep is no choice (landEntryCopy.landCopyKept — a copy of its own legendary land, which
+  // the legend rule would leave one of; a copy it would lose as it enters). While a kept copy is offered, the plain play (a land with
+  // no abilities) is no choice either; with none, the plain play stays.
+  // The candidates are listed ONCE per entering card for this pick (the recheck's R1 — listing them per copy action made the pick
+  // quadratic in the lands on the board), each copy action then looked up by the land it names.
+  const copiesByCard = new Map();
+  const copyFor = (a) => {
+    if (!copiesByCard.has(a.cardId)) {
+      copiesByCard.set(a.cardId, new Map(landCopyCandidates(state, cardFromHand(state, aiPlayerId, a.cardId)).map((c) => [c.id, c.copy])));
+    }
+    return copiesByCard.get(a.cardId).get(a.copyOfPermanentId) ?? null;
+  };
+  const keptCopy = (a) => {
+    const copy = copyFor(a);
+    return !!copy && landCopyKept(state, aiPlayerId, { id: a.copyOfPermanentId, copy });
+  };
+  const copies = landActions.filter((a) => a.copyOfPermanentId != null && keptCopy(a));
+  const copyOffered = new Set(copies.map((a) => a.cardId));
+  const considered = landActions.filter((a) => (a.copyOfPermanentId != null ? copies.includes(a) : !copyOffered.has(a.cardId)));
+  if (considered.length === 1) return considered[0];
 
-  const ranked = landActions.map((action) => {
+  const ranked = considered.map((action) => {
     // The FACE the drop plays (a modal DFC's land face — legalChoices.actionsPlayLand projects it): the hand holds the whole
     // card, whose mana is its front face's (manaModel's face-up read) — a spell // land would read as no land at all, and both
     // faces of a Pathway would read as its front.
-    const card = action.faceCard || cardFromHand(state, aiPlayerId, action.cardId);
+    // A COPY the drop plays (Vesuva) is read as the land it becomes, and it enters tapped: it casts nothing this turn.
+    const handCard = cardFromHand(state, aiPlayerId, action.cardId);
+    const copy = action.copyOfPermanentId != null ? copyFor(action) : null;
+    const card = copy || action.faceCard || handCard;
     const yielded = landDropYield(state, aiPlayerId, card);
     return {
       action,
-      castsNow: landCastsNow(state, aiPlayerId, yielded.manaCard, reach) ? 1 : 0,
+      castsNow: !copy && landCastsNow(state, aiPlayerId, yielded.manaCard, reach) ? 1 : 0,
       fillsGap: yielded.colours.some((c) => needed.has(c)) ? 1 : 0,
-      untapped: yielded.untapped ? 1 : 0,
+      untapped: !copy && yielded.untapped ? 1 : 0,
       makesMana: yielded.makesMana ? 1 : 0,
     };
   });
@@ -2318,6 +2343,33 @@ function pickCombatRoleActivation(state, aiPlayerId, abilityActions) {
 }
 
 /**
+ * RECONNAISSANCE'S UNTAP AFTER DAMAGE (play-weighted #897, 2026-11-03 — "{0}: Remove target attacking creature you control from combat and
+ * untap it."): in the AI's own combat damage step, once combat damage has been dealt (the step deals it before anyone has priority,
+ * CR 510.2, 510.3), an offered removal-and-untap on one of its own TAPPED attacking creatures that costs nothing — no mana, no tap, no
+ * sacrifice, no other payment — is taken, the biggest creature first: the damage is dealt, and untapped it can block on the opponents'
+ * turns. Never in another step: before damage it would deal none, and in the first-strike damage step the regular damage is still to come.
+ */
+function pickUntapAfterDamage(state, aiPlayerId, abilityActions) {
+  if (state?.activePlayer !== aiPlayerId || state?.phase !== "combat" || state?.step !== "combat-damage" || (state.stack || []).length > 0) return null;
+  const attacking = new Set((state.combat?.attackers || []).map((r) => r.permanentId));
+  const ranked = [];
+  for (const a of abilityActions) {
+    const atoms = a.program?.atoms || [];
+    if (atoms.length !== 1 || atoms[0].op !== "untap-remove-from-combat" || !atoms[0].targetType || (a.targets?.length || 0) !== 1) continue;
+    const paysSomething = (a.cost && costOwesMana(a.cost)) || a.tapSelf || a.sacSelf || a.exileSelf || a.removeCounter || a.putCounter || (a.payLife || 0) > 0
+      || (a.payEnergy || 0) > 0 || a.sacCreatureId || a.sacCountIds?.length || a.tapCreatureId || a.tapCountIds?.length || a.returnLandId
+      || a.unattachEquipmentId || a.discardCardId || a.discardIds?.length || a.exileGyIds?.length;
+    if (paysSomething) continue;
+    const perm = findPermanent(state, a.targets[0].id)?.permanent;
+    if (!perm || perm.controller !== aiPlayerId || !perm.tapped || !attacking.has(perm.id)) continue;
+    ranked.push({ a, p: permanentPower(state, perm.id) ?? 0, id: String(perm.id) });
+  }
+  if (!ranked.length) return null;
+  ranked.sort((x, y) => (y.p - x.p) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  return ranked[0].a;
+}
+
+/**
  * THE CONTROLLER'S OWN LIFE LOSS, SIZED AHEAD (2026-10-17 — Castle Locthwain: "{1}{B}{B}, {T}: Draw a card, then you lose life
  * equal to the number of cards in your hand."). A program of safe ops plus "you lose life" is taken only when the loss can be
  * read before activating — a fixed amount, or the hand's size after the program's own draws (each draw counted at its printed
@@ -2378,7 +2430,8 @@ function pickSafeAbilityActivation(abilityActions, { state = null, aiPlayerId = 
     if (isMassPlusCounterAtomList(atoms)) { if (massCounterFavorsAI(state, aiPlayerId, a)) safe.push({ a, rank: 1 }); continue; } // Oran-Rief — own side gains more
     // A "you lose life" atom beside the safe ops rides only when predictedSelfLifeLoss sizes it and the AI stays at the floor.
     const losesLife = atoms.some((atom) => atom.op === "lose-life");
-    if (!atoms.every((atom) => (SAFE_ABILITY_OPS.has(atom.op) || (losesLife && atom.op === "lose-life")) && !atom.targetType)) continue;
+    // "Each player creates …" (whoCreates "each" — 2026-11-03) hands every opponent the same tokens: never a pure upside.
+    if (!atoms.every((atom) => (SAFE_ABILITY_OPS.has(atom.op) || (losesLife && atom.op === "lose-life")) && !atom.targetType && atom.whoCreates !== "each")) continue;
     if (losesLife) {
       if (!atoms.some((atom) => SAFE_ABILITY_OPS.has(atom.op))) continue; // a bare life loss buys nothing
       const loss = predictedSelfLifeLoss(state, aiPlayerId, atoms);
@@ -3414,6 +3467,12 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // the AI; the pumper pumps its own biggest attacker/blocker. Side-checked, so never a wrong play.
       const combatRole = pickCombatRoleActivation(state, aiPlayerId, abilities.filter(a => !a.isEquipAbility));
       if (combatRole) return combatRole;
+      // RECONNAISSANCE (2026-11-03): its own tapped attackers untapped once combat damage is dealt (pickUntapAfterDamage). policy 'v1'
+      // (`ability`) recovers the hold.
+      if (pol.ability !== "v1") {
+        const untapAfter = pickUntapAfterDamage(state, aiPlayerId, abilities);
+        if (untapAfter) return untapAfter;
+      }
       // A fetch land that also taps for mana (the Landscapes) — only now, after the casts, while it is still untapped.
       if (pol.fetch !== "v1") {
         const crack = pickFetchCrack(state, aiPlayerId, abilities, { sourceMakesMana: true });

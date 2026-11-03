@@ -4735,7 +4735,13 @@ export function registerTriggerDetector(fn) {
 // the rider by position: Flaring Cinder's and Giott's ETB half discarded a card with the "If you do, draw a card"
 // payoff DROPPED — a live CREED FP, measured by the 2026-09-04 census (12 carriers, 2 credited). Both halves now
 // carry the whole effect. Non-capturing, so the replace callbacks and compoundTriggerCount are unchanged.
-const COMPOUND_EFFECT_TAIL_SRC = "(?:\\s+(?:Then|If)\\b[^\\n]*?\\.)*";
+// + EVERY SENTENCE OF THE LINE (play-weighted pw22, 2026-11-03 — Rendmaw, Creaking Nest: "When Rendmaw enters and whenever you play a card
+// with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying. The tokens are goaded for the rest
+// of the game."): the tail took only "Then …" / "If …" sentences, so a rider in any other words ("The tokens are goaded …") was left
+// behind by the ETB half — harmless while its lead sentence was unread, a dropped rider the moment it read ("each player creates").
+// Every sentence on the line belongs to the one ability (abilities are separate lines), so the shared effect is the rest of the line,
+// as the disjunction splits below capture it; an unread rider keeps the half on the Arbiter.
+const COMPOUND_EFFECT_TAIL_SRC = "[^\\n]*";
 const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\." + COMPOUND_EFFECT_TAIL_SRC + ")";
 // "When A and AT THE BEGINNING OF B, E" (Crack in Time / Mystic Barrier / Noble Heritage — 53 corpus
 // carriers, most of them Planechase planes outside the real-card denominator): the SAME two-abilities-

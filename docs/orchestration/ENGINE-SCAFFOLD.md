@@ -868,6 +868,63 @@ covered: a resolution that PAUSES on a choice is finalized as it pauses (resolve
 at the pause and the atoms after it destroy on the spot; the session loop's own check also runs during a pause
 (`learnSession.advanceUntilDecision`).
 
+**The play-weighted pw22 readers (2026-11-03) — one X, every player, a land's copy, myriad.**
+- **One X across conjuncts** (`parser.bindXAcrossConjuncts` — Descent into Avernus, Camaraderie): a sentence "A and B, where X is <count>"
+  (splitClauses keeps it whole) that no other reader took is read as `[bind-x, A, B]`: the count through `parseCountSource` (board
+  counts only — `BIND_X_COUNT_KINDS`; none that needs a target or an event), each half a clause that reads a chosen X (`countX` /
+  `amountX`, parsed with hasX; no chosen target, no "you may", no other X shape). `runEffectProgram` reads the count ONCE at the bind
+  (CR 608.2h — after the atoms before it: Descent counts the two counters it just put) into the program's `xValue`, which every resume
+  record carries; the program is never an X spell (`xSpell` false — no X is chosen or paid at cast). The barrel's `bind-x` resolver
+  answers null: only runEffectProgram may bind, so a conditional branch or an Arbiter verdict holding one is refused, never run with no X.
+  A loyalty ability never binds (`parseEffectClause(…, { noBindX: true })` in `loyaltyAbilities.parseLoyaltyAbilities` — held for the
+  whole parse by `noBindXDepth`, which every nested parse, direct or memoized, reads, and keyed apart in the memo): planeswalkers
+  are their own program, which takes the reader up when it takes them up (Nissa, Voice of Zendikar's −7 stays unmodeled). A source that
+  left while the bound ability waited on the stack is counted as it last existed (CR 608.2h): `gameState.stampAbilitySourceLki` adds the
+  counter pile (`abilitySourceLki.counters`) for an ability that counts its source's named counters (`programReadsSourceCounters`), and
+  `countForSpec`'s `namedCountersOnSource` reads it.
+- **Each player creates** (`tokens.js` `whoCreates: "each"`): the inner "create …" read by the one-creator parser, then run once per
+  player still in the game, in APNAP order (CR 101.4, `gameState.apnapOrder` — lifted there from removal.js), that player the creator
+  (CR 111.2 — their doubler and additive apply); one once-per-turn latch for the whole instruction. The default AI's safe-activation
+  picker never counts such an atom a pure upside.
+- **Each player searches** (`library.applyTutor`'s `eachPlayer`, `startEachPlayerSearch` — Field of Ruin): one battlefield search per
+  player in APNAP order, each its searcher's own choice (a person picks; the driver picks for anyone else); the pending choice carries
+  `eachPlayerSearch` (the atom, the players still to search) and `runProgram.resolveTutorChoice` starts the next before resuming the
+  program. Only land filters (every group a land). `splitClauses` keeps the sentence whole.
+- **A land that enters as a copy of a land** (`landEntryCopy.js` — Vesuva, CR 614.1c, 707.2, 707.3): the land drop offers one
+  `play-land` per land it may copy (`copyOfPermanentId` / `copyOfName`, one per copied name) beside the plain play; the dispatcher
+  re-reads the candidate and enters the copy tapped with the card as `printedCard` (the MDFC face hook), its own enter replacements and
+  triggers reading the copy. A put onto the battlefield (`zones.enterCardFromZone`) takes the house pick — the colour its player needs
+  (`landColour.js`, the colour reader lifted out of fetchLand so the zone atoms can share it). A candidate is a land now whose copiable
+  values are a single-faced land card the engine reads whole — it classifies `land` (`coverage.classifyCard`, registered on
+  landEntryCopy by coverage.js, its answer memoized per copiable card; the copy plays the copied land's text, CR 707.5, so a `land-partial` land is never offered). The AI's
+  land drop and the house pick take only a copy its player would keep (`landCopyKept`): never a copy of a legendary land that player
+  already controls by name (the legend rule, CR 704.5j, would keep the newest — the tapped copy), never one it would lose as it enters
+  (a "sacrifice it unless you return …" land with no such land of its player's; a Karoo with no other land). The default AI ranks a copy
+  as the land it becomes, entering tapped (the candidates listed once per entering card for the pick), and plays the plain card only
+  when no kept copy is offered. A person's land drop offers every
+  candidate.
+- **Myriad, played** (`effects/atoms/myriad.js` — CR 702.116a, 702.116b; Blade of Selves, Legion Loyalty, every printed carrier): the
+  attack declaration's close queues one trigger per instance (`layers.keywordInstanceCount` — printed or a layer-6 grant; "myriad"
+  joined `GRANTABLE_STATIC_KEYWORDS`) times the attack-trigger multiplier, as an inline program on the reflexive vehicle; none when the
+  defending player is the only opponent. Its one `optional` atom (one yes/no for a person; the AI takes it unless the creature is
+  legendary — `optionalAutoTakeValue`) mints a copy per other opponent, all in ONE call of `applyCreateTokenCopy` — one creation event
+  (the rulings: the tokens enter at the same time; `count` is the number of other opponents, and the minter reports each copy's
+  opponent in `_lastMintedTokenGroups`, copy i being opponent floor(i / the token multiplier)), so the entry replacements read the board
+  as the creation began (CR 614.12 — never another copy of the event), the enters triggers fire once over every copy (CR 603.6a — the
+  copies see each other) and a once-per-event replacement applies once (Peregrin Took); the printed instances are each "myriad" segment
+  of the keyword line (`printedMyriadCount` — Scurry of Squirrels' "Myriad, myriad" is two) — through that minter (lki: the copiable
+  values now, or
+  as it last existed; `withEnterReplacements` — the copied creature's "enters with" counters and "as this enters" choices apply as it
+  enters, before the minter's lethal check, through the entry replacer myriad.js registers on tokens.js,
+  `registerTokenCopyEntryReplacer` — enterReplacements reaches tokens.js, so the minter can't import it; every other copy effect still
+  mints without them, a reported gap), stamps it `myriadToken`, registers it attacking that player (never declared — CR 508.4), and schedules
+  `[minted-leave exile …]` for the `end-of-combat` fire step (now in `DELAYED_FIRE_STEPS`). The legend rule's house pick keeps the
+  newest permanent that is not a myriad copy (`gameState.applyLegendRule`).
+- **A compound trigger's shared effect is the rest of its line** (`triggers.js` `COMPOUND_EFFECT_TAIL_SRC` — "When A and whenever B,
+  E."): it took only "Then …" / "If …" sentences, so a rider in other words (Rendmaw's "The tokens are goaded …", Cityscape Leveler's
+  "Its controller creates a tapped Powerstone token.", "This ability triggers only once each turn.") was dropped from the first half —
+  a HIGH trigger played without it. Every sentence on the line is that ability's, as in the disjunction splits; an unread one parks it.
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone
@@ -2199,6 +2256,12 @@ doesn't untap), and never past an instant-speed card it holds up (`keepsHeldUp` 
 of "enough" (the combo line below — a held loop never reaches these pickers). Policy keys `inResponse`,
 `afterBlocks`, `endStep` ("v1" = the old pass). Not read: a sacrifice outlet for value in response (the doomed creature fed to Viscera
 Seer), a combat-role pump (still `pickCombatRoleActivation`'s, unconditional). Witness: `aiActivationWindows.test.js`.
+**Reconnaissance's untap after damage (2026-11-03 — `opponentAI.pickUntapAfterDamage`).** A fourth narrow window, in the default
+windows' combat steps (the action targets a creature by combat role, so it is one of `actions` there): in its OWN combat damage step, once combat
+damage has been dealt (CR 510.2, 510.3), an offered `untap-remove-from-combat` aimed at one of its own TAPPED attacking creatures and paid
+with nothing (no mana, tap, sacrifice or other payment) is taken, the biggest first — the creature has dealt its damage and can block on
+the opponents' turns. Never before damage, never in the first-strike damage step. Policy key `ability` ("v1" = the hold). Witness:
+`reconnaissance.test.js`.
 
 **Attack requirements (`attackRequirements.js`, added 2026-10-18 — CR 508.1d).** The one requirement check, read by the offer
 for every seat (a person's included) and by the AI's `pickAttackPlan`. `obeyingAttackOptions` narrows a creature's defenders to

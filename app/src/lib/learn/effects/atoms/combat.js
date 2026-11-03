@@ -1685,6 +1685,15 @@ export function combatKeywordClauseParser(clause) {
   if (/^untap (?:it|this creature) and remove (?:it|this creature) from combat$/.test(t)) {
     return { op: "untap-remove-from-combat", target: "self" };
   }
+  // RECONNAISSANCE (play-weighted #897, 2026-11-03 — "{0}: Remove target attacking creature you control from combat and untap it."): the
+  // escape on a CHOSEN target — an attacking creature its controller controls (the same restrictions "untap target attacking creature
+  // you control" reads), re-checked as the ability resolves (CR 608.2b: a creature no longer attacking is an illegal target). The
+  // resolver removes it from combat (CR 506.4 — it stops being an attacking creature; a creature that was blocking it is still a blocking creature and
+  // assigns it no combat damage, CR 510.1d) and untaps it. The bundled ruling: what triggered on the declaration of
+  // attackers or blockers is not undone. Used after combat damage, the creature untaps having dealt it (the reminder text's point).
+  if (/^remove target attacking creature you control from combat and untap it$/.test(t)) {
+    return { op: "untap-remove-from-combat", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "combat", value: "attacking" }] };
+  }
   // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
   // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so

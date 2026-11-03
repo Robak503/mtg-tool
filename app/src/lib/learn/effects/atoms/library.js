@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard, apnapOrder } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
 import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
@@ -240,7 +240,26 @@ export function shuffleControllerLibrary(state, controller) {
  * picks (Expert autopilot / an opponent); the fetch + shuffle happen in resolveTutorChoice.
  * Hidden-info safe: the candidate list is the searcher's OWN library (names are theirs to see).
  */
+/**
+ * EACH PLAYER SEARCHES (Field of Ruin — tutorClauseParser's `eachPlayer`): the players still in the game, in APNAP order (CR 101.4),
+ * each run the one-player search below as its searcher. The first searcher's choice carries the rest (`eachPlayerSearch` — the atom
+ * and the players still to search); runProgram.resolveTutorChoice starts the next player's search as each one settles, and resumes
+ * the program after the last. A search always pauses on its searcher's choice (a person picks; the driver picks for anyone else).
+ */
+export function startEachPlayerSearch(state, atom, ctx, order) {
+  const one = { ...atom, eachPlayer: false };
+  let cur = state;
+  for (let i = 0; i < order.length; i++) {
+    if (!cur.players?.[order[i]]) continue;
+    const s = applyTutor(cur, one, { controller: order[i], targets: [], cardName: ctx?.cardName ?? null, xValue: null });
+    if (!s.pendingChoice || s.pendingChoice === cur.pendingChoice) { cur = s; continue; }
+    return { ...s, pendingChoice: { ...s.pendingChoice, eachPlayerSearch: { atom: one, rest: order.slice(i + 1), cardName: ctx?.cardName ?? null } } };
+  }
+  return cur;
+}
+
 export function applyTutor(state, atom, ctx) {
+  if (atom.eachPlayer) return startEachPlayerSearch(state, atom, ctx, apnapOrder(state, Object.keys(state.players || {})));
   // SEARCHER (`searcherIsTarget`) — normally the source's controller, but CR 702.124j's partner-with tutor
   // reads "TARGET PLAYER may search THEIR library": the player who searches, the library searched, the hand
   // the card lands in, and the library shuffled afterwards are ALL the target's — none of them the controller's.
@@ -503,11 +522,16 @@ export function applyImpulseDigAtom(state, atom, ctx) {
     ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
     : null;
   const matchesChosen = (c) => cardHasChosenType(c, chosenType, state, ctx.controller);
+  // LOOT, EXUBERANT EXPLORER (2b' — "a creature card with mana value less than or equal to the number of lands you control"): the cap is
+  // a count read ONCE, now, as the ability resolves (CR 608.2h), and becomes the filter's mana-value ceiling for this look.
+  const filter = atom.mvMaxCount && atom.filter
+    ? { ...atom.filter, mv: { max: Math.max(0, countForSpec(state, ctx, atom.mvMaxCount)) } }
+    : atom.filter;
   // K7 (Make Your Own Luck): a NONLAND pool is a local type-line test — the tutor-filter vocabulary refuses "nonland".
-  const pool = atom.filter?.nonland
+  const pool = filter?.nonland
     ? top.filter((c) => !/\bLand\b/i.test(String(c?.type || c?.type_line || "").split(" // ")[0]))
-    : atom.filter
-      ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter, state, ctx.controller) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
+    : filter
+      ? top.filter((c) => cardMatchesTutorFilter(c, filter, state, ctx.controller) && (!filter.chosenTypeOfSource || matchesChosen(c)))
       : top;
   if (pool.length === 0) {
     // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
@@ -2308,6 +2332,19 @@ export function millClauseParser(clause) {
  */
 export function tutorClauseParser(clause, ctx = {}) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // EACH PLAYER SEARCHES (play-weighted #905, 2026-11-03 — Field of Ruin: "Each player searches their library for a basic land card,
+  // puts it onto the battlefield, then shuffles."): one search per player, in APNAP order (CR 101.4), each searching their own
+  // library and choosing their own card (applyTutor's `eachPlayer` — the searcher is the choice's controller, so a person picks their
+  // own and nobody sees another's library). A search for a card with a stated quality may find nothing (CR 701.23b). Land cards only:
+  // the type phrase goes through the tutor filter and every group must name a land.
+  {
+    const ep = t.match(/^each player searches their library for an? ([a-z][a-z ]*?) card, puts it onto the battlefield( tapped)?, then shuffles\.?$/);
+    if (ep) {
+      const filter = parseTutorFilter(ep[1]);
+      if (!filter || !filter.groups.length || !filter.groups.every((g) => g.includes("land")) || filter.mv) return null;
+      return { op: "tutor", eachPlayer: true, filter, filterLabel: `${ep[1]} card`, destination: "battlefield", entersTapped: !!ep[2], targetType: null };
+    }
+  }
   // bfx — SEARCH→BATTLEFIELD, MV-CAPPED-BY-X (LIBRARY-TUTOR-TO-BATTLEFIELD): "search your library for a
   // <creature|permanent> card with mana value X or less, put it onto the battlefield, then shuffle" on an
   // {X}-cost spell (Wargate "permanent card", Nature's Rhythm "creature card"). Distinct from bfm (which is

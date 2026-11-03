@@ -713,6 +713,19 @@ export function nextInTurnOrder(state, playerId) {
 }
 
 /**
+ * `playerIds` in APNAP order (CR 101.4): the active player, then the others in turn order. The order the players of one
+ * "each player …" instruction make their choices in — the N-count edict's, the one-permanent chain's and the iterated edict's
+ * (iteratedEdict.js — Torment of Hailfire's and Braids, Arisen Nightmare's opponents), and "each player creates …" (tokens.js) and
+ * "each player searches …" (library.js). Lives in this leaf so the atom modules share it without importing one another.
+ */
+export function apnapOrder(state, playerIds) {
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const ap = Math.max(0, order.indexOf(state.activePlayer));
+  const ranked = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => playerIds.includes(pid));
+  return [...ranked, ...playerIds.filter((pid) => !ranked.includes(pid))];
+}
+
+/**
  * Is the declare blockers step's block declaration still open (CR 509.1 — a turn-based action during which no player has
  * priority)? The engine takes the declaration one declare-blocker action at a time, each defending player in turn order,
  * inside a lap that begins with the active player: the step's entry (gameEngine.runStepActions) marks combat
@@ -1537,6 +1550,16 @@ const ABILITY_SOURCE_POWER_RE = /"kind":"sourcePower"/;
 export function programReadsSourcePower(program) {
   return program != null && ABILITY_SOURCE_POWER_RE.test(JSON.stringify(program));
 }
+/**
+ * THE SOURCE'S OWN NAMED COUNTERS (the 2026-11-03 review — Descent into Avernus: "… where X is the number of descent counters on this
+ * enchantment"; CR 608.2h: if the source has left the battlefield while its ability waits on the stack, the count uses the counters it had
+ * as it last existed). A program reads them through the namedCountersOnSource count (countForSpec). Such an ability gets the record too,
+ * with `counters` (its counter pile as it left), and the reader answers from it for that id only.
+ */
+const ABILITY_SOURCE_COUNTERS_RE = /"kind":"namedCountersOnSource"/;
+export function programReadsSourceCounters(program) {
+  return program != null && ABILITY_SOURCE_COUNTERS_RE.test(JSON.stringify(program));
+}
 const SOURCE_POWER_CLAUSE_RE = /\bthis (?:creature|permanent)['’]s power\b/i;
 /** The permanent `permanentId` as a damage source, read off `state` (null when it is not on the battlefield). + its power (a creature's,
  * layer-aware; 0 for a noncreature — CR 208.3), for an ability that counts its source's power. */
@@ -1599,15 +1622,19 @@ function stampAbilitySourceLki(state, permanentId) {
   const wants = (o) => {
     const params = o?.payload?.params;
     return params?.sourceId === permanentId && !params.context?.abilitySourceLki
-      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program) || abilityHasChosenTargets(params.targets));
+      && (programHasItsSourceDealDamage(params.program) || programReadsSourcePower(params.program) || programReadsSourceCounters(params.program) || abilityHasChosenTargets(params.targets));
   };
   const pendingWants = (t) => t?.source?.permanentId === permanentId && !t.context?.abilitySourceLki
     && SOURCE_POWER_CLAUSE_RE.test(String(t.descriptor?.effectClause || ""));
   const stackHit = stack.some(wants);
   const pendingHit = pendingTriggers.some(pendingWants);
   if (!stackHit && !pendingHit) return state;
-  const abilitySourceLki = abilitySourceRecord(state, permanentId);
-  if (!abilitySourceLki) return state;
+  const record = abilitySourceRecord(state, permanentId);
+  if (!record) return state;
+  // + its counters, only when an ability waiting on the stack counts them (so every other record is unchanged, field for field).
+  const abilitySourceLki = stackHit && stack.some((o) => wants(o) && programReadsSourceCounters(o.payload.params.program))
+    ? { ...record, counters: { ...(findPermanent(state, permanentId)?.permanent?.counters || {}) } }
+    : record;
   return {
     ...state,
     ...(stackHit ? { stack: stack.map((o) => (wants(o) ? { ...o, payload: { ...o.payload, params: { ...o.payload.params, context: { ...(o.payload.params.context || {}), abilitySourceLki } } } } : o)) } : {}),
@@ -3360,7 +3387,11 @@ export function applyLegendRule(state) {
     }
     for (const group of byName.values()) {
       if (group.length < 2) continue;
-      const keep = group.reduce((a, b) => ((b.timestamp || 0) >= (a.timestamp || 0) ? b : a));
+      // MYRIAD'S COPIES (effects/atoms/myriad.js, 2026-11-03): a token copy myriad made is exiled at end of combat anyway, so the house
+      // keeps the newest permanent of the group that is NOT one of them when there is one (the bundled Blade of Selves ruling: "you'll
+      // choose one of them to remain") — the legendary creature that attacked stays. A group of myriad copies alone keeps the newest.
+      const keepable = group.some((p) => !p.myriadToken) ? group.filter((p) => !p.myriadToken) : group;
+      const keep = keepable.reduce((a, b) => ((b.timestamp || 0) >= (a.timestamp || 0) ? b : a));
       for (const perm of group) {
         if (perm.id === keep.id) continue;
         // A creature AS IT IS NOW (layer-aware, CR 603.10a — a crewed legendary Vehicle dies as the creature it became); the

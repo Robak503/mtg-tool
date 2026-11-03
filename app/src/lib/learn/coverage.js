@@ -74,6 +74,7 @@ import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the quali
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { chosenCardTypeReducer, chosenCardTypeResidue } from "./chosenCardType.js"; // CLOUD KEY — the card-type chooser + its reducer, the reader the cast lane's descriptor comes from (a leaf over the zero-import choicePolicy)
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, groupPreventPutCountersOf, attachedExceptByOf } from "./combatEvasion.js";
+import { landEntryCopySpec, LAND_ENTRY_COPY_LINE_RE, registerLandCopyClassifier } from "./landEntryCopy.js"; // VESUVA (play-weighted #923) — the land entry copy, the reader the land drop, the dispatcher and the put road share
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction, landLineMana, discardHandManaLineOf } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
@@ -409,8 +410,9 @@ export const COVERED_KEYWORDS = [
   "delve",
   // KW-MYRIAD (CR 702.116a, census slice 48) — "Whenever this creature attacks, for each opponent other than
   // defending player, YOU MAY create a token that's a copy of this creature attacking that player. Exile
-  // those tokens at end of combat." An optional attack rider: declining is a complete, legal attack, and the
-  // tokens would be exiled at end of combat anyway. The engine declines, so the board it plays is a real one.
+  // those tokens at end of combat." Credited at first as an optional attack rider the engine declined; PLAYED since
+  // 2026-11-03 (effects/atoms/myriad.js — the trigger queued as the attack declaration closes, its copies tapped and
+  // attacking each other opponent and exiled at end of combat; a granted myriad, Blade of Selves's, reads the same way).
   "myriad",
   // KW-DETHRONE (CR 702.105a, census slice 46) — ENFORCED: detectTriggers synthesizes the self-scoped
   // attacks descriptor whose effectClause is ordinary modeled text (the add-counter atom), gated by the
@@ -2031,6 +2033,10 @@ function landFullyCovered(card) {
     if (hideawayKeywordValue(raw) > 0 && /^hideaway \d+$/i.test(line)) continue;
     if (grantsBasicType && eachLandLineRe.test(line)) continue; // ④-BE — the all-lands basic-type grant, enforced in manaSources
     if (selfNonbasicTypes && /^this land is every nonbasic land type\.?$/i.test(line)) continue; // K8 — Planar Nexus, the self layer-4 add (effectiveTypeIdentity reads it)
+    // VESUVA (play-weighted #923, 2026-11-03): "You may have this land enter tapped as a copy of any land on the battlefield." — vouched by
+    // the reader the land drop's copy offer, the dispatcher and the put road's house pick share (landEntryCopy.landEntryCopySpec, which
+    // admits the card only when that sentence is its whole text).
+    if (landEntryCopySpec(card) && LAND_ENTRY_COPY_LINE_RE.test(card?.name ? line.split(card.name).join("this land") : line)) continue;
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",
@@ -3331,6 +3337,10 @@ const BORDERPOST_ALT_COST_LINE = /^[ \t]*you may pay \{\d+\} and return a basic 
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
+// VESUVA'S COPY POOL (landEntryCopy.landCopyCandidates): a land is offered as a copy only when its copiable card classifies `land` — the
+// engine reads it whole (CR 707.5: the copy plays the copied land's text). Registered here because this module imports landEntryCopy.
+registerLandCopyClassifier((card) => classifyCard(card));
+
 export function classifyCard(card) {
   // CLASS (CR 716): a card carrying a class level bar is owned wholly by the Class gate above — judged before any
   // pre-strip below can rewrite its text (the no-maximum-hand-size strip would otherwise erase a line the gate must

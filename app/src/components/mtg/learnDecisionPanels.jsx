@@ -2460,6 +2460,7 @@ export function OptionalChoicePanel({ decision, onChoose }) {
       sacrifice: "sacrifice a permanent",
       "copy-self-spell": "copy this spell (the copy picks a new target)",
       punisher: "accept its first outcome (say no and its other outcome happens)",
+      myriad: "create a token copy of it tapped and attacking each other opponent (exiled at end of combat)",
     }[decision?.effectOp] || "apply this effect";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -1028,6 +1028,10 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "namedCountersOnSource") {
     const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
     if (lk) return Math.max(0, lk.permanent?.counters?.[spec.counterType] || 0);
+    // The source left while this ability waited on the stack: the counters it had as it last existed (CR 608.2h — the record
+    // gameState.stampAbilitySourceLki wrote as it left, `counters` present only for an ability that counts them).
+    const own = ctx?.abilitySourceLki;
+    if (own?.permanentId != null && own.permanentId === ctx?.sourceId && own.counters) return Math.max(0, own.counters[spec.counterType] || 0);
     // LKI (CR 603.10a / 608.2h) — the source is gone: a SELF dies/leaves trigger reads the death/leave look-back's
     // snapshot (the triggering object IS the source); an ability whose own cost sacrificed the source reads the
     // stamp the dispatcher wrote before the sacrifice. Anything else → 0 (never a fabricated count).

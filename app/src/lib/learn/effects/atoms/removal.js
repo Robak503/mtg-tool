@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder } from "../../gameState.js"; // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -505,17 +505,8 @@ export function sacrificePoolMatchNow(what, state, perm) {
   }
 }
 
-/**
- * `playerIds` in APNAP order (CR 101.4): the active player, then the others in turn order. The order the players of one
- * "each player …" instruction make their choices in — the N-count edict's, the one-permanent chain's and the iterated edict's
- * (iteratedEdict.js — Torment of Hailfire's and Braids, Arisen Nightmare's opponents).
- */
-export function apnapOrder(state, playerIds) {
-  const order = state.turnOrder || Object.keys(state.players || {});
-  const ap = Math.max(0, order.indexOf(state.activePlayer));
-  const ranked = [...order.slice(ap), ...order.slice(0, ap)].filter((pid) => playerIds.includes(pid));
-  return [...ranked, ...playerIds.filter((pid) => !ranked.includes(pid))];
-}
+/** `playerIds` in APNAP order (CR 101.4) — gameState.apnapOrder, re-exported for this module's importers (iteratedEdict.js, the barrel). */
+export { apnapOrder };
 
 /**
  * The permanents one instruction's choices settled on, sacrificed: one alone is the single sacrifice (sacrificeCreatureEffect — its

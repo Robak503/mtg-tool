@@ -119,6 +119,7 @@ import { isAdventureCard, isLandAdventure, adventureFaceCard, permanentFaceCard 
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 import { normalFaceCard } from "./omenPrepare.js"; // OMEN (CR 720) / PREPARATION (CR 722) cards — cast normally, as the creature; pure shape module
 import { spellManaValue } from "./spellOnStack.js"; // the mana value of the spell being cast (CR 202.3) — Bolas's Citadel's life payment per offered face; a zero-import leaf
+import { landEntryCopySpec, landCopyCandidates } from "./landEntryCopy.js"; // VESUVA (play-weighted #923) — the land drop's copy choice (a leaf over cloneCopy, layers and the colour reader)
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards, parseSpellModalDfc, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { characteristicTypeLine, characteristicColors } from "./faceUp.js"; // the face being cast's type line (CR 712.8c) — Rivaz's "Dragon creature spell" permission; the colours of the spell being cast or the zone card whose ability it is, for protection (CR 702.16b) and the pitch costs (a leaf)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
@@ -587,6 +588,17 @@ export function flashPermissionSpecsFor(state, playerId) {
   return specs;
 }
 
+/**
+ * VESUVA (play-weighted #923, 2026-11-03 — landEntryCopy.js): a land drop of a card that may enter as a copy of a land chooses what it enters
+ * as (CR 614.1c, 707.2) — the plain play `base` (declined, it enters as itself) and one play per land it may copy (one per copied name: two
+ * Forests make the same copy), from whichever zone the drop is made (the hand, exile, the library's top, a graveyard). The dispatcher
+ * re-reads the candidate and enters the copy tapped. Any other card: [base].
+ */
+function withLandCopyPlays(state, card, base) {
+  if (!landEntryCopySpec(card)) return [base];
+  return [base, ...landCopyCandidates(state, card, { distinct: true }).map((c) => ({ ...base, copyOfPermanentId: c.id, copyOfName: c.name }))];
+}
+
 function actionsPlayLand(state, playerId) {
   if (!canCastSorcerySpeed(state, playerId)) return [];
   const player = state.players[playerId];
@@ -614,7 +626,7 @@ function actionsPlayLand(state, playerId) {
       continue;
     }
     if (!isLand(card)) continue;
-    actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name });
+    actions.push(...withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name }));
   }
   // ADVENTURE-EXILE (CR 715.3d — "For as long as that card remains exiled, that player may play it"): a Town that went on
   // an adventure is PLAYED from exile as its land face. Playing a land is the one special action whatever zone the land is
@@ -4025,7 +4037,7 @@ function actionsPlayImpulseFromExile(state, playerId) {
   if (lands.length && canCastSorcerySpeed(state, playerId)
       && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     for (const card of lands) {
-      actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" });
+      actions.push(...withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "exile" }));
     }
   }
   return actions;
@@ -4358,7 +4370,7 @@ function actionsPlayFromTopOfLibrary(state, playerId) {
     }
   } else if (perm.lands && canCastSorcerySpeed(state, playerId) && player.landsPlayedThisTurn < landDropAllowance(state, playerId)) {
     // LAND — play from the library top if the permission grants lands and a land drop is available.
-    actions.push({ kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" });
+    actions.push(...withLandCopyPlays(state, top, { kind: "play-land", playerId, cardId: top.id, name: top.name, fromZone: "library" }));
   }
   return actions;
 }
@@ -4378,7 +4390,7 @@ function actionsPlayLandFromGraveyard(state, playerId) {
   if (player.landsPlayedThisTurn >= landDropAllowance(state, playerId)) return [];
   return (player.graveyard || [])
     .filter((card) => isLand(card))
-    .map((card) => ({ kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "graveyard" }));
+    .flatMap((card) => withLandCopyPlays(state, card, { kind: "play-land", playerId, cardId: card.id, name: card.name, fromZone: "graveyard" }));
 }
 
 /**

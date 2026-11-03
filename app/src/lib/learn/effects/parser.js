@@ -68,7 +68,7 @@ import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTRO
 import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser, seekClauseParser, selfWheelClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM, NUM_WORD } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
+import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, multiKindCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser, moveCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -2453,6 +2453,37 @@ function rewriteEachPlayerLoot(oracle) {
 
 // The card types "If it was a <type> card" names (runProgram.exiledCardIsType reads each; "permanent" is CR 110.4a's six).
 const EXILED_CARD_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "instant", "sorcery", "permanent"]);
+/**
+ * ONE X ACROSS CONJUNCTS (play-weighted #891, 2026-11-03 — Descent into Avernus: "Then each player creates X Treasure tokens and this
+ * enchantment deals X damage to each player, where X is the number of descent counters on this enchantment."). The trailing "where X
+ * is …" defines the X of BOTH halves, and the answer is determined once, when the effect is applied (CR 608.2h) — splitClauses keeps
+ * such a sentence whole for exactly this reader. Read only when no other reader took the sentence: the count (the shared count
+ * reader), then each half as a clause that reads a chosen X (`countX` / `amountX`, parsed with hasX), emitted as
+ * [bind-x, the first half, the second half]. runEffectProgram reads the count ONCE at the bind, as the program's X (every resume
+ * record carries it), and both halves read that one value; the program is no X spell (nothing is chosen at cast). Closed on purpose:
+ * a card with an {X} of its own (two X's), a count whose reading needs a target (the bind has none) or the triggering event, a half
+ * with a chosen target, a "you may" or a condition, and any X read other than countX / amountX (a pump's slot, a sign, a halving, a
+ * target count) — each leaves the sentence unread. Returns the atoms, or null.
+ */
+/** > 0 while a parse that asked for no ONE-X binding runs (parseEffectClause's `noBindX`): every parse nested in it — a direct
+ *  parseEffectClauseImpl call or a memoized parseEffectClause call — reads it (bindXAcrossConjuncts' call site, the memo key). */
+let noBindXDepth = 0;
+const BIND_X_COUNT_KINDS = new Set(["permanentsYouControl", "basicSubtypeYouControl", "cardsInHand", "cardsInGraveyard", "countersOnSource", "namedCountersOnSource", "plusCountersOnSource", "creaturesOnBattlefield", "subtypeOnBattlefield", "devotion", "domain"]);
+const BIND_X_OTHER_X_KEYS = ["amountXNeg", "amountXTimes", "amountXSlot", "ptX", "targetCountX", "mvCapX", "halve", "xSign"];
+function bindXAcrossConjuncts(cardType, clause, hasX, sourceScoped) {
+  if (hasX) return null;
+  const m = String(clause || "").trim().replace(/^then\s+/i, "")
+    .match(/^(.+?\bx\b.*?) and (.+?\bx\b.*?), where x is (?:equal to )?(?:the number of )?(.+?)\.?$/i);
+  if (!m) return null;
+  const countFor = parseCountSource(m[3].trim().toLowerCase(), { allowScopes: true });
+  if (!countFor || !BIND_X_COUNT_KINDS.has(countFor.kind) || (countFor.who != null && countFor.who !== "opponents")) return null;
+  const halves = [m[1], m[2]].map((h) => parseClauseToAtom(cardType, h.trim(), true, sourceScoped));
+  const readsBoundX = (a) => !!a && KNOWN.has(a.op) && !!(a.countX || a.amountX) && !a.optional && !a.condition && !a.countFor && !a.countContext
+    && (!a.targetType || isNonChosenTargetType(a.targetType)) && BIND_X_OTHER_X_KEYS.every((k) => a[k] == null || a[k] === false);
+  if (!halves.every(readsBoundX)) return null;
+  return [{ op: "bind-x", countFor, targetType: null }, ...halves];
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScoped = false } = {}) {
   if (!oracle) return null;
   oracle = rewriteEachPlayerLoot(oracle);
@@ -4062,6 +4093,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     if (tokenRider) { atoms[atoms.length - 1] = { ...atoms[atoms.length - 1], ...tokenRider }; continue; }
     let atom = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
     if (!atom) {
+      // ONE X ACROSS CONJUNCTS (see bindXAcrossConjuncts) — only a sentence no other reader took, and never inside a parse that asks for
+      // none (`noBindX` — a planeswalker's loyalty ability: planeswalkers are their own program, loyaltyAbilities.parseLoyaltyAbilities;
+      // `noBindXDepth`, so a conditional's branch, a mode or a reflexive payoff parsed inside it never binds either).
+      const boundX = noBindXDepth > 0 ? null : bindXAcrossConjuncts(cardType, clause, hasX, sourceScoped);
+      if (boundX) { atoms.push(...boundX); continue; }
       // EXILE-IF-DIES rider (subsystem 3) — "If that creature would die this turn, exile it instead."
       // (Lava Coil, Magma Spray, Puncturing Blow): a floating death-replacement scoped to the single
       // creature the spell just damaged. FOLD it onto the immediately-preceding deal-damage-to-target-
@@ -4177,7 +4213,8 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
     // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
-    const xSpell = seq.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX);
+    // A program whose X a `bind-x` defines (ONE X ACROSS CONJUNCTS — bindXAcrossConjuncts) chooses no X at cast: never an X spell.
+    const xSpell = !seq.some((a) => a.op === "bind-x") && seq.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 
@@ -4200,20 +4237,31 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
  * over-stamping a destroy atom that never carries the rider has no observable effect on any real card.
  */
 export function parseEffectClause(oracle, cardType = "", opts = {}) {
-  // THE PARSE CACHE (parseMemo.js): the result is a pure function of the clause text, the card type and the two
+  // THE PARSE CACHE (parseMemo.js): the result is a pure function of the clause text, the card type and the three
   // boolean options, so each distinct combination is parsed once and the frozen result shared. Anything outside that
   // exact shape (a non-string text or type, a non-boolean option, an option this key does not name) is parsed directly.
+  // NO BINDING (`noBindX` — a loyalty ability's parse) holds for the whole parse, every nested one included (`noBindXDepth`), and keys
+  // apart only when it holds, so every other key is unchanged and a program parsed inside it is never served outside it.
   const hasX = opts?.hasX;
   const sourceScoped = opts?.sourceScoped;
+  const noBindX = opts?.noBindX;
   const keyable = typeof oracle === "string" && typeof cardType === "string"
     && (hasX === undefined || typeof hasX === "boolean") && (sourceScoped === undefined || typeof sourceScoped === "boolean")
-    && opts !== null && typeof opts === "object" && Object.keys(opts).every((k) => k === "hasX" || k === "sourceScoped");
-  if (!keyable) return parseEffectClauseUncached(oracle, cardType, opts);
-  const key = `${hasX ? 1 : 0}${sourceScoped ? 1 : 0}\u0001${cardType}\u0001${oracle}`;
-  return memoizedParse(key, () => parseEffectClauseUncached(oracle, cardType, opts));
+    && (noBindX === undefined || typeof noBindX === "boolean")
+    && opts !== null && typeof opts === "object" && Object.keys(opts).every((k) => k === "hasX" || k === "sourceScoped" || k === "noBindX");
+  const unbound = noBindX === true || noBindXDepth > 0;
+  if (!keyable) return parseEffectClauseUncached(oracle, cardType, opts, unbound);
+  const key = `${hasX ? 1 : 0}${sourceScoped ? 1 : 0}${unbound ? "n" : ""}\u0001${cardType}\u0001${oracle}`;
+  return memoizedParse(key, () => parseEffectClauseUncached(oracle, cardType, opts, unbound));
 }
-function parseEffectClauseUncached(oracle, cardType, opts) {
-  const program = parseEffectClauseImpl(oracle, cardType, opts);
+function parseEffectClauseUncached(oracle, cardType, opts, unbound = false) {
+  if (unbound) noBindXDepth++;
+  let program;
+  try {
+    program = parseEffectClauseImpl(oracle, cardType, opts);
+  } finally {
+    if (unbound) noBindXDepth--;
+  }
   if (!program || !CANT_REGEN_TEST.test(String(oracle || ""))) return program;
   // + the Culling Ritual mass destroy (#587): its matcher reads the rider-stripped text too, so it takes the stamp a plain
   // destroy takes — its resolver passes cannotRegenerate to the destroy AND to the "destroyed this way" count.

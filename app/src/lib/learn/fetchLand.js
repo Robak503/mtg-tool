@@ -24,46 +24,10 @@
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { cardMatchesTutorFilter, tutorManaValue } from "./effects/atoms/library.js";
 import { findPermanent } from "./gameState.js";
-import { withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // the ability view (CR 613.1f) — a source that lost its abilities makes no mana
-import { manaProduction } from "./manaModel.js";
+import { colourNeed, landColourScore } from "./landColour.js"; // the one colour-need reader (lifted into a leaf 2026-11-03 so the land entry copy can share it)
 
-const COLOURS = ["W", "U", "B", "R", "G"];
-
-/**
- * Colored pips in a mana cost string ({W}{U}{B}{R}{G}; each half of a hybrid pip counts as needing that color — a
- * payable-either-way pip is a soft need).
- */
-function coloredPips(mana) {
-  const out = [];
-  for (const m of String(mana || "").matchAll(/\{([^}]+)\}/g)) {
-    for (const ch of m[1].toUpperCase()) if ("WUBRG".includes(ch)) out.push(ch);
-  }
-  return out;
-}
-
-/**
- * THE COLOUR NEED of a player's lands: `producible` — every colour a permanent on its battlefield makes (tapped or not; the
- * question is "do I own a source of this colour at all", read through `manaProduction`, the shared mana gate); `pips` — the
- * coloured pips of the cards in its hand and command zone, per colour; `needed` — the colours among those pips no battlefield
- * source makes. The land drop ranks by `needed`; the fetch's search by `pips` behind it.
- */
-export function colourNeed(state, playerId) {
-  const player = state?.players?.[playerId];
-  const producible = new Set();
-  const lossy = boardHasAbilityLoss(state);
-  for (const perm of player?.battlefield || []) {
-    for (const c of manaProduction(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null)?.colors || []) producible.add(c);
-  }
-  const needed = new Set();
-  const pips = Object.fromEntries(COLOURS.map((c) => [c, 0]));
-  for (const card of [...(player?.hand || []), ...(player?.command || [])]) {
-    for (const pip of coloredPips(card?.mana || card?.mana_cost)) {
-      pips[pip] += 1;
-      if (!producible.has(pip)) needed.add(pip);
-    }
-  }
-  return { producible, needed, pips };
-}
+/** THE COLOUR NEED of a player's lands (landColour.colourNeed), re-exported for this module's importers. */
+export { colourNeed };
 
 const LAND_WORDS = new Set(["land", "plains", "island", "swamp", "mountain", "forest"]);
 const FILTER_WORDS = new Set([...LAND_WORDS, "basic"]);
@@ -155,17 +119,8 @@ function isLandSearch(pc) {
  * outranks either basic, and with every colour already made it takes the colour the hand asks for most.
  */
 function colourScore(state, playerId) {
-  const need = colourNeed(state, playerId);
-  return (card) => {
-    let unmet = 0;
-    let asked = 0;
-    for (const c of new Set(manaProduction(card)?.colors || [])) {
-      if (!(c in need.pips)) continue;
-      asked += need.pips[c];
-      if (need.needed.has(c)) unmet += need.pips[c];
-    }
-    return unmet * 1000 + asked;
-  };
+  const score = landColourScore(state, playerId);
+  return (card) => score(card).score;
 }
 
 const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);

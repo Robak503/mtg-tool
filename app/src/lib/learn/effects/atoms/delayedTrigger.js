@@ -35,7 +35,8 @@
 import { logEvent, findPermanent, moveCardToZone } from "../../gameState.js";
 
 /** Steps a delayed trigger can be scheduled for. Kept in lockstep with gameEngine's drain call sites. */
-export const DELAYED_FIRE_STEPS = Object.freeze(["upkeep", "end", "main", "cleanup"]);
+// + "end-of-combat" (2026-11-03 — myriad's "exile the tokens at end of combat", CR 702.116a, 511.2): the step-entry drain matches it by name.
+export const DELAYED_FIRE_STEPS = Object.freeze(["upkeep", "end", "main", "cleanup", "end-of-combat"]);
 
 /**
  * Schedule a delayed triggered ability (CR 603.7). The inner effect rides as `effectClause` — the

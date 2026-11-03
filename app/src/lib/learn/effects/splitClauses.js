@@ -487,6 +487,9 @@ export function splitClauses(oracle) {
     // through parseEffectClause, because the driver — the SPLITTER — had already taken the sentence apart.
     // Anchored to the full leading phrase, so it can only ever hold this one shape together.
     if (/^target player may search their library\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + EACH PLAYER SEARCHES (play-weighted #905, 2026-11-03 — Field of Ruin: "Each player searches their library for a basic land
+    // card, puts it onto the battlefield, then shuffles."): one instruction per player, kept whole for the tutor arm that reads it.
+    if (/^each player searches their library\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // MASS GRAVEYARD RETURN (CR 608) — "Return all artifact AND enchantment cards from your graveyard to the
     // battlefield" (Brilliant Restoration, Redress Fate). The internal " and " joins two TYPE WORDS inside one
     // filter phrase, not two effects, so severing it leaves "return all artifact" + an orphan fragment and
@@ -605,6 +608,9 @@ export function splitClauses(oracle) {
     // spell/ability forms ("Remove target attacking creature … from combat and untap it" — Reconnaissance,
     // reversed order + a chosen target) and any rider never capture here (they shatter and stay LOW → Arbiter).
     if (/^(?:you may )?untap (?:it|this creature) and remove (?:it|this creature) from combat$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // + RECONNAISSANCE (play-weighted #897, 2026-11-03 — "Remove target attacking creature you control from combat and untap it."): the
+    // targeted form, the two halves on the ONE chosen creature — kept whole for its arm in atoms/combat.js. Exactly this sentence.
+    if (/^remove target attacking creature you control from combat and untap it$/i.test(sentence)) { clauses.push(sentence); continue; }
     // CAUSATIVE pump + keyword grant ("have target creature get +2/+0 and gain deathtouch until end of turn" —
     // Painsmith, the inner of "you may have …"): the " and " joins the P/T bump to the grant within ONE causative
     // instruction, not a top-level boundary. Keep it whole so pumpClauseParser binds the pump + grant to the SAME
