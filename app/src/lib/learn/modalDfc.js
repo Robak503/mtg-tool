@@ -68,7 +68,16 @@ export function isModalDfc(card) {
   return parseModalDfc(card) !== null;
 }
 
-/** [frontView, backView] — each `{ ...card, name, type, oracle, mana, colors, faceIndex, mdfcOf }` (id preserved). */
+/**
+ * [frontView, backView] — each `{ ...card, name, type, oracle, mana, colors, cmc, faceIndex, mdfcOf }` (id preserved).
+ * THE BACK VIEW'S MANA VALUE IS ITS OWN (the review of pw24, F2 — CR 712.8f: a modal double-faced permanent on the battlefield has only
+ * the characteristics of the face that's up; CR 202.3, 202.3a: a face with no mana cost has mana value 0). The combined card's `cmc` is
+ * its front face's, which the front view keeps (Scryfall's mana value of a modal DFC is its front face's); the back view — a land, with no
+ * mana cost — used to inherit it, so Turntimber, Serpentine Wood on the battlefield read 7 to every mana-value reader
+ * (layers.permanentManaValue, the sacrifice and leave look-backs, the mana-value targeting and mass filters, Kodama of the East Tree's cap).
+ * A transforming double-faced card is not this shape (parseModalDfc gates on the modal layout): its back face keeps its front face's mana
+ * value (CR 712.8e), as before.
+ */
 export function mdfcFaceCards(card) {
   const parsed = parseModalDfc(card);
   if (!parsed) return null;
@@ -76,7 +85,7 @@ export function mdfcFaceCards(card) {
   const strip = { card_faces: undefined, mana_cost: undefined, type_line: undefined, oracle_text: undefined };
   return [
     { ...card, ...strip, name: parsed.front.name, type: parsed.front.type, oracle: parsed.front.oracle, mana: parsed.front.mana, colors: faceColors(parsed.front), faceIndex: 0, mdfcOf },
-    { ...card, ...strip, name: parsed.back.name, type: parsed.back.type, oracle: parsed.back.oracle, mana: parsed.back.mana, colors: faceColors(parsed.back), faceIndex: 1, mdfcOf },
+    { ...card, ...strip, name: parsed.back.name, type: parsed.back.type, oracle: parsed.back.oracle, mana: parsed.back.mana, colors: faceColors(parsed.back), cmc: faceManaValue(parsed.back.mana), faceIndex: 1, mdfcOf },
   ];
 }
 
@@ -96,7 +105,9 @@ export function parseSpellModalDfc(card) {
 }
 
 // A face's own mana value (CR 202.3): a generic number counts its value, {X} nothing, every other symbol one.
-function faceManaValue(mana) {
+/** A face's mana value off its own mana cost (CR 202.3; none — 0, CR 202.3a). Exported for the save migration v13 → v14, which rewrites a
+ *  stored land face's mana value with this same read (learnSaveSchema — the recheck of pw24, R2). */
+export function faceManaValue(mana) {
   let mv = 0;
   for (const [, sym] of String(mana || "").matchAll(/\{([^}]+)\}/g)) mv += /^\d+$/.test(sym) ? Number(sym) : sym === "X" ? 0 : 1;
   return mv;

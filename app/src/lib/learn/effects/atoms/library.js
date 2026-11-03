@@ -4,7 +4,7 @@
  */
 
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard, apnapOrder } from "../../gameState.js";
-import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
+import { permanentIsCreature, permanentManaValue } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW; + a permanent's mana value (Kodama's cap)
 import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
 import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
 import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
@@ -310,7 +310,18 @@ export function applyTutor(state, atom, ctx) {
   // carries it, CR 707.10): the shared state channel holds whatever was sacrificed LAST, by any spell or ability. No frozen
   // value → a cap no card is under, so nothing is fetched (never an uncapped search).
   const spellSacMv = ctx?.sacrificedForCost?.manaValue;
-  const effFilter = atom.filter?.mvCapX
+  // KODAMA OF THE EAST TREE (play-weighted #991) — "with equal or lesser mana value": at most the mana value of the permanent whose
+  // entering triggered this (CR 202.3), read as the ability resolves — its current value on the battlefield, else its last known one
+  // (CR 608.2h: the look-back the trigger kept — a copy's stamp, else its card). No triggering permanent → a cap no card is under.
+  const triggeringMv = () => {
+    const live = ctx?.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+    if (live) return permanentManaValue(state, live);
+    if (typeof ctx?.triggeringCopyMv === "number") return ctx.triggeringCopyMv;
+    return ctx?.triggeringCard ? (ctx.triggeringCard.cmc ?? ctx.triggeringCard.mana_value ?? 0) : -1;
+  };
+  const effFilter = atom.filter?.mvMaxFromTriggering
+    ? { ...atom.filter, mv: { max: triggeringMv() } }
+    : atom.filter?.mvCapX
     ? { ...atom.filter, mv: { max: Math.max(0, ctx.xValue ?? 0) } }
     : atom.filter?.mvFromSacrificedPlus != null
       ? { ...atom.filter, mv: { exact: Number.isFinite(sacMv) ? sacMv + atom.filter.mvFromSacrificedPlus : -1 } }
@@ -397,6 +408,10 @@ export function applyTutor(state, atom, ctx) {
     // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
     // derives this pick's destination from its head and carries the tail to the next chained fetch.
     destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
+    // KODAMA OF THE EAST TREE — what this search puts is stamped as put by this ability's source (resolveTutorChoice → enterCardFromZone).
+    ...(atom.stampEntrySource && ctx?.sourceId ? { entrySourceId: ctx.sourceId } : {}),
+    // TWO CARDS, EACH WITH ITS OWN QUALITY (Krosan Verge) — the later picks' filters, in order; resolveTutorChoice raises each.
+    ...(Array.isArray(atom.pickFilters) && atom.pickFilters.length ? { pickFilters: atom.pickFilters } : {}),
     // AI-F10 — may the searcher legally fail to find? A search WITH a stated quality (any
     // structured filter — type group / MV cap / color) may fail (CR 701.23b); a quantity-only
     // unfiltered search ("search your library for a card" — effFilter null) MUST find when a
@@ -2332,6 +2347,23 @@ export function millClauseParser(clause) {
  */
 export function tutorClauseParser(clause, ctx = {}) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // TWO CARDS, EACH WITH ITS OWN QUALITY (play-weighted #997, 2026-11-03 — Krosan Verge: "Search your library for a Forest card and a
+  // Plains card, put them onto the battlefield tapped, then shuffle."): ONE search for two cards, the first with the first quality,
+  // the second with the second (`pickFilters` — resolveTutorChoice raises the second pick from the library as it is then, with its
+  // own filter, whether or not the first found a card: each may find nothing, CR 701.23b). Land cards only, to the battlefield: each
+  // phrase goes through the tutor filter and every group must name a land or a land type.
+  {
+    const two = t.match(/^search your library for an? ([a-z][a-z ]*?) card and an? ([a-z][a-z ]*?) card, put them onto the battlefield( tapped)?, then shuffle\.?$/);
+    if (two) {
+      const landish = (f) => !!f && f.groups.length > 0 && !f.mv && Object.keys(f).every((k) => k === "groups")
+        && f.groups.every((g) => g.some((w) => w === "land" || BASIC_LAND_SUBTYPES.has(w)));
+      const first = parseTutorFilter(two[1]);
+      const second = parseTutorFilter(two[2]);
+      if (!landish(first) || !landish(second)) return null;
+      return { op: "tutor", filter: first, filterLabel: `${two[1]} card`, pickFilters: [{ filter: second, filterLabel: `${two[2]} card` }], remaining: 2,
+        destination: "battlefield", entersTapped: !!two[3], targetType: null };
+    }
+  }
   // EACH PLAYER SEARCHES (play-weighted #905, 2026-11-03 — Field of Ruin: "Each player searches their library for a basic land card,
   // puts it onto the battlefield, then shuffles."): one search per player, in APNAP order (CR 101.4), each searching their own
   // library and choosing their own card (applyTutor's `eachPlayer` — the searcher is the choice's controller, so a person picks their

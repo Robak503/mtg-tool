@@ -114,7 +114,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false, searchEnteredIds = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false, searchEnteredIds = null, pickFilters = null, entrySourceId = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -163,6 +163,12 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // chained pick's entry replacements read the board without them (effects/runProgram.resolveTutorChoice). Present only
       // on a chained pick after a battlefield entry; plain JSON (serialize-safe).
       ...(Array.isArray(searchEnteredIds) && searchEnteredIds.length ? { searchEnteredIds } : {}),
+      // TWO CARDS, EACH WITH ITS OWN QUALITY (Krosan Verge, play-weighted #997) — the filters of the picks still to come, in order
+      // (`{ filter, filterLabel }`); effects/runProgram.resolveTutorChoice raises the next one. Absent on every other search.
+      ...(Array.isArray(pickFilters) && pickFilters.length ? { pickFilters } : {}),
+      // KODAMA OF THE EAST TREE (play-weighted #991) — the permanent whose ability is putting this card: the card enters stamped
+      // `enteredViaAbilityOf` (its "if it wasn't put onto the battlefield with this ability"). Absent on every other search.
+      ...(entrySourceId ? { entrySourceId } : {}),
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",
@@ -509,7 +515,7 @@ export function setPendingHandToLibraryTopChoice(state, { controller, remaining,
   };
 }
 
-export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null }) {
+export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null, perDiscardDraw = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "discard-pending", controller, remaining, count: candidates.length, sourceName });
   return {
@@ -525,6 +531,9 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
       // resolveDiscardChoice checks the settled card's landness and places the +1/+1 counter. Null for every
       // non-connive discard (byte-identical behavior). Plain JSON — serialize-safe.
       connive,
+      // THE PER-CARD DRAW (Syphon Mind, play-weighted #1046) — `{ controller, count }`, the cards this chain has discarded so
+      // far; absent on every other discard (hand.advanceDiscardChain). Plain JSON — serialize-safe.
+      ...(perDiscardDraw ? { perDiscardDraw } : {}),
     },
   };
 }

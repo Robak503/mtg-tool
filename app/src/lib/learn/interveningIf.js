@@ -1188,6 +1188,19 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return Object.values(src.counters || {}).some((n) => n > 0);
   }
 
+  // ===== PUT BY THIS ABILITY (the play-weighted program, #991 — Kodama of the East Tree: "if it wasn't put onto the battlefield with
+  // this ability") ===== the entering permanent's `enteredViaAbilityOf` stamp — the permanent whose ability put it there (zones.
+  // enterCardFromZone's entryStamp) — against this trigger's source. Read off the permanent while it is on the battlefield, else off the
+  // look-back the trigger kept (makePendingTrigger's triggeringEnteredViaAbilityOf), so the CR 603.4 check at resolution gives the same
+  // answer once it has left: where a permanent came from never changes. No entering permanent or no source → can't confirm.
+  if (c === "it wasn't put onto the battlefield with this ability") {
+    const triggeringId = context?.triggeringPermanentId;
+    const sourceId = context?.sourcePermanentId;
+    if (!triggeringId || !sourceId) return null;
+    const live = findPermanent(state, triggeringId)?.permanent;
+    const putBy = live ? live.enteredViaAbilityOf ?? null : context.triggeringEnteredViaAbilityOf ?? null;
+    return putBy !== sourceId;
+  }
   // SAME-NAME ETB (Guardian Project) — needs the entering permanent from the trigger context.
   // SATORU (POD-SIM THREE · BI-5, 2026-09-05): "if none of them were cast or no mana was spent to cast them" — read off the
   // ENTERING permanent's arrival stamps: not cast at all (ninjutsu, reanimation, a put), or cast for no mana (a free or

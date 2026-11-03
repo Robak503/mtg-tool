@@ -30,7 +30,7 @@ import { filterActions, legalActionsForPlayer, parseManaCost, offeredPaymentPlan
 import { opponentsOf, findPermanent, createPermanent, isIndestructible, consumeTypedSpellShields, nextInTurnOrder, cardSelfPreventsUntap } from "./gameState.js"; // + consumeTypedSpellShields: a pure read — would this spell be shielded from countering (the ward read); + nextInTurnOrder: whose turn comes next, cardSelfPreventsUntap: a source that stays tapped (the end-step sink)
 import { atomTargets } from "./effects/atoms/shared.js"; // the mass-counter side read (Oran-Rief) — the set the resolution itself reads
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow, permanentColors } from "./layers.js"; // + permanentColors (All Is Dust's one-sided unlock)
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, permanentHasCardType, cannotEquipNow, permanentColors, summoningSickNow } from "./layers.js"; // + permanentColors (All Is Dust's one-sided unlock)
 import { protectionColorPick, stackObjectProtectionColors } from "./protectionChoice.js"; // the colour a "protection from the color of your choice" grant takes at resolution (the threats on the stack first) — previewed by pickSaveInResponse; + the colours protection judges a harming source by
 import { auraCastIntent } from "./auraEntry.js"; // W7e — which side an Aura lands on (a control Aura is ENEMY, a restriction grant too); shared with the non-cast entry (CR 303.4f)
 import { chooseAITarget } from "./spellEffects.js";
@@ -41,9 +41,9 @@ import { attackTaxDetail } from "./attackTax.js"; // the planeswalker attack pol
 import { parseLoyaltyAbilities } from "./effects/loyaltyAbilities.js"; // the planeswalker attack policy — an opposing walker's ultimate (the runtime's own loyalty reader)
 import { startingLoyalty } from "./gameState.js"; // the planeswalker attack policy — an ultimate costs more than the printed starting loyalty
 import { lifePaymentContext } from "./manaModel.js"; // the planeswalker attack policy — a Phyrexian attack tax paid with life, as legalChoices.canPayAttackTax pays it
-import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, programContainsCountedCombatShield, atomTargetIntent, programConfidence, parseEffectClause } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsCreatureMassRemoval, programContainsTeamPump, teamPumpAmount, programContainsFog, programContainsCountedCombatShield, atomTargetIntent, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js"; // the land-drop ranking reads an SNC fetch land's enters trigger (triggers.js imports no AI module)
-import { changeTargetAlternatives, atomForStackTarget, isPastCapRow } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom; isPastCapRow — a row the offer over the cap added (the multi-slot partner pick, the target-cap review's F2)
+import { changeTargetAlternatives, atomForStackTarget, isPastCapRow, expandTriggerChoices } from "./effects/targeting.js"; // CHANGE THE TARGET (shelf D14) — where a redirect could send an opponent's spell; the redirected slot's atom; isPastCapRow — a row the offer over the cap added (the multi-slot partner pick, the target-cap review's F2) · expandTriggerChoices — an exerted attacker's linked ability's targets (exertLinkedAbilityActs)
 import { manaUntapLineAction, pickManaAuraTarget } from "./manaUntapLine.js"; // "untap X target lands" as a mana line; mana Auras stack on one land
 import { outletFinishAction } from "./outletFinishLine.js"; // E7.2 — the token loop's finishes that are not combat (a sacrifice outlet)
 import { tokenLoopState, isTokenLoopAction, tokenLoopAttackPlan } from "./tokenLoopLine.js"; // THE COMBO LINE for a self-scaling token loop: enough, then nothing else, then the finish
@@ -66,6 +66,8 @@ import { selfDamagePreventionBy, attachedDamagePrevention, cantAttackAlone, atta
 import { attackOtherThanRequirementsOf, assignsCombatDamageWithToughness, withAbilityLoss, enteringAbilityCard, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has none to plan around) and the entering side's (CR 614.12)
 import { landCopyCandidates, landCopyKept } from "./landEntryCopy.js"; // VESUVA (play-weighted #923) — the lands a copy play may become, and whether its player keeps one (a leaf: no AI module)
 import { colourNeed, fetchCrackAtom, fetchableLands, fetchLandAbility, landSearchOrder } from "./fetchLand.js"; // the fetch lands — which offered activation is one, what it can find, what one in hand would fetch — and the one colour-need reader (a leaf: no AI module)
+import { permanentExertSpec } from "./exertAttack.js"; // EXERT AS IT ATTACKS — the exert line the offer gates on (exertAttack reaches no opponentAI)
+import { cardMatchesTutorFilter } from "./effects/atoms/library.js"; // a put from the hand needs a card it may put (exertLinkedAbilityActs)
 import { permanentValue } from "./boardEval.js"; // pickTargetedActivation — the shared valuation breaks a power tie between two targets (a leaf over gameState)
 import { parseActivatedAbilities, parseDiscardCostAbility } from "./effects/abilities.js"; // pickTargetedActivation — a token whose one activated ability is the offered one exists to be spent; + the discard abilities' combat window (inDefaultAIActivationWindow)
 import { isNonChosenTargetType } from "./targetTypes.js"; // pickTargetedSpell — which atom a legacy cast's target belongs to (a leaf)
@@ -3405,8 +3407,18 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   if (state.step === "declare-attackers") {
     const attackerActions = filterActions(actions, "declare-attacker");
     if (attackerActions.length > 0) {
-      const plan = pickAttackPlan(state, aiPlayerId, attackerActions, { policy: pol });
-      if (plan.length > 0) return plan[0];
+      // EXERT AS IT ATTACKS (CR 701.43d — exertAttack.js): the plan is made over the plain attacks (an exerted attack is the same attack
+      // with an optional cost), then an attack the AI makes is exerted whenever that is offered — the linked "When you do" ability is an
+      // upside now for a creature that stays tapped through its next untap step. A board with no exert creature plans as before.
+      const plan = pickAttackPlan(state, aiPlayerId, attackerActions.filter((a) => !a.exert), { policy: pol });
+      if (plan.length > 0) {
+        const a = plan[0];
+        // …only when the linked ability would act (the review of pw24, F3): exerting for an ability that does nothing costs the
+        // creature's next untap for nothing (Glorybringer with no non-Dragon creature to hit, a lone Combat Celebrant).
+        const exerted = attackerActions.find((x) => x.exert && x.permanentId === a.permanentId && (x.defenderId ?? null) === (a.defenderId ?? null)
+          && (x.defenderPlaneswalkerId ?? null) === (a.defenderPlaneswalkerId ?? null));
+        return exerted && exertLinkedAbilityActs(state, aiPlayerId, a.permanentId, a.defenderId ?? opponentsOf(state, aiPlayerId)[0], plan.slice(1)) ? exerted : a;
+      }
     }
   }
   if (state.step === "declare-blockers") {
@@ -4347,6 +4359,62 @@ function outnumberingAttackers(state, aiPlayerId, attackerActions, defenderId, {
 // MUST-ATTACK (subsystem 4, CR 508.1a) — selfMustAttack moved to attackRequirements.js (the requirement check every seat
 // shares); re-exported here for the legendShortName unit pins.
 export { selfMustAttack };
+
+/**
+ * WOULD AN EXERTED ATTACKER'S LINKED ABILITY ACT? (the review of pw24, F3 — exertAttack.js): the AI exerts only for an ability that does
+ * something, read as the trigger flush would read it as the ability goes on the stack: a target on the side its atom wants
+ * (targeting.expandTriggerChoices — none, and the ability is removed, CR 603.3d: Glorybringer facing no non-Dragon creature); an untap of
+ * "all other creatures you control" needs another creature (a lone Combat Celebrant or Ahn-Crop Champion untaps nothing); a put from the
+ * hand needs a card it may put (Champion of Rhonas). Anything else — a team pump — acts.
+ *
+ * …and whether the act HELPS (the recheck of pw24, R1): the untap of "all other creatures you control" helps only when another of them
+ * is tapped, or is attacking alongside without vigilance (it taps as it attacks: `alongside` — the rest of the plan); Combat Celebrant's
+ * additional combat helps when it will have an attacker — the Celebrant itself with vigilance (still untapped; it may attack again, not
+ * exert again), or another creature that can attack (every other creature is untapped by then). The ability helps when any atom does:
+ * a lone Celebrant beside an untapped Wall of Stone holds, a lone vigilant one exerts. A draw needs that many cards in the library
+ * (drawing from an empty one loses the game — CR 704.5b, 121.4: Watchful Naga). "Target creature can't block this turn" (Ahn-Crop
+ * Crasher) wants a creature that could block this combat: one a defending player controls (this attack's, an attack already declared,
+ * or one the plan makes) — in a pod, a third player's creature blocks nothing.
+ */
+function exertLinkedAbilityActs(state, aiPlayerId, permanentId, defenderId, alongside = []) {
+  const perm = findPermanent(state, permanentId)?.permanent;
+  const spec = perm ? permanentExertSpec(state, perm) : null;
+  if (!spec) return false;
+  const program = parseEffectClause(spec.effectClause, "Instant", { hasX: false, sourceScoped: true });
+  const me = state.players?.[aiPlayerId];
+  const others = (me?.battlefield || []).filter((p) => p.id !== perm.id && permanentIsCreature(state, p.id));
+  const alongsideIds = new Set(alongside.map((x) => x.permanentId));
+  const tapsToUntap = others.some((p) => p.tapped || (alongsideIds.has(p.id) && !permanentHasKeyword(state, p.id, "Vigilance")));
+  // Could it attack in the additional combat? The attack filter's own reads (legalChoices' attacker chain): a creature without defender
+  // (or attacking as though it hadn't), not barred from attacking, and not summoning sick unless it has haste.
+  const canAttackLater = (p) => (!permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
+    && !permanentHasKeyword(state, p.id, "cantAttack") && !selfCantAttackNow(state, p)
+    && (!(p.summoningSick || summoningSickNow(state, p)) || permanentHasKeyword(state, p.id, "Haste"));
+  let helps = false;
+  for (const atom of program?.atoms || []) {
+    if (atom.op === "untap-lands" && atom.excludeSource) helps ||= tapsToUntap;
+    else if (atom.op === "extra-combat") helps ||= permanentHasKeyword(state, perm.id, "Vigilance") || others.some(canAttackLater);
+    else if (atom.op === "tutor" && atom.sourceZone === "hand") {
+      helps ||= (me?.hand || []).some((c) => cardMatchesTutorFilter(c, atom.filter, state, aiPlayerId));
+    } else if (atom.op === "draw") {
+      const n = Number(atom.amount);
+      if ((me?.library || []).length < (Number.isFinite(n) && n > 0 ? n : 1)) return false;
+      helps = true;
+    } else helps = true;
+  }
+  if (!helps) return false;
+  if (!programNeedsChosenTarget(program)) return true;
+  const atoms = program.atoms || [];
+  const defending = new Set([defenderId, ...(state.combat?.attackers || []).map((r) => r.defender), ...alongside.map((x) => x.defenderId)].filter(Boolean));
+  const sideOk = (t) => {
+    const atom = atoms[t.atomIndex ?? 0];
+    const intent = atomTargetIntent(atom);
+    const side = t.type === "player" ? t.id : t.controller;
+    if (atom?.op === "cant-block") return defending.has(side);
+    return intent === "enemy" ? side !== aiPlayerId : intent === "own" ? side === aiPlayerId : true;
+  };
+  return expandTriggerChoices(state, aiPlayerId, program, { sourceId: perm.id, defenderId }).some((c) => (c.targets || []).length > 0 && c.targets.every(sideOk));
+}
 
 /**
  * Batch-decision picker for declare-attackers: returns the array of attacker

@@ -143,6 +143,16 @@ export function putFromHandClauseParser(clause) {
     return { op: "tutor", sourceZones: ["hand", "libraryTop"], filter: { ...TYPE_FILTER.creature }, filterLabel: "creature card from your hand or the top of your library",
       destination: "battlefield", entersTapped: false, revealChoice: true, targetType: null };
   }
+  // KODAMA OF THE EAST TREE (the play-weighted program, #991): "you may put a permanent card with equal or lesser mana value from your
+  // hand onto the battlefield" — the cap is the mana value of the permanent whose entering triggered the ability (`mvMaxFromTriggering`,
+  // read as it resolves — applyTutor), and what it puts is stamped as put by this ability (`stampEntrySource` — the Kodama's
+  // "if it wasn't put onto the battlefield with this ability", interveningIf.js). The referent exists only on an enters trigger
+  // (triggerRouting.combatDamageReferentSatisfied keeps it there).
+  if (/^(?:you may )?put a permanent card with equal or lesser mana value from your hand onto the battlefield\.?$/.test(t)) {
+    return { op: "tutor", sourceZone: "hand", filter: { groups: [], permanentOnly: true, mvMaxFromTriggering: true },
+      filterLabel: "permanent card with equal or lesser mana value from your hand", destination: "battlefield", entersTapped: false,
+      stampEntrySource: true, targetType: null };
+  }
   // Single / counted / unbounded put — ONE anchored matcher. Capture groups:
   //   [1] quantity: "a"/"an"/"one".. OR "up to <word>" OR "any number of"
   //   [2] filter phrase (optional color + type), e.g. "green creature", "creature", "permanent"

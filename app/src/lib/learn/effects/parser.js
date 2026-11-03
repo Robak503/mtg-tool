@@ -73,7 +73,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClausePa
 import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, matchOpponentsAttackOthers, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser, phaseOutClauseParser, damageReplacementUntilNextTurnClauseParser, matchOpponentsDrawThenYouPerDrawer } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
-import { discardClauseParser, lookAtHandClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause
+import { discardClauseParser, lookAtHandClauseParser, matchEachOtherPlayerDiscardsThenYouDrawPerCard } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause + Syphon Mind's per-card draw (#1046)
 import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 603.7) — fires from the delayed-trigger drain
 import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Biomancer's Familiar (CR 701.46a)
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
@@ -3138,6 +3138,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // outcome ("for each opponent who drew a card this way" — see atoms/misc.js).
   const cad = matchOpponentsDrawThenYouPerDrawer(oracle);
   if (cad && KNOWN.has(cad.atom.op)) return makeProgram({ confidence: "high", atoms: [cad.atom], xSpell: false, unparsedTail: null });
+  // ===== EACH OTHER PLAYER DISCARDS, THEN YOU DRAW PER CARD (#1046 — Syphon Mind) ===== one atom: the draw counts the cards the first
+  // instruction discarded ("for each card discarded this way" — see atoms/hand.js).
+  const sym = matchEachOtherPlayerDiscardsThenYouDrawPerCard(oracle);
+  if (sym && KNOWN.has(sym.atom.op)) return makeProgram({ confidence: "high", atoms: [sym.atom], xSpell: false, unparsedTail: null });
   // ===== THE SECOND HAND CAST WINS, ELSE SEVENTH FROM THE TOP (#979 — Approach of the Second Sun) ===== one atom: "Otherwise" reads the
   // first sentence's condition (see atoms/life.js).
   const aps = matchApproachWinOrTuck(oracle);
@@ -4431,10 +4435,25 @@ function diesWatchClauseParser(clause) {
 // "CHOOSE TARGET CREATURE" (shelf D25) — the antecedent of that following "that creature"; the choice is the whole effect.
 // The creature-target peel in parseClauseToAtom adds a printed qualifier ("with a counter on it"); chooseTargetBoundOk
 // admits the atom only directly before a referent.
+// + "CHOOSE TARGET CREATURE YOU CONTROL" (play-weighted #1061 — Hunter's Insight): the same antecedent, your own creatures only.
 function chooseTargetClauseParser(clause) {
-  return /^choose target creature$/i.test(String(clause || "").trim()) ? { op: "choose-target", targetType: "creature" } : null;
+  const t = String(clause || "").trim();
+  if (/^choose target creature you control$/i.test(t)) return { op: "choose-target", targetType: "creatureYouControl" };
+  return /^choose target creature$/i.test(t) ? { op: "choose-target", targetType: "creature" } : null;
+}
+// ===== "WHENEVER THAT CREATURE DEALS COMBAT DAMAGE TO A PLAYER OR PLANESWALKER THIS TURN, <payoff>" (play-weighted #1061 — Hunter's
+// Insight; CR 603.7) ===== the event-keyed sibling of the dies watch above: a delayed triggered ability the resolving spell creates on
+// the creature its previous clause chose (bindPreviousTargets — "that creature", CR 608.2), triggering each time that permanent deals
+// combat damage to a player or a planeswalker this turn ("whenever" — it stays for the turn; delayedTrigger.fireCombatDamageWatches).
+// The one payoff modeled is "draw that many cards" — the damage dealt, read off the event (countContext combatDamageAmount, which the
+// fired trigger's combat damage event supplies). Any other payoff or recipient stays LOW.
+function combatDamageWatchClauseParser(clause) {
+  const m = String(clause || "").trim().replace(/[’]/g, "'").match(/^whenever that creature deals combat damage to a player or planeswalker this turn, (.+?)\.?$/i);
+  if (!m || !/^draw that many cards$/i.test(m[1].trim())) return null;
+  return { op: "watch-combat-damage-this-turn", bindPreviousTargets: true, targetType: null, recipients: "playerOrPlaneswalker", delayedClause: "draw that many cards" };
 }
 registerClauseParser(diesWatchClauseParser);
+registerClauseParser(combatDamageWatchClauseParser);
 registerClauseParser(chooseTargetClauseParser);
 registerClauseParser(diedCardToHandClauseParser); // its "return that card to its owner's hand" sentinel
 registerClauseParser(faceDownExileReturnClauseParser); // Necropotence — the [face-down-exile-return] sentinel the face-down exile's delayed half fires

@@ -77,10 +77,17 @@ export function applyImprint(state, atom, ctx) {
  * Hidden-info safe: the discarder is the chooser of their own hand. Shared by applyDiscard (the atom's
  * first entry) and runProgram.resolveDiscardChoice (each subsequent pick), so ONE implementation drives
  * both the inline and the interactive paths.
+ *
+ * THE PER-CARD DRAW (Syphon Mind, the play-weighted program #1046 — "You draw a card for each card discarded this way."):
+ * `perDiscardDraw` `{ controller, count }` tallies every card this chain discards — a forced whole hand here, each settled pick in
+ * resolveDiscardChoice — and rides on the pause, so the count survives every pick. When the queue empties, the tally's controller
+ * draws that many cards as one instruction (the draw chokepoint, CR 121.2) before the program resumes; a controller who has left
+ * the game draws nothing (CR 800.4a). A card that left the hand some other way was not discarded and is not counted.
  */
-export function advanceDiscardChain(state, { queue, sourceName = null }) {
+export function advanceDiscardChain(state, { queue, sourceName = null, perDiscardDraw = null }) {
   let next = state;
   let q = queue || [];
+  let tally = perDiscardDraw;
   while (q.length) {
     const head = q[0];
     const player = next.players?.[head.playerId];
@@ -94,14 +101,39 @@ export function advanceDiscardChain(state, { queue, sourceName = null }) {
       }
       next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: head.playerId, discarded: hand.length, forced: true });
       next = checkDiscardTriggers(next, head.playerId, hand.map((c) => c.id));   // one event per card (CR 603.2)
+      if (tally) tally = { ...tally, count: tally.count + hand.length };
       q = q.slice(1);
       continue;
     }
     // A real choice (hand > remaining): pause for this discarder's single-card pick.
     const candidates = hand.map((c) => ({ id: c.id, name: c.name }));
-    return setPendingDiscardChoice(next, { controller: head.playerId, remaining: head.remaining, candidates, queue: q, sourceName });
+    return setPendingDiscardChoice(next, { controller: head.playerId, remaining: head.remaining, candidates, queue: q, sourceName, ...(tally ? { perDiscardDraw: tally } : {}) });
   }
+  if (tally) next = drawPerDiscarded(next, tally, sourceName);
   return next;
+}
+
+/** The per-card draw at the end of a tallied discard chain (see advanceDiscardChain). */
+function drawPerDiscarded(state, tally, sourceName) {
+  const amount = tally.count;
+  let next = state;
+  if (amount > 0 && next.players?.[tally.controller]) next = applyDrawEffect(next, { controller: tally.controller, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "draw-per-discarded", controller: tally.controller, amount, sourceName });
+}
+
+/**
+ * SYPHON MIND (the play-weighted program, EDHREC #1046): "Each other player discards a card. You draw a card for each card
+ * discarded this way." — ONE atom, both sentences, because the draw counts the first instruction's outcome. In a game without teams
+ * every other player is an opponent (CR 102.2 heads-up, 806.1 free-for-all), so each opponent discards one card of their choice (CR 701.9a — the discard chain,
+ * in turn order like every "each opponent discards": a person picks, the AI sheds its least valuable, a one-card hand goes without a
+ * choice, an empty hand discards nothing), and then the controller draws one card per card discarded (advanceDiscardChain's
+ * `perDiscardDraw`). Returns { atom } | null. The exact sentence pair only.
+ */
+export function matchEachOtherPlayerDiscardsThenYouDrawPerCard(oracle) {
+  const s = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+  return s === "each other player discards a card. you draw a card for each card discarded this way"
+    ? { atom: { op: "discard", amount: 1, who: "eachOpponent", drawPerDiscarded: true, targetType: null } }
+    : null;
 }
 
 /**
@@ -237,7 +269,7 @@ export function applyDiscard(state, atom, ctx) {
     next = { ...state, maxDiscardedThisWay: max };
   }
   const queue = discarders.map((pid) => ({ playerId: pid, remaining: amount }));
-  return advanceDiscardChain(next, { queue, sourceName: ctx.cardName || null });
+  return advanceDiscardChain(next, { queue, sourceName: ctx.cardName || null, ...(atom.drawPerDiscarded ? { perDiscardDraw: { controller: ctx.controller, count: 0 } } : {}) });
 }
 
 /**

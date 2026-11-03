@@ -101,6 +101,8 @@ export function auditState(state) {
   for (const rec of state.delayedTriggers || []) {
     // A DIES WATCH (shelf D25) is keyed on the permanent it watches, not a step.
     if (rec && "watchDies" in rec) { if (typeof rec.watchDies !== "string" || !rec.watchDies) v.push(`delayed ${rec.id}: bad watchDies "${rec.watchDies}"`); }
+    // So is a COMBAT DAMAGE WATCH (Hunter's Insight).
+    else if (rec && "watchCombatDamage" in rec) { if (typeof rec.watchCombatDamage !== "string" || !rec.watchCombatDamage) v.push(`delayed ${rec.id}: bad watchCombatDamage "${rec.watchCombatDamage}"`); }
     else if (!DELAYED_FIRE_STEPS.includes(rec?.fireStep)) v.push(`delayed ${rec?.id}: bad fireStep "${rec?.fireStep}"`);
     if (!String(rec?.effectClause || "").trim()) v.push(`delayed ${rec?.id}: empty effectClause`);
   }

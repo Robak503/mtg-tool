@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permanentHasCardType, permanentManaValue, permanentHasTypeWord, boardSetsTypes } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — a subtype as it is now) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
+import { attachedIsAura, permanentColors, permanentColorsIfKnown, permanentHasKeyword, isModifiedPermanent, permanentHasCardType, permanentManaValue, permanentHasTypeWord, boardSetsTypes } from "./layers.js"; // + permanentHasTypeWord (the type-line audit — a subtype as it is now) // + permanentManaValue (#742): a mana value read off the object (a copy has the copied cost, a non-copy token 0)
 import { isBlockingCreature } from "./combatRemoval.js"; // CR 506.4 — the one "is it a blocking creature" read (a zero-import leaf, no cycle)
 import { auraEntryHostSpec } from "./staticAbilityParser.js"; // the flicker's Aura gate — layers.js already imports staticAbilityParser, so no new cycle
 
@@ -97,7 +97,8 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
         for (const p of state.players[pid]?.battlefield || []) {
           // A BESTOWED permanent attached is an Aura (CR 702.103b — it "becomes an Aura enchantment" while attached; its printed line
           // says Enchantment Creature, no "Aura"): the type-line audit — Winds of Rath must not destroy a creature enchanted only by it.
-          if (p.attachedTo === perm.id && (p.bestowed || /\baura\b/i.test(String(p.card?.type || p.card?.type_line || "")))) { enchanted = true; break; }
+          // + Necromancy (`becameAura`) — layers.attachedIsAura, the one read every attached-Aura reader shares.
+          if (p.attachedTo === perm.id && attachedIsAura(p)) { enchanted = true; break; }
         }
         if (enchanted) break;
       }

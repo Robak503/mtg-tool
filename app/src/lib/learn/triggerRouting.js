@@ -133,6 +133,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // triggering permanent's last-known mana value, which only a death or a leave look-back supplies (ctx.triggeringCard). Anywhere else
     // no card is offered and the return silently does nothing — a dropped payoff credited native.
     if (a?.cardFilter?.mvBelowTriggering && event !== "dies" && event !== "permanentLeaves") return false;
+    // EQUAL OR LESSER THAN THE ENTERING PERMANENT (Kodama of the East Tree — "a permanent card with equal or lesser mana value from your
+    // hand"): the cap is the mana value of the permanent whose entering triggered it (ctx.triggeringPermanentId / its look-back), which
+    // only an enters event supplies; anywhere else the put would offer nothing — a dropped payoff credited native.
+    if (a?.filter?.mvMaxFromTriggering && event !== "permanentEnters") return false;
     // DISCARDING-PLAYER (CR 701.9a): the just-discarded player, set ONLY by checkDiscardTriggers. On any
     // other event the referent is unset — and this one fails LOUDLY wrong rather than quietly: the recipient
     // is the controller's OPPONENT, so an unbound "that player loses 2 life" would drain nobody at all.

@@ -2360,7 +2360,9 @@ function applyHexproofFromColors(state, atom, ctx) {
   const ids = (next.players[me].battlefield || []).map((p) => p.id);
   if (ids.length) {
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "targetShield", colors, opponentsOnly: true }, // a null list reads as no colour exception (permanentTargetShields)
+      // `hexproof`: this shield IS hexproof (from those colours, or plain — CR 702.11d), so a "can't have hexproof" takes it (CR 702.11e —
+      // Arcane Lighthouse); a shield that only says "can't be the target of …" (Canopy Cover) is not marked.
+      layer: 6, op: { layerOp: "targetShield", colors, opponentsOnly: true, hexproof: true }, // a null list reads as no colour exception (permanentTargetShields)
       affects: { mode: "fixed", permanentIds: ids },
       duration: { kind: "endOfTurn", turn: next.turn },
       source: { kind: "resolution", permanentId: null, cardName: ctx?.cardName || null },

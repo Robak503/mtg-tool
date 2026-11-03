@@ -102,6 +102,7 @@ import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
 import { applyFadeVanishUpkeep, applySuspendUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
+import { exertAttackTriggers } from "./exertAttack.js"; // EXERT AS IT ATTACKS (CR 701.43d) — the linked "When you do" trigger, queued at the declaration's close (a leaf over gameState and layers)
 import { myriadAttackTriggers } from "./effects/atoms/myriad.js"; // KW-MYRIAD (CR 702.116a) — the attack trigger, queued at the declaration's close (the atom module imports gameState, layers, keywords and two sibling atoms — none reaches gameEngine)
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
@@ -1148,7 +1149,8 @@ export function closeAttackDeclaration(state) {
   const recorded = { ...state, combat: { ...state.combat, declaredAttackerCount: declared } };
   // KW-MYRIAD (CR 702.116a — effects/atoms/myriad.js): each myriad instance on a declared attacker triggers too, beside the printed
   // attack triggers (one pending trigger each, on the stack at the flush below).
-  const triggered = myriadAttackTriggers(checkAttackTriggers(recorded));
+  // EXERT (CR 701.43d — exertAttack.js): each attacker exerted as it was declared triggers its linked "When you do" ability with them.
+  const triggered = exertAttackTriggers(myriadAttackTriggers(checkAttackTriggers(recorded)));
   // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach): resolves
   // draw-that-many + may-put-a-permanent synchronously, enqueuing its cardDrawn / ETB sub-triggers for the flush below.
   // Fired AFTER checkAttackTriggers so its draw lands after the printed attack triggers' enqueue.
@@ -2225,6 +2227,14 @@ export function chooseTriggerTargets(candidates, info) {
   // controller answers that question as it will be asked (autoPickSoftCounterPay — pays when it can). A correct-side candidate
   // whose ward it won't pay is passed over while another is free of it; when every one carries such a ward, nothing changes.
   safe = withoutUnpaidWard(state, controller, safe);
+  // AN EXERTED ATTACKER'S "TARGET CREATURE CAN'T BLOCK THIS TURN" (Ahn-Crop Crasher — the recheck of pw24, R1): aimed at a creature
+  // that could block this combat, one a defending player controls; in a pod a third player's creature blocks nothing. Ranking only,
+  // among the correct-side candidates, and only for the exert's linked ability (the "exerted" event), so every other trigger is as before.
+  if (info?.trigger?.event === "exerted") {
+    const defending = new Set((state.combat?.attackers || []).map((r) => r.defender).filter(Boolean));
+    const blocksHere = safe.filter((c) => (c.targets || []).every((t) => atomsFor(c)[t.atomIndex]?.op !== "cant-block" || defending.has(sideOf(t))));
+    if (blocksHere.length) safe = blocksHere;
+  }
   // THE LOOP BACKSTOP (2026-10-18, triggerTargetRestraint): an ability that has resolved LOOP_ITERATIONS times this turn makes a
   // different choice so its loop does not continue (CR 732.3; a loop with an optional action is never a draw, CR 104.4b) — its
   // optional targets declined, else a player target over a permanent (two indestructible Spitemares).

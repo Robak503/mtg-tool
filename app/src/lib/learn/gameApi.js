@@ -419,7 +419,20 @@ export function observe(state, seat) {
 //     controller, with its lands as `candidates`); "sacrifice-choice" on the N-count chain may ask one seat several times in a row
 //     (Promise of Loyalty — every creature but one).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays exactly as before.
-export const PLAY_API_VERSION = "1.15.0";
+// 1.16.0 (additive MINOR — new fields on existing kinds, 2026-11-03, the play-weighted slice pw24):
+//   - "declare-attacker": `exert: true` (exert it as it attacks — Combat Celebrant and the exert template, CR 701.43d; the same attack
+//     without it is offered beside it, and one dispatched for a creature that can't be exerted is a "dispatch-error" with code
+//     "EXERT_ILLEGAL"); state: a permanent's `exertedTurn`, an attacker entry's `exerted`. Only a creature whose linked "When you do"
+//     ability the engine plays is offered it (exertAttack.permanentExertSpec). The exerted attack is a DISTINCT action of the same kind,
+//     permanent and defender, so a driver choosing among the offered actions without reading `exert` may choose it — the one change a
+//     driver that ignores the new fields can see.
+//   - The "discard" decision may carry `perDiscardDraw` (Syphon Mind — the cards discarded so far, drawn by its caster when the chain
+//     ends); a "tutor-search" decision may carry `pickFilters` (Krosan Verge — the later picks' filters: the next pick is raised whether or
+//     not this one finds a card) and `entrySourceId` (Kodama of the East Tree).
+//   - state: a delayed-trigger record's `watchCombatDamage` (Hunter's Insight), a removeKeyword's `cantHave` and a targetShield's
+//     `hexproof` (Arcane Lighthouse), a permanent's `enteredViaAbilityOf` (Kodama) and `becameAura` (Necromancy).
+//   No kind, decision or answer shape changed; apart from the exerted attack above, a driver that ignores the fields plays as before.
+export const PLAY_API_VERSION = "1.16.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

@@ -66,6 +66,8 @@ const MAX_PASSES = 10;
  */
 function attachedToNothing(perm) {
   if (perm.attachedTo || perm.enchantedPlayerId || perm.enchantedGraveyardCard || perm.bestowed) return false;
+  // + NECROMANCY (play-weighted #1023): a permanent that BECAME an Aura (its own enters trigger — `becameAura`) is one too.
+  if (perm.becameAura) return true;
   return /\bAura\b/.test(String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0]);
 }
 
@@ -132,6 +134,22 @@ function sweepAttachmentLegality(state) {
             next = updatePermanentSafe(next, hostId, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
             next = logEvent(next, { kind: "bestow-unattached", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", reason: notCreature ? "host is no creature" : "protection" });
           }
+        }
+        continue;
+      }
+      // NECROMANCY (play-weighted #1023 — "it becomes an Aura with "enchant creature put onto the battlefield with Necromancy.""): an Aura
+      // whose one legal object is the creature it put onto the battlefield (that creature carries `animatedBy` = this permanent), while it
+      // is a creature (layer-aware) and has no protection from it (CR 702.16c); anything else is an illegal object (CR 704.5m) — it goes to
+      // its owner's graveyard, and its leave trigger has the creature sacrificed. It became an Aura by its own ability, not by a type
+      // effect, so it is read here by its stamp, before the type reads below (as a bestowed Aura is above).
+      if (perm.becameAura) {
+        const nHost = findPermanent(next, perm.attachedTo)?.permanent;
+        const protectedFrom = !!nHost && protectionRemovesAttachment(next, nHost.id, perm.id);
+        const nLegal = !!nHost && nHost.animatedBy === perm.id && permanentIsCreature(next, nHost.id) && !protectedFrom;
+        if (!nLegal) {
+          if (nHost) next = updatePermanentSafe(next, nHost.id, (h) => ({ ...h, attachments: (h.attachments || []).filter((id) => id !== perm.id) }));
+          next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+          next = logEvent(next, { kind: "aura-falls-off", turn: next.turn, cardName: perm.card?.name, controller: pid, cause: "sba", ...(protectedFrom ? { reason: "protection" } : {}) });
         }
         continue;
       }

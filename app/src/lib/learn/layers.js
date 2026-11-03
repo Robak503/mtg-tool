@@ -438,7 +438,8 @@ function countSelfSpecOnBoard(state, perm, spec) {
     let n = 0;
     for (const pid of Object.keys(state?.players || {})) {
       for (const p of state.players[pid]?.battlefield || []) {
-        if (p.attachedTo === perm.id && attachRe.test(p.card?.type || "")) n += 1;
+        // + an Aura by its own stamp (attachedIsAura — a bestowed Aura, Necromancy): the Aura kinds count it, the Equipment kind doesn't.
+        if (p.attachedTo === perm.id && (attachRe.test(p.card?.type || "") || (spec.kind !== "equipmentAttachedToSelf" && attachedIsAura(p)))) n += 1;
       }
     }
     return n;
@@ -822,7 +823,7 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "isEnchanted") {
     for (const pid of Object.keys(state?.players || {})) {
       const bf = state.players[pid]?.battlefield || [];
-      if (bf.some(p => p.attachedTo === perm.id && /\baura\b/i.test(p.card?.type || ""))) return true;
+      if (bf.some(p => p.attachedTo === perm.id && attachedIsAura(p))) return true;
     }
     return false;
   }
@@ -833,7 +834,7 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "hostOtherAuraAttached") {
     for (const pid of Object.keys(state?.players || {})) {
       const bf = state.players[pid]?.battlefield || [];
-      if (bf.some(p => p.attachedTo === perm.id && p.id !== gate.sourcePermanentId && /\baura\b/i.test(p.card?.type || ""))) return true;
+      if (bf.some(p => p.attachedTo === perm.id && p.id !== gate.sourcePermanentId && attachedIsAura(p))) return true;
     }
     return false;
   }
@@ -1994,10 +1995,24 @@ export function isModifiedPermanent(state, perm) {
       if (p.attachedTo !== perm.id) continue;
       const t = String(p.card?.type || p.card?.type_line || "");
       if (/\bequipment\b/i.test(t)) return true;                              // equipped — any controller
-      if (/\baura\b/i.test(t) && p.controller === perm.controller) return true; // Aura ITS controller controls
+      if (attachedIsAura(p) && p.controller === perm.controller) return true; // Aura ITS controller controls (attachedIsAura — bestowed, Necromancy)
     }
   }
   return false;
+}
+
+/**
+ * IS THIS ATTACHED PERMANENT AN AURA NOW? (the review of pw24, F4 — CR 303.4b: the object an Aura is attached to is "enchanted"; CR 700.9:
+ * "modified" counts an Aura its controller controls.) Its type line says Aura; or it became one by its own ability (`becameAura` —
+ * Necromancy, CR 704.5m's sweep reads the same stamp); or it is a bestowed permanent, an Aura while attached (CR 702.103b — its printed
+ * line says Enchantment Creature). The one read of every attached-Aura reader: the Aura counts (Kor Spiritdancer, Champion of the Flame,
+ * Uril), the enchanted and other-Aura gates (Thran Golem, Face of Divinity), isModifiedPermanent, hasAuraAttached and
+ * creatureRestrictions' "enchanted" restriction. A caller checks `attachedTo` itself (it names the host); this predicate answers only
+ * for a permanent attached to something (the recheck of pw24, R3 — CR 702.103f: a bestowed Aura that becomes unattached ceases to be
+ * bestowed, so a Boon Satyr whose host has left is a creature, not an Aura, whatever stale `bestowed` flag it still carries).
+ */
+export function attachedIsAura(p) {
+  return !!p && p.attachedTo != null && (p.becameAura === true || p.bestowed === true || /\baura\b/i.test(String(p.card?.type || p.card?.type_line || "")));
 }
 
 /** ENCHANTED (CR 303.4): does any Aura — any controller — sit attached to `perm`? Live off the attachments. */
@@ -2005,7 +2020,7 @@ export function hasAuraAttached(state, perm) {
   if (!perm) return false;
   for (const pid of Object.keys(state?.players || {})) {
     for (const p of state.players[pid]?.battlefield || []) {
-      if (p.attachedTo === perm.id && /\baura\b/i.test(String(p.card?.type || p.card?.type_line || ""))) return true;
+      if (p.attachedTo === perm.id && attachedIsAura(p)) return true;
     }
   }
   return false;
@@ -2859,9 +2874,11 @@ function keywordSet(perm, l6Effects, state) {
   // "cantblock" is the SAME pseudo-keyword the granted "can't block this turn" effects ride — the read
   // combatEvasion.canBlockAttacker already enforces at block legality.
   if (perm.suspected && (!loss || suspectStampNewerThan(perm, loss.timestamp))) { set.add("menace"); set.add("cantblock"); }
+  const barred = []; // "CAN'T HAVE" (Arcane Lighthouse — CR 613.1f, 101.2): applied after every grant, whatever its timestamp
   for (const e of l6Effects.slice().sort(byTimestamp)) {
     const kw = String(e.op.keyword || "").toLowerCase();
     if (!kw) continue;
+    if (e.op.layerOp === "removeKeyword" && e.op.cantHave) barred.push(kw);
     // GATED-KEYWORD: gate closed → no grant this turn. gatePermForEffect (CA-1) resolves the gate's SUBJECT —
     // the affected permanent by default, the effect's SOURCE for a group grant carrying gate.gateOn:"source"
     // (Raksha Golden Cub: "As long as [Raksha] is equipped, Cat creatures … have double strike" reads
@@ -2873,6 +2890,7 @@ function keywordSet(perm, l6Effects, state) {
     if (e.op.layerOp === "addKeyword") set.add(kw);
     else if (e.op.layerOp === "removeKeyword") set.delete(kw);
   }
+  for (const kw of barred) set.delete(kw);
   return set;
 }
 
@@ -3002,6 +3020,8 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   let has = printed || fromCounter || fromSuspect || fromKicked;
   for (const e of grants) {
     if (!effectAffects(e, perm, state)) continue;
+    // "CAN'T HAVE" (Arcane Lighthouse — CR 613.1f, 101.2): no grant gives it back this turn, whatever its timestamp.
+    if (e.op.layerOp === "removeKeyword" && e.op.cantHave) return false;
     // GATED-KEYWORD: gate closed → no grant. gatePermForEffect (CA-1) — gateOn:"source" reads the SOURCE's
     // state (Raksha's equipped bit), default reads the affected permanent (unchanged for all prior gates).
     if (e.op.gate) {
@@ -3012,6 +3032,19 @@ export function permanentHasKeyword(state, permanentId, keyword) {
     else if (e.op.layerOp === "removeKeyword") has = false;
   }
   return has;
+}
+
+/**
+ * "CAN'T HAVE <keyword>" (Arcane Lighthouse, the play-weighted program #1039 — "… lose hexproof and shroud and can't have hexproof or
+ * shroud"): is a layer-6 removal carrying `cantHave` affecting this permanent right now? Such a removal beats every grant of the
+ * keyword whatever its timestamp (CR 613.1f, 101.2 — permanentHasKeyword / keywordSet / keywordInstanceCount), and a "can't have
+ * hexproof" takes the "hexproof from" shields too (CR 702.11e — spellEffects.canBeTargetedBy reads this).
+ */
+export function permanentCantHaveKeyword(state, permanentId, keyword) {
+  const perm = findPerm(state, permanentId);
+  if (!perm || !keyword) return false;
+  const grants = l6IndexOf(state).byKeyword.get(String(keyword).toLowerCase());
+  return !!grants && grants.some((e) => e.op.layerOp === "removeKeyword" && e.op.cantHave && effectAffects(e, perm, state));
 }
 
 /**
@@ -3043,6 +3076,8 @@ export function keywordInstanceCount(state, permanentId, keyword, printedCount =
     if (e.op.layerOp === "addKeyword") n++;
     else if (e.op.layerOp === "removeKeyword") n = 0; // removal strips printed + prior grants (613.9)
   }
+  // "CAN'T HAVE" (Arcane Lighthouse — CR 613.1f, 101.2): no instance at all, whatever the grants' timestamps.
+  if (grants.some((e) => e.op.layerOp === "removeKeyword" && e.op.cantHave && effectAffects(e, perm, state))) return 0;
   return n;
 }
 
@@ -3809,7 +3844,9 @@ export function permanentTargetShields(state, permanentId) {
     // + `colors` (shelf D18 — Veil of Summer's "hexproof from <colours>"), set only when the op names them so every other shield
     // reads byte-identical: a resolved spell's grant has no source permanent, so sourceController stays null and the shield's
     // "opponents" are the shielded permanent's current controller's (CR 109.5).
-    out.push({ notColor: e.op.notColor ?? null, ...(e.op.colors ? { colors: e.op.colors } : {}), opponentsOnly: !!e.op.opponentsOnly, sourceController });
+    // + `hexproof` (Arcane Lighthouse, play-weighted #1039): the shield is a hexproof ability — Veil of Summer's, Dawn's Truce's — which a
+    // "can't have hexproof" removes (CR 702.11e); set only when the op says so.
+    out.push({ notColor: e.op.notColor ?? null, ...(e.op.colors ? { colors: e.op.colors } : {}), opponentsOnly: !!e.op.opponentsOnly, sourceController, ...(e.op.hexproof ? { hexproof: true } : {}) });
   }
   return out;
 }

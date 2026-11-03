@@ -55,7 +55,7 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTrigger
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { departedSourceLki, lkiRecordIsCreature } from "./gameState.js"; // a departed ability source's last known information (CR 113.7a, 608.2b) — the re-check's colours and creature-ness, the damage path's one reader
-import { typeLineNow, permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { typeLineNow, permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentCantHaveKeyword, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -696,7 +696,11 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // + the GRANTED form (stage ③ · 35 — Canopy Cover: "Enchanted creature can't be the target of spells or abilities your
   // opponents control"): no colour exception (notColor null refuses every source), and "your opponents" are the SHIELD
   // SOURCE's controller's — the Aura's controller, who may have enchanted another player's creature (CR 109.5).
+  // A HEXPROOF SHIELD UNDER "CAN'T HAVE HEXPROOF" (Arcane Lighthouse — CR 702.11e: losing hexproof loses every "hexproof from"; CR 613.1f,
+  // 101.2): Veil of Summer's and Dawn's Truce's shields are hexproof, so they refuse nothing while the permanent can't have hexproof.
+  const hexproofBarred = permanentTargetShields(state, perm.id).some((sh) => sh.hexproof) && permanentCantHaveKeyword(state, perm.id, "Hexproof");
   for (const sh of permanentTargetShields(state, perm.id)) {
+    if (hexproofBarred && sh.hexproof) continue;
     if (sh.opponentsOnly && casterId === (sh.sourceController ?? controllerOfPerm)) continue;
     // HEXPROOF FROM <colours> (CR 702.11d/f — Veil of Summer, shelf D18): refuses a source of any named colour. A path that
     // threads no colours can't be told apart from a named-colour source, so it is refused too — an under-offer, as above.

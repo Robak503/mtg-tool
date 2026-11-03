@@ -106,6 +106,7 @@ import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS 
 import { parseModalDfc, mdfcFaceCards, spellMdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.119) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
+import { exertAttackSpec, exertLinkedAbilityRoutes } from "./exertAttack.js"; // EXERT AS IT ATTACKS (CR 701.43d) — the exert line and its linked trigger; a leaf over gameState and layers
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.104) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
@@ -4402,6 +4403,22 @@ registerCoverageClassifier((card) => {
     .split("\n").map((l) => l.trim()).filter((l) => l && l !== rec.raw).join("\n");
   if (!residue) return "native-activated";
   return isKeywordOnly(residue, card?.name) ? "native-activated" : null;
+});
+
+// EXERT AS IT ATTACKS (the play-weighted program, #1007 — Combat Celebrant; CR 701.43d, 508.1g): a creature whose only non-keyword text
+// is its exert line ("[If this creature hasn't been exerted this turn, ]you may exert it as it attacks. When you do, <effect>.") is
+// native when the linked "When you do" ability routes natively — the SAME descriptor the declaration's close fires
+// (exertAttack.exertLinkedAbilityRoutes — triggerRouting.triggerRoutesNatively over exertAttack.exertDescriptor). The offer, the
+// dispatcher and the trigger read the same gate (exertAttack.permanentExertSpec), so an exert that isn't credited is never offered. All-or-nothing: any residue beyond keywords → null → body-only.
+registerCoverageClassifier((card) => {
+  const spec = exertAttackSpec(card);
+  if (!spec || !/\bCreature\b/.test(String(card?.type ?? card?.type_line ?? "").split(" // ")[0])) return null;
+  if (!exertLinkedAbilityRoutes(spec)) return null; // the one routing read the offer, the dispatcher and the trigger share
+  const exertLine = stripReminder(spec.line).trim();
+  const residue = stripReminder(String(card?.oracle || card?.oracle_text || "").replace(/[’]/g, "'"))
+    .split("\n").map((l) => l.trim()).filter((l) => l && l !== exertLine).join("\n");
+  if (!residue) return "native-trigger";
+  return isKeywordOnly(residue, card?.name) ? "native-trigger" : null;
 });
 
 // SELF DAMAGE-PREVENTION statics (BLITZ FOG-1 / PV-1, CR 615 — Guard Gomazoa / Dawn Elemental / Fog Bank

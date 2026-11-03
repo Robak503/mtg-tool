@@ -15,7 +15,7 @@
  * triggersForEvent + enqueueTrigger land in PR-6..8.
  */
 
-import { isGraveyardReanimateAura, animateDeadDescriptors } from "./animateDeadGate.js"; // P·12 — Animate Dead (a zero-import leaf)
+import { isGraveyardReanimateAura, animateDeadDescriptors, isNecromancy, necromancyDescriptors } from "./animateDeadGate.js"; // P·12 — Animate Dead (a zero-import leaf)
 import {
   opponentsOf,
   findPermanent,
@@ -38,7 +38,7 @@ import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed, entersSilencer } from 
 import { cardIsEveryCreatureType } from "./everyCreatureType.js"; // P·39b — a spell's every-creature-type answer (Changeling; its caster's Maskwood Nexus); a leaf (keywords.js only)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 import { singularCreatureType } from "./effects/creatureTypes.js"; // the closed-vocabulary singularizer (a zero-import leaf)
-import { fireDiesWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
+import { fireDiesWatches, fireCombatDamageWatches } from "./effects/atoms/delayedTrigger.js"; // DIES WATCH (shelf D25, CR 603.7) — "when that creature dies this turn" fires off the death chokepoint (a gameState-only leaf, no cycle)
 import { DISCARDED_CARD_EXILE_SENTINEL, DISCARDED_CARD_EXILE_PRINTED_RE, openDiscardExileWatch } from "./effects/atoms/discardedCardExile.js"; // Necropotence — the discarded-card referent (a gameState-only leaf, no cycle)
 import { parseMultikickerCost } from "./kicker.js"; // MULTIKICKER (P·15) — a multikicker permanent carries its kick count into its ETB self context (kicker.js imports only leaves)
 import { spellManaValue, stackSpellManaValue } from "./spellOnStack.js"; // the cast spell's mana value ON THE STACK (CR 202.3 — the announced X, the half or Adventure cast) for the mana-value cast filters, castSpellMv and cascade's cap; a zero-import leaf
@@ -4990,6 +4990,13 @@ export function detectTriggers(cardIn) {
     _detectCache.set(card, ad);
     return ad;
   }
+  // NECROMANCY (play-weighted #1023): the same — its enters trigger's "it becomes an Aura with …" and its leave trigger's "that creature"
+  // come whole from its gate (two printed When-sentences, two descriptors).
+  if (isNecromancy(card)) {
+    const nd = necromancyDescriptors();
+    _detectCache.set(card, nd);
+    return nd;
+  }
   // Strip the leading "Landfall —" ability-word label (CR 207.2c — flavor, no rules meaning) so the trigger
   // regex below, which anchors "Whenever" at a line/sentence boundary, sees the bare "Whenever a land you
   // control enters …". Without this, "Landfall — Whenever …" puts "Whenever" mid-line and never matches.
@@ -7581,6 +7588,10 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // ITS MANA VALUE UNDER A COPY EFFECT (Scrap Trawler's "with lesser mana value" — CR 603.10a, 707.2): a look-back stamped by
     // layers.lkiCopyManaValueStamp carries the copied value its card does not; absent everywhere else (the card answers).
     ...(typeof triggeringPermanent?.lkiCopyMv === "number" ? { triggeringCopyMv: triggeringPermanent.lkiCopyMv } : {}),
+    // PUT BY AN ABILITY (Kodama of the East Tree — "if it wasn't put onto the battlefield with this ability"): the permanent whose ability
+    // put the triggering permanent onto the battlefield, kept with the trigger so the CR 603.4 check at resolution reads it even once the
+    // permanent has left; absent everywhere else.
+    ...(triggeringPermanent?.enteredViaAbilityOf ? { triggeringEnteredViaAbilityOf: triggeringPermanent.enteredViaAbilityOf } : {}),
     // The triggering object's controller — for a self-dies copy the token enters under the DYING creature's
     // last controller (the ability's controller, already threaded as the trigger controller); carried for
     // parity with the id/name/token trio.
@@ -9166,6 +9177,13 @@ export function checkCombatDamageTriggers(state, playerEvents) {
   // union carrier). Same combatDamageAmount threading, so "that many" payoffs read the pw damage too.
   const pwHits = (playerEvents || []).filter((e) => e.kind === "combat-damage-planeswalker");
   if (!hits.length && !pwHits.length) return state;
+  // THE COMBAT DAMAGE WATCHES (Hunter's Insight — CR 603.7): a delayed "whenever that creature deals combat damage to a player or
+  // planeswalker this turn" fires for each hit by its permanent, after the printed triggers below (delayedTrigger.fireCombatDamageWatches).
+  const watched = fireCombatDamageWatches(state, [
+    ...hits.map((e) => ({ attackerId: e.attackerId, amount: e.amount, damagedPlayerId: e.defender })),
+    ...pwHits.map((e) => ({ attackerId: e.attackerId, amount: e.amount, damagedPlaneswalkerId: e.planeswalkerId })),
+  ]);
+  state = watched.state;
   let fired = [];
   const unionOnly = (d) => !!d.alsoPlaneswalker;
   for (const ev of pwHits) {
@@ -9187,6 +9205,7 @@ export function checkCombatDamageTriggers(state, playerEvents) {
     }
   }
   if (!hits.length) {
+    fired = fired.concat(watched.fired);
     if (!fired.length) return state;
     return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
   }
@@ -9239,6 +9258,7 @@ export function checkCombatDamageTriggers(state, playerEvents) {
       }
     }
   }
+  fired = fired.concat(watched.fired);
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }

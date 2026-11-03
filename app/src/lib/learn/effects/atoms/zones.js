@@ -349,7 +349,7 @@ export function applyExileGraveyard(state, atom, ctx) {
  * stays in its zone (CR 303.4g) — entered:false, logged `aura-stays`. An Equipment the effect attaches enters attached too.
  * `auraHostOpts` are the effect's own limits on that choice (auraEntry.auraEntryHosts — Retether's "only creatures").
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null, auraHostOpts = null, extraCounter = null }) {
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId, deferEnterTriggers = false, replacementState = null, attachTo = null, auraSideHint = null, auraHostOpts = null, extraCounter = null, entryStamp = null }) {
   const owner = state.players[fromPlayerId];
   const controllerPlayer = state.players[playerId];
   if (!owner || !controllerPlayer) return { state, entered: false };
@@ -431,7 +431,10 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // from the battlefield). The common same-player entry stamps nothing → byte-identical.
   // K9 (Fblthp "if it entered from your library"): the zone this permanent arrived from, for ETB riders that ask.
   const base = { ...createPermanent({ id: permId, card: entering, controller: playerId, summoningSick: isCreatureCard, tapped: enteringTapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }),
-    ...(copyStamp ? { printedCard: card, copyUntilEndOfTurn: copyStamp } : {}), ...(entering !== card && !copyStamp ? { printedCard: card } : {}) };
+    ...(copyStamp ? { printedCard: card, copyUntilEndOfTurn: copyStamp } : {}), ...(entering !== card && !copyStamp ? { printedCard: card } : {}),
+    // `entryStamp` — what the EFFECT putting it records on the new object before any enters trigger is checked: Kodama of the East
+    // Tree's `enteredViaAbilityOf` (its "if it wasn't put onto the battlefield with this ability", CR 603.4). Absent everywhere else.
+    ...(entryStamp || {}) };
   // THE ENTRY REPLACEMENTS (CR 614.1c, 614.1d, 614.12) — the same reader the cast entry (resolvers.enterPermanent) uses, so a
   // permanent that wasn't cast enters exactly as its replacement effects say: "enters tapped" (Diregraf Ghoul), "enters with
   // N +1/+1 counters" (Spike Feeder), the planeswalker's loyalty (CR 306.5b), fading / vanishing / Saga lore, another

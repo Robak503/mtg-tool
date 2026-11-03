@@ -10,7 +10,22 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.15.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.16.0"`
+
+> **v1.16.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw24):** each rides a kind a driver
+> already handles (§5: "new additive fields on decisions/actions/answers/state").
+> - `"declare-attacker"`: `exert: true` — exert it as it attacks (Combat Celebrant and the exert template, CR 701.43d), offered beside
+>   the same attack without it, only for a creature whose linked "When you do" ability the engine plays; one dispatched for a creature that
+>   can't be exerted is a `"dispatch-error"` with code `EXERT_ILLEGAL`. The exerted attack is a distinct action of the same kind,
+>   permanent and defender, so a driver choosing among the offered actions without reading `exert` may choose it (as with pw22's extra
+>   Vesuva `play-land` actions).
+> - The `"discard"` decision may carry `perDiscardDraw` (Syphon Mind); a `"tutor-search"` decision may carry `pickFilters` (Krosan Verge —
+>   the next pick is raised whether or not this one found a card) and `entrySourceId` (Kodama of the East Tree).
+> - state: a permanent's `exertedTurn`, `enteredViaAbilityOf`, `becameAura`; an attacker entry's `exerted`; a delayed-trigger record's
+>   `watchCombatDamage`; a removeKeyword's `cantHave` and a targetShield's `hexproof`.
+> - A value, not a field: a modal DFC's land face — a permanent's `card`, and the `faceCard` a `"play-land"` action carries — now has
+>   that face's own mana value, 0 (CR 712.8f, 202.3a), where it had the combined card's (its front face's). On the 80-game bench this
+>   recorded value is the only difference in 29 games; every played action is the same.
 
 > **v1.15.0 (additive MINOR, 2026-11-03 — new state fields and a decision for another seat; the play-weighted slice pw23, after
 > pw21's 1.13.0 and pw22's 1.14.0):** each rides a kind a driver already handles (§5: "new additive fields on

@@ -55,6 +55,8 @@ const returnLandPoolMatch = (cost, p, state = null) => (state && boardSetsTypes(
   && (!cost.notSubtype || !new RegExp(`\\b${cost.notSubtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
   && (!cost.untapped || !p.tapped));
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
+import { createPermanent } from "../gameState.js"; // a hypothetical entering permanent (diesAsItEnters — the AI's Kodama put)
+import { applyEnterReplacements } from "../enterReplacements.js"; // its entry replacements as it would enter (enterReplacements reaches no runProgram)
 import { addContinuousEffect, boardSetsTypes, permanentHasTypeWord } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 import { canPayWardCost } from "../ward.js"; // the ward-cost affordability the soft-counter settle and autoPickSoftCounterPay read (ward.js never reaches runProgram)
@@ -523,10 +525,14 @@ export function autoPickTutorCandidate(state, pendingChoice) {
   // WAVE-2b TUTOR — DEFENSIVELY re-apply the structured filter (type groups + MV cap — Spellseeker MV<=2,
   // Trophy Mage MV=3). Candidates are already filtered upstream by applyTutor, so this is a belt-and-braces
   // guard that the auto-pick can never select an off-filter card even if a future caller skips pre-filtering.
-  const cards = (pendingChoice.candidates || [])
+  const matching = (pendingChoice.candidates || [])
     .map((c) => byId.get(c.id))
     .filter(Boolean)
     .filter((c) => cardMatchesTutorFilter(c, pendingChoice.filter, state, pendingChoice.controller));
+  // KODAMA OF THE EAST TREE'S PUT (the review of pw24, F3 — `entrySourceId` marks that search only, so every other search's pick is as
+  // before): a creature card that would die at once to state-based actions as it enters (CR 704.5f — toughness 0 or less: Hangarback
+  // Walker put with no counters) is no put worth making; with nothing else to put, put nothing (a "you may", CR 701.23b).
+  const cards = pendingChoice.entrySourceId ? matching.filter((c) => !diesAsItEnters(state, pendingChoice.controller, c)) : matching;
   if (cards.length === 0) return null;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   // A search for a LAND card (2026-10-17 — a fetch land's crack, Rampant Growth, Cultivate, Farseek, Sakura-Tribe Elder, the SNC
@@ -537,6 +543,20 @@ export function autoPickTutorCandidate(state, pendingChoice) {
     cmp(String(a.name || ""), String(b.name || "")) ||
     cmp(String(a.id || ""), String(b.id || "")));
   return [...cards].sort(order)[0].id;
+}
+
+/**
+ * Would this creature card die at once as it entered the battlefield under `controller` (CR 704.5f — toughness 0 or less)? Read through the
+ * real entry: its entry replacements as it would enter (enterReplacements.applyEnterReplacements — "enters with N +1/+1 counters", X as 0,
+ * another permanent's "enters with an additional counter"), then the layer-aware toughness on the board it would join (anthems count).
+ * A noncreature card never dies this way. Read-only: the board built here is never returned.
+ */
+function diesAsItEnters(state, controller, card) {
+  if (!/\bCreature\b/.test(String(card?.type || card?.type_line || "").split(" // ")[0]) || !state.players?.[controller]) return false;
+  const base = { ...createPermanent({ id: "__entering__", card, controller, summoningSick: true }), enteredOnTurn: state.turn, timestamp: state.timestampCounter || 0 };
+  const { perm } = applyEnterReplacements(state, base, {});
+  const board = { ...state, players: { ...state.players, [controller]: { ...state.players[controller], battlefield: [...(state.players[controller].battlefield || []), perm] } } };
+  return creatureToughness(perm, board) <= 0;
 }
 
 /**
@@ -634,7 +654,8 @@ export function resolveTutorChoice(state, cardId) {
   if (inSource) {
     if (destination === "battlefield" || landPick) {
       // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
-      const r = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped || landPick, ...(searchEnteredIds.length ? { replacementState: withoutSearchedPermanents(next, searchEnteredIds) } : {}) });
+      // KODAMA OF THE EAST TREE (play-weighted #991): stamped as put by the searching ability's source as it enters (entryStamp).
+      const r = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped || landPick, ...(searchEnteredIds.length ? { replacementState: withoutSearchedPermanents(next, searchEnteredIds) } : {}), ...(pc.entrySourceId ? { entryStamp: { enteredViaAbilityOf: pc.entrySourceId } } : {}) });
       next = r.state;
       enteredPermId = r.permanentId || null;
       // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants ("It gains indestructible
@@ -689,6 +710,23 @@ export function resolveTutorChoice(state, cardId) {
   // declined/empty fetch ends the search here (the player chose to take fewer). The driver loop drains the
   // re-suspended choice (settleTutorChoice returns it; the AI auto-picks again, a human gets a second picker).
   const remaining = (pc.remaining || 1) - 1;
+  // TWO CARDS, EACH WITH ITS OWN QUALITY (Krosan Verge, play-weighted #997 — "a Forest card and a Plains card"): the next pick has its
+  // own filter, so its candidates are read afresh from the library as it is now (the card just found has left it), and it is raised
+  // whether or not this pick found a card — each card of the search may be not found (CR 701.23b). One search: the shuffle and the
+  // search's completion wait for the last pick, and the entries are one event (searchEnteredIds).
+  if (Array.isArray(pc.pickFilters) && pc.pickFilters.length && remaining >= 1 && next.players?.[pc.controller]) {
+    const [head, ...tail] = pc.pickFilters;
+    const candidates = (next.players[pc.controller].library || [])
+      .filter((c) => cardMatchesTutorFilter(c, head.filter, next, pc.controller))
+      .map((c) => ({ id: c.id, name: c.name }));
+    next = setPendingTutorChoice(next, {
+      controller: pc.controller, candidates, sourceName: pc.sourceName, filterLabel: head.filterLabel, filter: head.filter,
+      mayFailToFind: true, destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone: "library",
+      searchEnteredIds: enteredPermId ? [...searchEnteredIds, enteredPermId] : searchEnteredIds,
+      pickFilters: tail,
+    });
+    return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+  }
   if (inSource && remaining >= 1 && next.players?.[pc.controller]) {
     // DISTINCT NAMES (Tiamat "up to five Dragon cards THAT EACH HAVE DIFFERENT NAMES") — a chained pick
     // already drops the just-fetched CARD by id; this drops every remaining candidate sharing its NAME, so
@@ -1407,10 +1445,12 @@ export function resolveDiscardChoice(state, cardId) {
   if (!pc || pc.kind !== "discard") return state;
   let next = clearPendingChoice(state);
   const discarder = pc.controller;
+  let discardedNow = false; // a card really discarded by this settle (the per-card draw's tally below)
   if (next.players?.[discarder]) {
     // Capture the card object BEFORE the move — the CONNIVE rider needs its landness (CR 701.50a).
     const discardedCard = cardId ? (next.players[discarder].hand || []).find((c) => c.id === cardId) : null;
     const inHand = !!discardedCard;
+    discardedNow = inHand;
     if (inHand) {
       next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
     }
@@ -1424,9 +1464,11 @@ export function resolveDiscardChoice(state, cardId) {
       next = applyConniveCounter(next, pc.connive.permanentId, pc.connive.controller || discarder);
     }
   }
-  // Decrement the head discarder's owed count, then advance the chain.
+  // Decrement the head discarder's owed count, then advance the chain. THE PER-CARD DRAW (Syphon Mind): the tally counts a card
+  // actually discarded (a stale pick is not) and rides on; the chain draws it when its queue empties (hand.advanceDiscardChain).
   const queue = (pc.queue || []).map((e, i) => (i === 0 ? { ...e, remaining: e.remaining - 1 } : e));
-  const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName });
+  const perDiscardDraw = pc.perDiscardDraw ? { ...pc.perDiscardDraw, count: pc.perDiscardDraw.count + (discardedNow ? 1 : 0) } : null;
+  const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName, ...(perDiscardDraw ? { perDiscardDraw } : {}) });
   if (r.pendingChoice) {
     // The chain re-paused (more picks). Carry the original caster-resume onto the new choice so the
     // program resumes once the whole chain settles (advanceDiscardChain never sets a resume itself).

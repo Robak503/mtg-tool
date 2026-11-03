@@ -347,6 +347,9 @@ export function atomTargetIntent(atom) {
       // graveyardCard payoff here, and the arm stamps excludeTriggeringCard). Own-side, same as the
       // bare return-from-graveyard entry above.
       return "own";
+    case "necromancy-return":
+      // NECROMANCY (play-weighted #1023): a creature card from ANY graveyard put under your control — the any-graveyard reanimate's answer.
+      return "any";
     case "reanimate":
       // OWN-graveyard reanimate ("from your graveyard") is own-side, so a reanimation TRIGGER routes
       // natively. But the REANIMATE-FROM-ANY forms ("from a graveyard" / "from an opponent's graveyard")

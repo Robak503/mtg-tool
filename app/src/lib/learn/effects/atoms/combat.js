@@ -167,6 +167,7 @@ export function applyUntapLands(state, atom, ctx) {
     // permanent type), and creature-ness is read LAYER-AWARE so an animated land counts exactly as the
     // board sees it, not as its printed line reads.
     if (atom?.scope === "creature") {
+      if (atom.excludeSource && perm.id === ctx.sourceId) continue; // "all OTHER creatures you control" (Combat Celebrant)
       if (!permanentIsCreature(state, perm.id)) continue; // the creature it is now (the type-line audit — a God below its devotion, a bestowed Aura, an attached reconfigure Equipment are not)
       if (atom.attackedThisTurnOnly && !perm.attackedThisTurn) continue; // Overpowering Attack (KT-7a): only those that attacked this turn
     } else if (atom?.scope === "attacking") {
@@ -1313,7 +1314,7 @@ export function applyLoseKeywordsGroup(state, atom, ctx) {
   for (const kw of atom.loseKeywords || []) {
     if (!ids.length) break;
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "removeKeyword", keyword: kw },
+      layer: 6, op: { layerOp: "removeKeyword", keyword: kw, ...(atom.cantHave ? { cantHave: true } : {}) }, // + "can't have" (Arcane Lighthouse)
       affects: { mode: "fixed", permanentIds: ids },
       duration: dur, source: src,
     }).state;
@@ -1782,6 +1783,9 @@ export function combatKeywordClauseParser(clause) {
   // ⛔ "untap all creatures" WITHOUT "you control" is NOT this atom — that is a symmetric untap that also
   // untaps opponents' blockers, which is a different effect and a real downside. It falls through to LOW.
   if (/^(?:you )?untap (?:all|each) creatures? you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", targetType: null };
+  // + "untap all OTHER creatures you control" (play-weighted #1007 — Combat Celebrant's exert trigger, Ahn-Crop Champion's): the same
+  // untap of the controller's own creatures, the ability's source left as it is (`excludeSource`).
+  if (/^untap all other creatures you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", excludeSource: true, targetType: null };
   // MASS-OWN-NONLAND UNTAP (play-weighted #666 — Dramatic Reversal "Untap all nonland permanents you control."): the same resolver over
   // the controller's own tapped permanents that are not lands (scope "nonland" — layer-aware). Only the controller's battlefield is
   // walked, so an opponent's permanent is never reached; "untap all nonland permanents" without "you control" and the each-opponent
@@ -2886,6 +2890,13 @@ export function groupGrantClauseParser(clause) {
  */
 export function groupLoseKeywordsClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ARCANE LIGHTHOUSE (the play-weighted program, #1039): "Until end of turn, creatures your opponents control lose hexproof and shroud
+  // and can't have hexproof or shroud." — the same group loss with `cantHave`: the layer-6 removal wins over every grant this turn,
+  // whatever its timestamp (CR 613.1f, 101.2), and takes the "hexproof from" shields with it (CR 702.11e — layers.permanentCantHaveKeyword,
+  // spellEffects.canBeTargetedBy). The exact sentence only.
+  if (t === "until end of turn, creatures your opponents control lose hexproof and shroud and can't have hexproof or shroud") {
+    return { op: "lose-keywords-group", subject: "creature", loseKeywords: ["Hexproof", "Shroud"], cantHave: true };
+  }
   const m = t.match(/^(creatures|permanents) your opponents control lose (.+) until end of turn$/);
   if (!m) return null;
   const kws = parseGroupGrantKeywords(m[2]);

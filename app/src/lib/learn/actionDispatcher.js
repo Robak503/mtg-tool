@@ -80,6 +80,7 @@ import { manaSources, planPayment, castPaymentSources, costReservedPermanentIds,
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { sacrificePermanentForCost, sacrificePermanentsForCost } from "./costSacrifice.js"; // + sacrificePermanentsForCost (2026-10-17): a cost of N permanents, one event // every cost sacrifice (activated-ability costs, additional and alternative costs, emerge) — the ONE sequence the mana-cost sacrifice uses too
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
+import { canExertAsItAttacks } from "./exertAttack.js"; // EXERT AS IT ATTACKS (CR 701.43d) — the declaration's check of an exerted attack
 import { vowForbidsAttack } from "./combatEvasion.js"; // Promise of Loyalty's vow (CR 508.1c) — the declaration's refusal half; legalChoices filters the offer with the same read
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -2203,6 +2204,16 @@ function applyDeclareAttacker(state, action) {
     }
     next = logEvent(next, { turn: state.turn, kind: "attack-tax-paid", attackerId: action.permanentId, playerId: action.playerId, generic: detail.generic, ...(detail.phyrexian.length ? { phyrexian: detail.phyrexian, lifePaid } : {}) });
   }
+  // EXERT AS IT ATTACKS (CR 701.43d, 508.1g — exertAttack.js): the optional cost chosen with this declaration. legalChoices offers it
+  // only for a creature that may be exerted now; this refuses any other. Exerted, it won't untap during the exerting player's next untap
+  // step (CR 701.43a — `doesNotUntapNext` names that player, unless something already keeps it tapped outright), it is exerted this turn
+  // (`exertedTurn` — Combat Celebrant's "If this creature hasn't been exerted this turn"), and its attacker entry says so, which the
+  // declaration's close reads to trigger the linked "When you do" ability (gameEngine.closeAttackDeclaration).
+  if (action.exert) {
+    if (!canExertAsItAttacks(next, creature)) throw new DispatcherError(`${creature.card?.name || action.permanentId} can't be exerted as it attacks`, "EXERT_ILLEGAL");
+    next = updatePermanentSafe(next, action.permanentId, (p) => ({ ...p, exertedTurn: next.turn || 0, doesNotUntapNext: p.doesNotUntapNext === true ? true : action.playerId }));
+    next = logEvent(next, { turn: state.turn, kind: "exerted", permanentId: action.permanentId, cardName: creature.card?.name, playerId: action.playerId });
+  }
   const attackerEntry = {
     permanentId: action.permanentId,
     attackingPlayer: action.playerId,
@@ -2211,6 +2222,7 @@ function applyDeclareAttacker(state, action) {
     // (not the player's life) — combatResolution reads defenderPlaneswalkerId. `defender` still
     // names the defending player (who declares blockers).
     ...(action.defenderPlaneswalkerId ? { defenderPlaneswalkerId: action.defenderPlaneswalkerId } : {}),
+    ...(action.exert ? { exerted: true } : {}),
   };
   return {
     ...next,

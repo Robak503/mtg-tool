@@ -149,7 +149,9 @@ function kindLabel(o, seat) {
     case "declare-attacker": {
       // The player's own attacks never aim at "user"; an opponent's attack on the player (a log line) reads "Attack you".
       const at = o.targetName || o.defenderName || (o.defenderId === "user" ? "you" : SEAT_LABELS[o.defenderId]) || "";
-      return at ? `Attack ${at} with ${o.name}` : `Attack with ${o.name}`;
+      // EXERT AS IT ATTACKS (CR 701.43 — exertAttack.js): the attack that exerts it says so, and what exerting costs.
+      const exert = o.exert ? ", exerting it (it won't untap during your next untap step)" : "";
+      return at ? `Attack ${at} with ${o.name}${exert}` : `Attack with ${o.name}${exert}`;
     }
     case "declare-blocker": return `Block ${o.attackerName || "attacker"} with ${o.name}`;
     case "pass-priority": return "Pass";

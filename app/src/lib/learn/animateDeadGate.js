@@ -48,3 +48,40 @@ export function animateDeadDescriptors() {
       interveningIf: null, optional: false, sourceText: "When this Aura leaves the battlefield, that creature's controller sacrifices it." },
   ];
 }
+
+/**
+ * NECROMANCY (the play-weighted program, #1023; CR 603.4, 704.5m) — the enchantment that becomes the reanimation Aura as its own enters
+ * trigger resolves:
+ *
+ *   "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the
+ *    permanent it becomes sacrifices it at the beginning of the next cleanup step.
+ *    When this enchantment enters, if it's on the battlefield, it becomes an Aura with "enchant creature put onto the battlefield with
+ *    Necromancy." Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it.
+ *    When this enchantment leaves the battlefield, that creature's controller sacrifices it."
+ *
+ * The gate is the EXACT printed text on an Enchantment. The flash line is the self-flash permission the engine never takes (its cast is
+ * offered at sorcery speed only — textNormalize.stripFlashPermissionLine), so its cleanup sacrifice can't arise. Its two triggered
+ * abilities come whole from here (its "it becomes an Aura with …" and "that creature" are read by no generic parse): the enters trigger
+ * TARGETS a creature card in any graveyard as it goes on the stack and, resolving, makes this permanent an Aura attached to the creature it
+ * puts onto the battlefield (effects/atoms/animateDead.js); the leave trigger is Animate Dead's — that creature's controller sacrifices it.
+ */
+const NECROMANCY_ORACLE = [
+  "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.",
+  "When this enchantment enters, if it's on the battlefield, it becomes an Aura with \"enchant creature put onto the battlefield with Necromancy.\" Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature's controller sacrifices it.",
+].join("\n");
+
+/** Is this the exact Necromancy text (any printing's name) on an Enchantment that isn't an Aura? */
+export function isNecromancy(card) {
+  const type = String(card?.type || card?.type_line || "");
+  return /\bEnchantment\b/.test(type) && !/\bAura\b/.test(type) && normalize(card?.oracle ?? card?.oracle_text) === NECROMANCY_ORACLE;
+}
+
+/** Necromancy's two triggered abilities, synthesized whole (sentinels only effects/atoms/animateDead.js reads). */
+export function necromancyDescriptors() {
+  return [
+    { event: "etb", scope: "self", whose: "any", effect: null, effectClause: "[necromancy] put target creature card from a graveyard onto the battlefield under your control attached", // comma- and and-free: the clause splitter hands it over whole
+      interveningIf: null, optional: false, sourceText: "When this enchantment enters, if it's on the battlefield, …" },
+    { event: "leavesSelf", scope: "self", whose: "any", effect: null, effectClause: "[animate-dead] the animated creature's controller sacrifices it",
+      interveningIf: null, optional: false, sourceText: "When this enchantment leaves the battlefield, that creature's controller sacrifices it." },
+  ];
+}

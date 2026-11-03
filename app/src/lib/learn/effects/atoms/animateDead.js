@@ -48,14 +48,48 @@ function applyAnimateDeadSacrifice(state, atom, ctx) {
   return logEvent(state, { kind: "spell-effect", effect: "animate-dead-sacrifice", sacrificed: null });
 }
 
+/**
+ * NECROMANCY's enters trigger (the play-weighted program, #1023 — animateDeadGate.isNecromancy): "…, if it's on the battlefield, it becomes
+ * an Aura with "enchant creature put onto the battlefield with Necromancy." Put target creature card from a graveyard onto the battlefield
+ * under your control and attach this enchantment to it." All of it happens as the ability resolves (its ruling). Necromancy gone → nothing
+ * (the intervening-if, CR 603.4); the target no longer in its graveyard → the ability did not resolve (CR 608.2b — the engine's re-check;
+ * guarded here too) and Necromancy stays the enchantment it was. Otherwise it becomes an Aura (`becameAura` — sba.js's attachment sweep
+ * treats it as one whose only legal object is the creature it put onto the battlefield, CR 704.5m), the card enters under its controller
+ * from its owner's graveyard, and Necromancy is attached to it (the creature stamped `animatedBy`, which its leave trigger reads). A card
+ * that didn't enter leaves the Aura attached to nothing, so it goes to its owner's graveyard (CR 704.5m); a creature it can't legally
+ * enchant (protection from black — its ruling) is the sweep's: it goes, and its leave trigger has the creature sacrificed.
+ */
+function applyNecromancyReturn(state, atom, ctx) {
+  const necro = ctx.sourceId != null ? findPermanent(state, ctx.sourceId) : null;
+  if (!necro) return logEvent(state, { kind: "spell-effect", effect: "necromancy", returned: false, reason: "necromancy-gone" });
+  const t = (ctx.targets || []).find((x) => x?.type === "graveyardCard");
+  const ownerId = t ? Object.keys(state.players || {}).find((pid) => (state.players[pid].graveyard || []).some((c) => c.id === t.id)) : null;
+  if (!ownerId) return logEvent(state, { kind: "spell-effect", effect: "necromancy", returned: false, reason: "target-gone" });
+  let next = updatePermanentSafe(state, necro.permanent.id, (p) => ({ ...p, becameAura: true }));
+  const r = enterCardFromZone(next, { playerId: necro.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId: ownerId });
+  if (!r?.entered) {
+    const binned = moveCardToZone(r?.state || next, { playerId: necro.controller, fromZone: "battlefield", toZone: "graveyard", cardId: necro.permanent.id });
+    return logEvent(binned, { kind: "aura-falls-off", turn: binned.turn, cardName: necro.permanent.card?.name, controller: necro.controller, cause: "enchanted-card-gone" });
+  }
+  next = attachPermanent(r.state, { equipId: necro.permanent.id, targetId: r.permanentId });
+  next = updatePermanentSafe(next, r.permanentId, (p) => ({ ...p, animatedBy: necro.permanent.id }));
+  return logEvent(next, { kind: "spell-effect", effect: "necromancy", returned: true, controller: necro.controller, permanentId: r.permanentId });
+}
+
 export function animateDeadClauseParser(clause) {
   const t = String(clause || "").trim().replace(/\.$/, "").toLowerCase();
   if (t === "[animate-dead] return the enchanted creature card to the battlefield attached") return { op: "animate-dead-return", targetType: null };
   if (t === "[animate-dead] the animated creature's controller sacrifices it") return { op: "animate-dead-sacrifice", targetType: null };
+  // NECROMANCY (play-weighted #1023): the reanimate atom's target shape (any graveyard, a creature card — zones.reanimate's fields, so
+  // the trigger's target offer is the one that atom gets), resolved by applyNecromancyReturn.
+  if (t === "[necromancy] put target creature card from a graveyard onto the battlefield under your control attached") {
+    return { op: "necromancy-return", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
+  }
   return null;
 }
 
 export const animateDeadResolvers = {
   "animate-dead-return": applyAnimateDeadReturn,
   "animate-dead-sacrifice": applyAnimateDeadSacrifice,
+  "necromancy-return": applyNecromancyReturn,
 };

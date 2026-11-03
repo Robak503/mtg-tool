@@ -925,6 +925,70 @@ at the pause and the atoms after it destroy on the spot; the session loop's own 
   "Its controller creates a tapped Powerstone token.", "This ability triggers only once each turn.") was dropped from the first half —
   a HIGH trigger played without it. Every sentence on the line is that ability's, as in the disjunction splits; an unread one parks it.
 
+**The play-weighted pw24 readers (2026-11-03) — a tallied discard, a damage watch, two filters, "can't have", a provenance, a
+self-made Aura, exert.**
+- **A draw per card discarded** (`hand.advanceDiscardChain`'s `perDiscardDraw` — Syphon Mind): the chain tallies every card it really
+  discards (a forced whole hand, each settled pick in `runProgram.resolveDiscardChoice`; a stale pick isn't counted) on the pending
+  choice, and when its queue empties the tally's controller draws that many as one instruction, before the program resumes.
+- **"Whenever that creature deals combat damage to a player or planeswalker this turn"** (`delayedTrigger.applyWatchCombatDamageThisTurn`
+  / `fireCombatDamageWatches` — Hunter's Insight; CR 603.7): the dies watch's event-keyed sibling, but a "whenever" — the record
+  (`watchCombatDamage` = the permanent id) stays for its turn and fires on each of that permanent's player and planeswalker hits
+  (`triggers.checkCombatDamageTriggers`, after the printed triggers), under the combat damage event so "that many"
+  (`countContext: combatDamageAmount`) is admitted by the referent gate. `choose-target` takes "creature you control" too. The drain
+  keeps the record for its turn; the audit knows the field.
+- **One search, a quality per card** (`library.tutorClauseParser`'s two-filter arm, the atom's `pickFilters` — Krosan Verge): "a A card and
+  a B card" is one search whose later picks each carry their own filter; `resolveTutorChoice` raises the next pick from the library as
+  it is then, whether or not this pick found a card (CR 701.23b), and the shuffle and the search's completion wait for the last pick.
+  Land filters only. The default AI never cracks a fetch with a mana cost (fetchLand.js's crack line is the zero-mana fetch).
+- **"Can't have"** (Arcane Lighthouse — CR 613.1f, 101.2): a layer-6 `removeKeyword` carrying `cantHave` beats every grant of that
+  keyword whatever its timestamp — `permanentHasKeyword`, `keywordSet` and `keywordInstanceCount` all apply it last;
+  `layers.permanentCantHaveKeyword` answers it for a reader outside the layer engine. A targetShield that is a hexproof ability (Veil
+  of Summer's, Dawn's Truce's — `hexproof: true`, set by `stack.applyHexproofFromColors`) refuses nothing while its permanent can't have
+  hexproof (CR 702.11e — `spellEffects.canBeTargetedBy`); a shield that only says "can't be the target of …" (Canopy Cover) is unmarked
+  and stays.
+- **Put onto the battlefield by this ability** (Kodama of the East Tree): `zones.enterCardFromZone`'s `entryStamp` writes what the
+  putting effect records onto the new object before any enters trigger is checked — the tutor's `entrySourceId` →
+  `enteredViaAbilityOf`; `makePendingTrigger` keeps it in the context (`triggeringEnteredViaAbilityOf`) and the intervening-if
+  "it wasn't put onto the battlefield with this ability" reads the permanent, or that look-back once it has left. The put's cap
+  (`filter.mvMaxFromTriggering`) is the entering permanent's mana value as the ability resolves — `layers.permanentManaValue`, or the
+  look-back (CR 608.2h); the referent gate admits it on `permanentEnters` only. The default AI's pick (runProgram.autoPickTutorCandidate,
+  that search only) skips a creature that would die at once as it enters (`diesAsItEnters` — its entry replacements, then the
+  layer-aware toughness: Hangarback Walker put with no counters).
+- **A modal DFC's face has its own mana value** (`modalDfc.mdfcFaceCards` — CR 712.8f, 202.3a; the review of pw24, F2): the land face's view
+  carries `cmc` from its own mana cost (none — 0), where it used to inherit the combined card's (its front face's) — the permanent's
+  card and the `play-land` action's `faceCard` alike (a v13 save's land face is rewritten to it by the v13 → v14 migration, with the
+  same `modalDfc.faceManaValue` — the recheck of pw24, R2). Every battlefield
+  mana-value reader reads the face view or its look-back, so Turntimber, Serpentine Wood is 0 to all of them (permanentManaValue, the
+  sacrifice and leave look-backs, the mana-value targeting and mass filters, Kodama's cap). The front view keeps the combined `cmc` (its
+  own); a transforming DFC is not this shape and keeps its front face's mana value on its back face (CR 712.8e).
+- **An enchantment that becomes an Aura** (`animateDeadGate.isNecromancy` — Necromancy): gated whole beside Animate Dead, its two
+  triggers synthesized; the enters trigger targets a creature card in any graveyard (`necromancy-return`, side "any") and, resolving
+  with Necromancy still there, stamps it `becameAura`, enters the card under its controller and attaches it (the creature `animatedBy`).
+  `sba.js` reads the stamp before its type reads (as it reads a bestowed Aura): attached to nothing → the graveyard; its one legal
+  object is the creature it animated while that is a creature without protection from it. **The attached-Aura readers see it**
+  (`layers.attachedIsAura` — the type line, `becameAura`, or a bestowed permanent: the review of pw24, F4): the Aura counts (Kor
+  Spiritdancer), the enchanted and other-Aura gates (Thran Golem, Face of Divinity), `isModifiedPermanent`, `hasAuraAttached` and
+  creatureRestrictions' "enchanted" restriction. Readers of the Aura SUBTYPE on the object itself ("Auras you control", "target Aura")
+  still don't — a found-not-fixed, as for a bestowed Aura. `attachedIsAura` answers only for a permanent attached to something
+  (CR 702.103f — a bestowed Aura whose host has left is a creature again, whatever stale `bestowed` flag it still carries: the recheck
+  of pw24, R3).
+- **Exert as it attacks** (`exertAttack.js` — CR 701.43, 508.1g; Combat Celebrant and the "You may exert this creature as it attacks. When
+  you do, …" template): legalChoices offers each attack of a creature that may be exerted now twice, plain and `exert: true` (Celebrant
+  only while not exerted this turn — `exertedTurn`); the dispatcher re-checks it, stamps `exertedTurn`, `doesNotUntapNext` (the exerting
+  player — the untap step's exert lane) and the attacker entry's `exerted`; `gameEngine.closeAttackDeclaration` queues the linked "When
+  you do" ability for each exerted attacker (`exertAttackTriggers`, an ordinary descriptor the flush parses, targets and gates), so it
+  resolves before blockers. **The exert is offered only when that descriptor routes** (`exertAttack.exertLinkedAbilityRoutes`, read by
+  `permanentExertSpec` — the one gate of the offer, the dispatcher's check and the trigger), the same test the card's classifier makes
+  (`coverage.js`'s exert classifier, keyword-only residue): an "it gets …" self-pump's linked clause doesn't read, so Khenra Scrapper and
+  the twelve other uncredited exert cards are neither credited nor offered the exert (the review of pw24, F1 — before the gate they
+  were offered it and paid the cost for nothing). The default AI plans its attack over the plain attacks and exerts an attack it makes
+  only when the linked ability would help (`opponentAI.exertLinkedAbilityActs`; the recheck of pw24, R1): an untap of the other creatures
+  wants one that is tapped, or attacks alongside without vigilance (it taps as it attacks — the rest of the plan); Combat Celebrant's
+  additional combat wants an attacker in it (the Celebrant itself with vigilance, or another creature that can attack); a draw wants
+  that many cards in the library (CR 704.5b, 121.4); a put from the hand a card it may put; a target the side its atom wants — and
+  "target creature can't block this turn" (Ahn-Crop Crasher) a creature a defending player controls, where the trigger's chooser aims
+  it too (`gameEngine.chooseTriggerTargets`, the "exerted" event only).
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone

@@ -18,8 +18,9 @@
 
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
+import { faceManaValue } from "../learn/modalDfc.js"; // a leaf chain (splitCard, spellColors): the face's own mana value, v13 → v14's one rewrite
 
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -196,7 +197,47 @@ export const MIGRATIONS = {
   // So an earlier save needs no backfill; this migration only stamps the version forward, as v9 → v10 does — and an earlier build refuses
   // a v13 save (migrate throws on a newer version) instead of dropping a vow mid-game. (CONTRACT-MIG.)
   12: (doc) => ({ ...doc, schemaVersion: 13 }),
+
+  // v13 → v14 — the play-weighted slice pw24 (2026-11-03) persists these new shapes, each written only by its own card and each ABSENT
+  // meaning what every earlier game says:
+  //   · a pending discard choice's `perDiscardDraw` (Syphon Mind — the cards the chain has discarded so far, drawn when it ends):
+  //     absent, no draw follows the discards;
+  //   · a delayed-trigger record's `watchCombatDamage` + `recipients` (Hunter's Insight — the permanent watched this turn): absent, none;
+  //   · a layer-6 removeKeyword's `cantHave` and a targetShield's `hexproof` (Arcane Lighthouse; Veil of Summer's and Dawn's Truce's
+  //     shields are hexproof): absent, a removal timestamp order decides, and the shield isn't a hexproof ability;
+  //   · a pending tutor choice's `pickFilters` (Krosan Verge — the filters of the picks still to come) and `entrySourceId` (Kodama of the
+  //     East Tree — the ability putting the card), a permanent's `enteredViaAbilityOf`, a pending trigger's context
+  //     `triggeringEnteredViaAbilityOf`: absent, the search's one filter, and nothing put it there by an ability;
+  //   · a permanent's `becameAura` (Necromancy — it became an Aura by its own enters trigger): absent, it is what its card says;
+  //   · a permanent's `exertedTurn` and an attacker entry's `exerted` (Combat Celebrant and the exert template — CR 701.43): absent,
+  //     never exerted, nothing exerted as it attacked.
+  // And one stored VALUE changes meaning (the recheck of pw24, R2): a modal DFC played as its land face is a permanent whose card is the
+  // face view (`faceIndex: 1`, `mdfcOf`), and that view's `cmc` was the combined card's (its front face's — Turntimber, Serpentine Wood
+  // 7) until pw24 gave the face its own (CR 712.8f, 202.3a — 0). A v13 save made with such a land in play would resume reading 7 while
+  // a fresh game reads 0, so this step rewrites each battlefield land face's `cmc` with the live view's read (modalDfc.faceManaValue).
+  // Nothing else is touched; a save with no land face in play is stamped only.
+  13: (doc) => ({ ...withLandFaceManaValue(doc), schemaVersion: 14 }),
 };
+
+/** v13 → v14's rewrite: each battlefield permanent that is a modal DFC's land face carries that face's own mana value. */
+function withLandFaceManaValue(doc) {
+  const state = doc?.session?.state;
+  if (!state?.players || typeof state.players !== "object") return doc;
+  let changed = false;
+  const players = {};
+  for (const [pid, p] of Object.entries(state.players)) {
+    if (!Array.isArray(p?.battlefield)) { players[pid] = p; continue; }
+    players[pid] = { ...p, battlefield: p.battlefield.map((perm) => {
+      const card = perm?.card;
+      if (!card || card.faceIndex !== 1 || !card.mdfcOf || !/\bLand\b/.test(String(card.type || ""))) return perm;
+      const mv = faceManaValue(card.mana);
+      if (card.cmc === mv) return perm;
+      changed = true;
+      return { ...perm, card: { ...card, cmc: mv } };
+    }) };
+  }
+  return changed ? { ...doc, session: { ...doc.session, state: { ...state, players } } } : doc;
+}
 
 export class SaveMigrationError extends Error {
   constructor(message) {

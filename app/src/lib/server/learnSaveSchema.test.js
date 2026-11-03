@@ -482,10 +482,73 @@ describe("migrate", () => {
     const v13 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v13.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v13)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 13, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // the chain runs on past v13 since pw24
     const attacks = (st) => legalActionsForPlayer(st, "ai").filter((a) => a.kind === "declare-attacker" && a.permanentId === "wurm").length;
     const freed = { ...back.session.state, players: { ...back.session.state.players, ai: { ...back.session.state.players.ai, battlefield: [{ ...wurm, counters: { vow: 0 } }] } } };
     expect({ vowed: attacks(back.session.state), freed: attacks(freed) }).toEqual({ vowed: 0, freed: 1 }); // the control: the same board without the counter attacks
+  });
+  // CONTRACT-MIG (the play-weighted slice pw24): a v14 game may carry a pending discard's `perDiscardDraw` (Syphon Mind), a delayed
+  // record's `watchCombatDamage` (Hunter's Insight), a removeKeyword's `cantHave` and a targetShield's `hexproof` (Arcane Lighthouse,
+  // Veil of Summer), a tutor choice's `pickFilters` / `entrySourceId` and a permanent's `enteredViaAbilityOf` (Krosan Verge, Kodama of
+  // the East Tree), a permanent's `becameAura` (Necromancy), `exertedTurn` and an attacker entry's `exerted` (Combat Celebrant). An
+  // earlier save has none, and absent means what every earlier game says, so v13 → v14 stamps the version only. The round trip: each survives save → JSON → migrate and still plays — the
+  // Celebrant exerted this turn isn't offered the exert again, and the watched creature's combat damage still draws.
+  it("carries a v13 save forward to v14 (stamp-only; a v14 game's pw24 shapes round-trip, the exert stamp and the damage watch still read)", async () => {
+    const { legalActionsForPlayer } = await import("../learn/legalChoices.js");
+    const { checkCombatDamageTriggers } = await import("../learn/triggers.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v13 = {
+      schemaVersion: 13, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v13", serializable: true,
+      session: { id: "learn-v13", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 6, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([typeof MIGRATIONS[13], typeof MIGRATIONS[14]]).toEqual(["function", "undefined"]); // the v13 → v14 step exists and is the last (CONTRACT-MIG)
+    expect(MIGRATIONS[13](JSON.parse(JSON.stringify(v13)))).toEqual({ ...v13, schemaVersion: 14 }); // no land face in play: the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v13)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v13.session.state });
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, enteredOnTurn: 1, ...extra });
+    const celebrant = perm("cel", { name: "Combat Celebrant", type: "Creature — Human Warrior", power: "4", toughness: "1",
+      oracle: "If this creature hasn't been exerted this turn, you may exert it as it attacks. When you do, untap all other creatures you control and after this phase, there is an additional combat phase. (An exerted creature won't untap during your next untap step.)" },
+    { exertedTurn: 6, doesNotUntapNext: "user" });
+    const giant = perm("hg", { name: "Hill Giant", type: "Creature — Giant", power: "3", toughness: "3", oracle: "" }, { tapped: true, enteredViaAbilityOf: "kodama" });
+    const necro = perm("nec", { name: "Necromancy", type: "Enchantment", oracle: "" }, { becameAura: true });
+    const state = { ...v13.session.state, activePlayer: "user", priorityHolder: "user", phase: "combat", step: "declare-attackers", turnOrder: ["user", "ai"], mode: "standard",
+      combat: { attackers: [{ permanentId: "hg", attackingPlayer: "user", defender: "ai", exerted: true }], blockers: [] },
+      players: { user: { ...empty, battlefield: [celebrant, giant, necro], library: [{ id: "l1", name: "Forest", type: "Basic Land — Forest", oracle: "" }, { id: "l2", name: "Forest", type: "Basic Land — Forest", oracle: "" }, { id: "l3", name: "Forest", type: "Basic Land — Forest", oracle: "" }] }, ai: { ...empty } },
+      continuousEffects: [
+        { id: "ce-1", layer: 6, op: { layerOp: "removeKeyword", keyword: "Hexproof", cantHave: true }, affects: { mode: "fixed", permanentIds: ["hg"] }, duration: { kind: "endOfTurn", turn: 6 }, source: { kind: "resolution", permanentId: null, cardName: "Arcane Lighthouse" }, timestamp: 2 },
+        { id: "ce-2", layer: 6, op: { layerOp: "targetShield", colors: ["B"], opponentsOnly: true, hexproof: true }, affects: { mode: "fixed", permanentIds: ["hg"] }, duration: { kind: "endOfTurn", turn: 6 }, source: { kind: "resolution", permanentId: null, cardName: "Veil of Summer" }, timestamp: 3 },
+      ],
+      delayedTriggers: [{ id: "dly-1-6", controller: "user", watchCombatDamage: "hg", recipients: "playerOrPlaneswalker", effectClause: "draw that many cards", sourceName: "Hunter's Insight", sourceCardId: null, sourcePermanentId: null, createdTurn: 6 }],
+      pendingChoice: { kind: "discard", controller: "ai", remaining: 1, candidates: [], queue: [], sourceName: "Syphon Mind", connive: null, perDiscardDraw: { controller: "user", count: 1 } } };
+    const v14 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v14.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v14)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 14, state });
+    const resumed = { ...back.session.state, pendingChoice: undefined };
+    const exertOffers = legalActionsForPlayer(resumed, "user").filter((a) => a.kind === "declare-attacker" && a.permanentId === "cel").map((a) => !!a.exert);
+    const fired = checkCombatDamageTriggers(resumed, [{ kind: "combat-damage-player", attackerId: "hg", attackingPlayer: "user", defender: "ai", amount: 3 }]).pendingTriggers || [];
+    expect({ exertOffers, watch: fired.map((t) => [t.descriptor.effectClause, t.context.combatDamageAmount]) }).toEqual({ exertOffers: [false], watch: [["draw that many cards", 3]] });
+  });
+  // CONTRACT-MIG (the recheck of pw24, R2): v13 → v14 also rewrites one stored value. A modal DFC played as its land face is a permanent
+  // whose card is the face view, and a v13 build stored that view with the combined card's mana value (its front face's). The save below
+  // was made by the base build (9decc956: the person plays Turntimber, Serpentine Wood, declines the 3 life, and serialization.serializeState
+  // writes the game — pw24-evidence/scripts/r2-basesave.mjs), copied verbatim: its land reads 7. Migrated, it reads 0, as a fresh game
+  // does (CR 712.8f, 202.3a); the combined card it returns to when it leaves (`printedCard`) keeps its front face's 7 (CR 712.8a), and
+  // nothing else in the save changes.
+  it("carries a v13 save's land face forward with its own mana value: Turntimber, Serpentine Wood saved by the base build reads 7, resumes at 0 (CR 712.8f, 202.3a)", async () => {
+    const { permanentManaValue } = await import("../learn/layers.js");
+    const v13 = {"schemaVersion":13,"kind":"learn-session-save","savedAt":"2026-11-03T00:00:00.000Z","sessionId":"learn-tt","serializable":true,"session":{"id":"learn-tt","difficulty":"expert","mode":"standard","status":"active","state":{"turn":5,"idSeq":1,"mode":"standard","activePlayer":"user","turnOrder":["user","ai"],"priorityHolder":"user","phase":"precombat-main","step":"main","stack":[],"pendingTriggers":[],"delayedTriggers":[],"continuousEffects":[],"timestampCounter":0,"rngSeed":0,"players":{"user":{"life":40,"startingLife":40,"poison":0,"energy":0,"commanderDamageFrom":{},"commanderCastCount":{},"manaPool":{"W":0,"U":0,"B":0,"R":0,"G":0,"C":0},"manaHold":{"W":0,"U":0,"B":0,"R":0,"G":0,"C":0},"library":[],"hand":[],"battlefield":[{"id":"perm-1","card":{"name":"Turntimber, Serpentine Wood","type":"Land","mana":"","oracle":"As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {G}.","layout":"modal_dfc","cmc":7,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":[],"colorIdentity":["G"],"id":"user-tt","faceIndex":1,"mdfcOf":"Turntimber Symbiosis // Turntimber, Serpentine Wood"},"controller":"user","tapped":true,"summoningSick":true,"counters":{},"damageMarked":0,"attachments":[],"attachedTo":null,"enteredOnTurn":null,"printedCard":{"name":"Turntimber Symbiosis // Turntimber, Serpentine Wood","type":"Sorcery // Land","mana":"{4}{G}{G}{G}","oracle":"Turntimber Symbiosis - Sorcery {4}{G}{G}{G}\nLook at the top seven cards of your library. You may put a creature card from among them onto the battlefield. If that card has mana value 3 or less, it enters with three additional +1/+1 counters on it. Put the rest on the bottom of your library in a random order.\n//\nTurntimber, Serpentine Wood - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {G}.","layout":"modal_dfc","cmc":7,"power":null,"toughness":null,"loyalty":null,"keywords":[],"colors":[],"colorIdentity":["G"],"id":"user-tt"}}],"graveyard":[],"exile":[],"companion":null,"command":[],"commanderIdentity":null,"emblems":[],"experience":0,"radCounters":0,"landsPlayedThisTurn":1,"extraLandsThisTurn":0,"cardsDrawnThisTurn":0,"drawnThisTurnIds":[],"spellsCastThisTurn":0,"nextSpellUncounterable":false,"noncreatureSpellsCastThisTurn":0,"creaturesDiedThisTurn":0,"sacrificedThisTurn":[],"attackedThisTurn":false,"hasMulliganed":false},"ai":{"life":40,"startingLife":40,"poison":0,"energy":0,"commanderDamageFrom":{},"commanderCastCount":{},"manaPool":{"W":0,"U":0,"B":0,"R":0,"G":0,"C":0},"manaHold":{"W":0,"U":0,"B":0,"R":0,"G":0,"C":0},"library":[],"hand":[],"battlefield":[],"graveyard":[],"exile":[],"companion":null,"command":[],"commanderIdentity":null,"emblems":[],"experience":0,"radCounters":0,"landsPlayedThisTurn":0,"extraLandsThisTurn":0,"cardsDrawnThisTurn":0,"drawnThisTurnIds":[],"spellsCastThisTurn":0,"nextSpellUncounterable":false,"noncreatureSpellsCastThisTurn":0,"creaturesDiedThisTurn":0,"sacrificedThisTurn":[],"attackedThisTurn":false,"hasMulliganed":false}},"log":[{"turn":5,"kind":"optional-life-payment-pending","controller":"user","amount":3,"sourceName":"Turntimber, Serpentine Wood"},{"turn":5,"kind":"play-land","playerId":"user","cardName":"Turntimber, Serpentine Wood"},{"turn":5,"kind":"spell-effect","effect":"optional-life-payment","controller":"user","paid":false,"amount":3,"permanentId":"perm-1"}],"consecutivePasses":0},"decisionLog":[]},"checksum":"sha256:stale-but-unused-after-verify"};
+    const land = (d) => d.session.state.players.user.battlefield[0];
+    const before = { cmc: land(v13).card.cmc, mv: permanentManaValue(v13.session.state, land(v13)) };
+    const back = migrate(JSON.parse(JSON.stringify(v13)));
+    const expected = JSON.parse(JSON.stringify(v13));
+    expected.schemaVersion = 14;
+    land(expected).card.cmc = 0;
+    expect({ before, after: { cmc: land(back).card.cmc, mv: permanentManaValue(back.session.state, land(back)), printed: land(back).printedCard.cmc }, doc: back })
+      .toEqual({ before: { cmc: 7, mv: 7 }, after: { cmc: 0, mv: 0, printed: 7 }, doc: expected });
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

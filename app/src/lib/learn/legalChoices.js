@@ -39,6 +39,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // P·39 — eve
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor, defenderAttackCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { grantsWubrgAltCost, fixedManaAltCostOf, conditionalFixedManaAltCostOf } from "./effects/textNormalize.js"; // + the trap form (shelf D17) // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, resolveCastSiteReducers, playLandFromGraveyardPermission, plotFromLibraryTopGranted, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, landDropAllowance, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { canExertAsItAttacks } from "./exertAttack.js"; // EXERT AS IT ATTACKS (CR 701.43d, 508.1g) — the optional exert offered beside an attack
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksFor, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow, vowForbidsAttack } from "./combatEvasion.js";
 import { attackTaxDetail } from "./attackTax.js"; // ATTACK TAX (CR 508.1h) — withhold the attack the tax can't fund, per attack target (+ the Phyrexian life lane, Norn's Annex)
 import { obeyingAttackOptions, attackDeclarationOffer } from "./attackRequirements.js"; // ATTACK REQUIREMENTS (CR 508.1d) — the one check, shared with the AI planner
@@ -4870,6 +4871,14 @@ function actionsDeclareAttacker(state, playerId) {
   // declaration closes (legalActionsForPlayer withholds every other action while one remains); under an attack cap the last
   // slots go to them (attackDeclarationOffer).
   const offer = (actions) => attackDeclarationOffer(state, playerId, actions, { cap: attackCap, declaredCount: declared.size, defenderSlots });
+  // EXERT AS IT ATTACKS (CR 701.43d, 508.1g — exertAttack.js): an optional cost to attack, chosen as the creature is declared. Each attack
+  // of a creature that may be exerted now is followed by the same attack exerted (`exert: true`); every other attack is unchanged, and a
+  // board with no such creature offers exactly what it did.
+  const withExertVariants = (list) => {
+    const exertable = new Set(attackers.filter((p) => canExertAsItAttacks(state, p)).map((p) => p.id));
+    if (exertable.size === 0) return list;
+    return list.flatMap((a) => (exertable.has(a.permanentId) ? [a, { ...a, exert: true }] : [a]));
+  };
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
   // dispatcher auto-fills the defender, so emit one action per creature — unchanged shape.
@@ -4878,14 +4887,14 @@ function actionsDeclareAttacker(state, playerId) {
   // player out, the lone target left (another opponent in a pod — any pod after an elimination — or the capped player's
   // planeswalker) takes the per-target path, and every attack names its defender.
   if (targets.length <= 1 && !capRemovedTarget) {
-    return offer(attackers
+    return offer(withExertVariants(attackers
       .filter(p => allowedTargetsFor(p).length > 0)
       .map(p => ({
         kind: "declare-attacker",
         playerId,
         permanentId: p.id,
         name: p.card.name,
-      })));
+      }))));
   }
 
   // Multiple targets (Commander, OR any game with an enemy planeswalker): each attacker contributes
@@ -4914,7 +4923,7 @@ function actionsDeclareAttacker(state, playerId) {
       });
     }
   }
-  return offer(actions);
+  return offer(withExertVariants(actions));
 }
 
 function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {

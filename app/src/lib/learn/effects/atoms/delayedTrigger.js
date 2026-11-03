@@ -95,6 +95,8 @@ export function drainDelayedTriggers(state, step, activePlayer) {
   for (const rec of queue) {
     // A DIES WATCH (below) is keyed on an event, never a step: it stays while its turn lasts and lapses after (CR 603.7b).
     if (rec.watchDies) { if (rec.createdTurn === (state.turn || 0)) keep.push(rec); continue; }
+    // So is a COMBAT DAMAGE WATCH (Hunter's Insight, below).
+    if (rec.watchCombatDamage) { if (rec.createdTurn === (state.turn || 0)) keep.push(rec); continue; }
     const stepMatches = rec.fireStep === step;
     // SHELF-85 V12 — "that turn's end step" (Final Fortune): fires ONLY on a turn advanceStep stamped as the controller's
     // extra turn. The casting turn is never stamped, so the loss cannot land on the turn the spell resolved; an
@@ -211,6 +213,65 @@ export function fireDiesWatches(state, dead) {
   return { state: { ...state, delayedTriggers: keep }, fired };
 }
 
+/**
+ * "WHENEVER THAT CREATURE DEALS COMBAT DAMAGE TO A PLAYER OR PLANESWALKER THIS TURN, <payoff>" (the play-weighted program, #1061 —
+ * Hunter's Insight; CR 603.7) — the event-keyed watch on ONE permanent, the creature the previous atom chose (CR 608.2). Keyed on the
+ * permanent id, so a creature that leaves and returns is a new object it never watches (CR 400.7). Unlike the dies watch it is a
+ * "whenever": it triggers for each combat damage event of that permanent to a player or a planeswalker this turn (each combat damage
+ * step is its own event — a double striker triggers twice), and lapses with its turn (its stated duration, CR 603.7b). Its controller
+ * is the spell's controller (CR 603.7d), who draws.
+ */
+export function applyWatchCombatDamageThisTurn(state, atom, ctx) {
+  const controller = ctx.controller;
+  let next = state;
+  for (const t of ctx.targets || []) {
+    const lk = t?.id ? findPermanent(next, t.id) : null;
+    if (!lk) continue; // gone already — the watch has nothing to watch (CR 603.7c)
+    const queue = next.delayedTriggers || [];
+    const record = {
+      id: `dly-${queue.length + 1}-${next.turn || 0}`,
+      controller,
+      watchCombatDamage: lk.permanent.id,
+      recipients: atom.recipients || "playerOrPlaneswalker",
+      effectClause: String(atom.delayedClause || "").trim(),
+      sourceName: ctx.cardName || null,
+      sourceCardId: ctx.sourceCardId || null,
+      sourcePermanentId: ctx.sourceId || null,
+      createdTurn: next.turn || 0,
+    };
+    next = logEvent({ ...next, delayedTriggers: [...queue, record] }, { kind: "spell-effect", effect: "watch-combat-damage-this-turn", controller, watched: lk.permanent.id });
+  }
+  return next;
+}
+
+/**
+ * A combat damage event batch fires the watches on its dealers (called from triggers.checkCombatDamageTriggers with the player and
+ * planeswalker hits: `{ attackerId, amount, damagedPlayerId?, damagedPlaneswalkerId? }`). Each hit by a watched permanent fires each
+ * of its watches once, carrying the amount ("that many") and the damaged player or planeswalker in the trigger's context, under the
+ * combat damage event the referent gate admits for "that many" (triggerRouting.combatDamageReferentSatisfied). A watch stays for the
+ * rest of its turn; one from an earlier turn has lapsed and is dropped; one whose controller has left the game is dropped (CR 800.4a).
+ * Returns `{ state, fired }` — the caller pushes `fired`.
+ */
+export function fireCombatDamageWatches(state, hits) {
+  const queue = state.delayedTriggers || [];
+  if (!hits?.length || !queue.some((r) => r.watchCombatDamage)) return { state, fired: [] };
+  const keep = [];
+  const fired = [];
+  for (const rec of queue) {
+    if (!rec.watchCombatDamage) { keep.push(rec); continue; }
+    if (rec.createdTurn !== (state.turn || 0) || !state.players?.[rec.controller]) continue;
+    keep.push(rec);
+    for (const h of hits) {
+      if (h.attackerId !== rec.watchCombatDamage || !(h.amount > 0)) continue;
+      const base = firedFromRecord(rec);
+      const context = { ...base.context, combatDamageAmount: h.amount, ...(h.damagedPlayerId ? { damagedPlayerId: h.damagedPlayerId } : {}), ...(h.damagedPlaneswalkerId ? { damagedPlaneswalkerId: h.damagedPlaneswalkerId } : {}) };
+      fired.push({ ...base, descriptor: { ...base.descriptor, event: "combatDamageToPlayer" }, context });
+    }
+  }
+  if (fired.length === 0 && keep.length === queue.length) return { state, fired: [] };
+  return { state: { ...state, delayedTriggers: keep }, fired };
+}
+
 /** The sentinel's parser — case-preserving on the card id, like the blink-return sentinel's. */
 export function diedCardToHandClauseParser(clause) {
   const s = String(clause || "").trim();
@@ -263,6 +324,7 @@ export function applyChooseTarget(state, atom, ctx) {
 export const delayedTriggerResolvers = Object.freeze({
   "schedule-delayed": applyScheduleDelayed,
   "watch-dies-this-turn": applyWatchDiesThisTurn, // shelf D25 — the event-keyed watch
+  "watch-combat-damage-this-turn": applyWatchCombatDamageThisTurn, // play-weighted #1061 — Hunter's Insight's whenever-watch
   "died-card-to-hand": applyDiedCardToHand,       // its "return that card to its owner's hand" sentinel
   "schedule-died-card-to-hand": applyScheduleDiedCardToHand, // a dies trigger's "return it to its owner's hand at the beginning of the next end step"
   "choose-target": applyChooseTarget,             // "Choose target creature …" — the antecedent the watch binds to

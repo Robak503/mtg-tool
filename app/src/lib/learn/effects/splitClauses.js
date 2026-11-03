@@ -764,6 +764,10 @@ export function splitClauses(oracle) {
     // DIES WATCH (shelf D25 — CR 603.7): "When that creature dies this turn, <payoff>" is ONE delayed ability; its payoff
     // is re-parsed whole by the watch's clause parser, so nothing inside it ("a 2/2 black and green Elf") is a boundary.
     if (/^when that creature dies this turn, .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ARCANE LIGHTHOUSE (play-weighted #1039): the loss and the "can't have" are one instruction over one set of creatures.
+    if (/^until end of turn, creatures your opponents control lose hexproof and shroud and can't have hexproof or shroud$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // THE COMBAT DAMAGE WATCH (play-weighted #1061 — Hunter's Insight, CR 603.7): one delayed ability, its payoff read whole by its parser.
+    if (/^whenever that creature deals combat damage to a player or planeswalker this turn, .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // VEHICLE-OR-BASE-P/T ANIMATE (shelf D33): the folded Katsumasa sentence — its " and gains" is internal to the one animate.
     if (/^until end of turn, target noncreature artifact you control becomes an artifact creature and gains [a-z ,]+?, if it[’']s not a vehicle, it has base power and toughness \d+\/\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
