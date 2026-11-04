@@ -3333,6 +3333,8 @@ function stripChooseColorSentence(text, card) {
 }
 // The Borderposts' printed alternative cost, as one whole line (see the pre-strip in classifyCard).
 const BORDERPOST_ALT_COST_LINE = /^[ \t]*you may pay \{\d+\} and return a basic land you control to its owner['’]s hand rather than pay this spell['’]s mana cost\.?[ \t]*$/im;
+// Sephara's printed alternative cost, as one whole line (the modelled pre-strip in classifyCard; castModifiers' payManaTapCreatures).
+const SEPHARA_ALT_COST_LINE = /^[ \t]*you may pay (?:\{[wubrg]\})+ and tap (?:two|three|four|five) untapped creatures you control with flying rather than pay this spell['’]s mana cost\.?[ \t]*$/im;
 
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
@@ -3397,6 +3399,14 @@ export function classifyCard(card) {
   // permanent stay residue, each needing its own look.
   if (String(card?.mana ?? card?.mana_cost ?? "").trim() && BORDERPOST_ALT_COST_LINE.test(card?.oracle || "")) {
     card = { ...card, oracle: String(card.oracle).replace(BORDERPOST_ALT_COST_LINE, "").replace(/\n{2,}/g, "\n").trim() };
+  }
+  // PAY MANA AND TAP FLIERS (play-weighted 2026-11-04 — Sephara, Sky's Blade): "You may pay {W} and tap four untapped creatures you
+  // control with flying rather than pay this spell's mana cost." NOT inert: the cast lane offers it from the hand and the command zone
+  // (legalChoices' payManaTapCreatures payments — the sets of four that have flying now, a person's seat choosing which), the
+  // dispatcher pays the pips through the normal plan and taps the four (CR 118.9, 601.2h). Modelled, so the whole line is stripped
+  // here; the castModifiers matcher reads the same sentence.
+  if (SEPHARA_ALT_COST_LINE.test(card?.oracle || "")) {
+    card = { ...card, oracle: String(card.oracle).replace(SEPHARA_ALT_COST_LINE, "").replace(/\n{2,}/g, "\n").trim() };
   }
   // NO-MAX-HAND pre-strip (2026-08-03) — the same shape as the two pre-strips above, and it lands HERE
   // for a reason. "You have no maximum hand size." is MODELED and genuinely ENFORCED: cleanupDiscardExcess

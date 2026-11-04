@@ -482,7 +482,23 @@ export function observe(state, seat) {
 //     and a stack object's `wardOwed.counterer`.
 //   - Save format v17 (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[16]`).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
-export const PLAY_API_VERSION = "1.20.0";
+// 1.21.0 (additive MINOR — new offers and a new alternative-cost value on existing kinds, 2026-11-04, the play-weighted slice pw29;
+//   after pw28's 1.20.0):
+//   - "activate-ability" for a seat a person plays (state.humanSeats): a counted sacrifice ("Sacrifice two other creatures", "Sacrifice
+//     N <subtype>s" — CR 602.2b, 601.2h) is offered once per set of permanents that pay differently (`sacCountIds`; two permanents are
+//     one offer only when nothing on the state tells them apart — interchangeablePayerKey, the counted tap's, with the round-4 id
+//     boundary), each such offer naming its set in `sacCountNames` and its `abilityText` (payerLabels — "Zombie (blocking Hill Giant)",
+//     "Treasure (tapped)"); bounded like the counted discard (the first 64 sets, then one covering set per payer in none; beside a list
+//     of targets the rows × sets product while it stays within 64). Every other seat is offered the one least-valuable set, as before,
+//     with no `sacCountNames`.
+//   - "cast-spell": the alternative cost `altCost.kind: "payManaTapCreatures"` with `tapCreatureIds` / `tapCreatureNames` (Sephara,
+//     Sky's Blade — "pay {W} and tap four untapped creatures you control with flying"; the cast's `cost` is the alternative cost's own
+//     pips after the cost increases, CR 118.9d; `altName` names the creatures tapped, by payerLabels). It is offered from the hand and —
+//     this kind only — from the command zone (`fromZone: "command"`, the commander tax in the cost, CR 903.8). A person's seat sees one
+//     variant per set of creatures that pay differently (the same key).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays as before. The save format is unchanged (v17; no
+//   new persisted state).
+export const PLAY_API_VERSION = "1.21.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

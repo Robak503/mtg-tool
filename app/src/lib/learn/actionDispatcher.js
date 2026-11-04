@@ -862,6 +862,26 @@ function applyCastSpell(state, action) {
         return land;
       });
       working = sacrificePermanentsForCost(working, action.playerId, lands);
+    } else if (alt.kind === "payManaTapCreatures") {
+      // "You may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost" (Sephara, Sky's
+      // Blade — play-weighted 2026-11-04). The pips were the cast's cost, paid by the plan above from sources that leave these creatures
+      // out (manaModel.castPaymentSources); here the chosen creatures are tapped (CR 601.2h). The COUNT and KEYWORD are re-derived from
+      // the card's own printed alternative cost — the action carries only the payment — and each must still be an untapped creature the
+      // caster controls with the keyword now, or the cast is refused (never a cost paid short).
+      const printed = extractAltCost(String(castCard?.oracle || castCard?.oracle_text || "")).altCost;
+      if (printed?.kind !== "payManaTapCreatures") throw new DispatcherError(`${castCard?.name} prints no pay-and-tap alternative cost`, "ALTCOST_UNPAID");
+      const ids = Array.isArray(alt.tapCreatureIds) ? alt.tapCreatureIds : [];
+      if (ids.length !== printed.count || new Set(ids).size !== ids.length) {
+        throw new DispatcherError(`Alt-cost cast requires ${printed.count} distinct creatures to tap, got ${ids.length}`, "ALTCOST_UNPAID");
+      }
+      for (const id of ids) {
+        const tapee = working.players[action.playerId]?.battlefield.find((p) => p.id === id);
+        if (!tapee) throw new DispatcherError(`Alt-cost tap creature ${id} not on battlefield`, "PERM_NOT_FOUND");
+        if (tapee.tapped || !permanentIsCreature(working, id) || !permanentHasKeyword(working, id, printed.keyword)) {
+          throw new DispatcherError(`Alt-cost tap creature ${id} is not an untapped creature with ${printed.keyword.toLowerCase()}`, "ALTCOST_UNPAID");
+        }
+      }
+      for (const id of ids) working = tapPermanent(working, id);
     } else {
       throw new DispatcherError(`Unsupported alt cost kind: ${alt.kind}`, "ALTCOST_UNSUPPORTED");
     }

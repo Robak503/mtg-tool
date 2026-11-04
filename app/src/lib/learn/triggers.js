@@ -3371,6 +3371,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast a spell from anywhere other than your hand$/.test(c)) {
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "any", castNotFromHand: true };
   }
+  // …ITS OPPONENT FORM (play-weighted 2026-11-04 — Ghostly Pilferer, EDHREC #1424: "Whenever an opponent casts a spell from anywhere
+  // other than their hand, draw a card."): the same gate on the caster's own hand — the command zone, a graveyard, exile, a library —
+  // with checkCastTriggers' `whose: "opponent"` (an opponent of the watcher's controller as the caster). "Another player" is not read.
+  if (/^an opponent casts a spell from anywhere other than their hand$/.test(c)) {
+    return { event: "cast", scope: "castWatcher", whose: "opponent", spellFilter: "any", castNotFromHand: true };
+  }
   // RIVAZ OF THE CLAW (Dragons shelf, 2026-08-15) — "you cast a Dragon creature spell from your graveyard":
   // the cast event with a CONJUNCTIVE type filter (typedAll — the spell's line must carry BOTH words; the
   // existing "typed" kind is ANY-of, which would fire on every creature) and a POSITIVE source-zone gate

@@ -1069,7 +1069,21 @@ self-made Aura, exert.**
   offer pays with yet; past-cap rows take the least valuable set that pays. Past either cap a person can pay with any one card and reach
   every target, but not every combination — a pick-N-during-activation prompt would close it. NOT yet routed through
   it (the same frozen pick): the cast-side "discard N" and "exile N" additional costs, the graveyard-recursion riders (GR-1, GR-2), the
-  class sacrifice "Sacrifice N <class>" and "Sacrifice X" (the first X). The counted tap is routed through it since pw28 (below).
+  "Sacrifice X" (the first X). The counted tap is routed through it since pw28 (below), and the class sacrifice "Sacrifice N <class>"
+  and "Sacrifice N <subtype>" since pw29:
+- **Who picks a counted sacrifice's permanents** (2026-11-04 — Priest of Forgotten Gods' "Sacrifice two other creatures"; every
+  SAC-N-CLASS and "Sacrifice N <subtype>" activation cost): `countedChoicesFor` carries a fourth dimension beside pw28's tap sets,
+  `personSacIds`, for a seat a person plays — `countedCostSets` over the sacrifice pool less the row's targets, keyed by the shared
+  `interchangeablePayerKey` (pw28's, with the round-4 id boundary — two permanents are one choice only when nothing on the state tells
+  them apart: a blocker, a layer-1 copy, a pumped or exerted creature, a Mimic's chosen type, a ledger key naming one keep each its own
+  choice — pw29's round-2 recheck, R2-F1), least valuable first, under the same 64-set bound and covering pass (`emitCappedRows`'
+  `paysWith` counts the victims) — and `emitRow` checks each set's mana against the sources it leaves, a tap set beside it too (CR 601.2h —
+  Krark-Clan Engineers beside two Ornithopters and Fire Diamond: only the Ornithopters pay). Each person offer names its set
+  (`sacCountNames`, from `payerLabels` — "Zombie (blocking Hill Giant)", "Grizzly Bears (copy of Hill Giant)", "Treasure (tapped)"; two that
+  key apart but read the same carry their id), and its `abilityText` with it. Every other seat keeps the house pick in `emitRow` (the N least
+  valuable not targeted), byte for byte. The default AI still never spends a counted sacrifice (every activation picker skips
+  `sacCountIds`). Still gated by the HOUSE set's mana before any person set is tried (the fast-path `canAfford` over
+  `sacCountManaExcluded` — pw29's review, F5, found-not-fixed: Krark-Clan Engineers beside two Treasures and a Mind Stone is offered nothing).
 - **Copy each token, one event** (`tokens.applyCreateTokenCopyEach` — Second Harvest; Ocelot Pride's `enteredThisTurn` filter): the copies
   are minted by the per-copy mint the single copy resolver uses (`mintOneTokenCopy` — an Aura copy chooses its host or isn't created, a
   Mox Diamond copy asks for its land, a Cloud Key copy chooses), each through the entry replacements on the board as the creation began
@@ -1278,6 +1292,40 @@ watch, the attacked leader, the punisher after a lead-in, another Mountain.**
   counters, a chosen type or colour, imprint, exert, monstrous, renowned — "Merfolk (blocking Hill Giant)", "Clone (copy of Merfolk of the
   Pearl Trident, summoning sick)"; two payers that key apart but would still read alike carry their ids (R3-N2).
 
+**The play-weighted pw29 readers (2026-11-04) — an opponent's cast from anywhere but their hand, a token per permanent put into a
+graveyard, any number of target players' edict, a person's counted sacrifice, the pay-and-tap-fliers alternative cost.**
+- **The id boundary of `interchangeablePayerKey`** (pw28's round-4 recheck, R4-N1, fixed here as pw29 adopts the key for the counted
+  sacrifice): `idTokenCount` counts an id between a letter, digit or hyphen boundary, not `\w`'s — an underscore joins an id into the
+  per-turn ledger keys (`otpt_<id>_dies`, `<id>_draw`, `<id>_add-counter`, `<id>_freeCastOnce`, `<id>_muldrotha_<type>`), so two Morbid
+  Opportunists one of which drew this turn, or two Thopters one of which carries `otpt_<id>_dies`, stay two choices.
+- **"Whenever an opponent casts a spell from anywhere other than their hand"** (Ghostly Pilferer): Vega's `castNotFromHand` descriptor
+  with `whose: "opponent"` (checkCastTriggers: an opponent of the watcher's controller as the caster; the dispatcher threads the cast
+  action's `fromZone` — the command zone, a graveyard, exile, a library — and a cast with no zone fires nothing). "Another player"
+  (Aerial Extortionist) is not read.
+- **A token per permanent put into a graveyard — PARKED** (Terastodon; pw29's review, F1): a person's "up to three target noncreature
+  permanents" is cut by the 64-row subset cap (`targeting.targetSubsets`) before most three-target sets — on a board of eight lands a seat
+  no three-target row is offered. A pick-one-target-at-a-time question is the lane. The grammar reads no up-to-N noncreature destroy; the
+  resolver half stays (`matchRemovalGraveyardTokenRider`, `onlyIfToGraveyard`, `spellEffects.destroyEvent`'s `intoGraveyard` — the "put
+  into a graveyard this way" paragraph above), reached by no printed card today.
+- **Any number of target players each lose N life and sacrifice a creature** (Priest of Forgotten Gods — `parser.
+  matchEachTargetPlayerLoseSacrifice`): Wheel and Deal's shape over `targetType: "player"` (`minTargets: 0`, `anyNumber` — every subset
+  of the players, the empty one included), the edict `bindPreviousTargets` (each chooses their own creature, APNAP — CR 701.21a, 101.4),
+  then a HIGH tail; "You add {B}{B} and draw a card." is read as "Add {B}{B}. Draw a card." Because the ability may have targets it is no
+  mana ability (`abilities`' `targetedAdd`, CR 605.1a): it uses the stack and its add-mana atom runs as it resolves, with no target too
+  (its ruling). Its "Sacrifice two other creatures" is a person's choice (the counted-sacrifice bullet in §4.5's cost list).
+- **"You may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost"** (Sephara, Sky's
+  Blade — `castModifiers`' `payManaTapCreatures` `{ pips, count, keyword: "Flying" }`; coverage strips the whole line,
+  `SEPHARA_ALT_COST_LINE`). `computeAltCastSpec` reads it off a permanent's oracle (the evoke path); `enumerateAltPayments` offers the
+  sets of `count` untapped creatures the caster controls with flying NOW (summoning-sick ones included, CR 302.6), through
+  `countedCostSets` keyed by the shared `interchangeablePayerKey` — the house's least valuable set for a seat no person plays, one
+  payment per set that pays differently for a person's seat (on `altCostChoices`, bounded), `tapCreatureNames` naming each by `payerLabels`
+  (`altName` "tap Suntail Hawk, …, Suntail Hawk (summoning sick)"; the pips are the cost's, named once). The cast owes the pips assembled like a mana cost (CR 118.9d — the increases and reductions,
+  `altOwed`), so it is offered from the COMMAND ZONE too, with the commander tax (CR 903.8 — the only alternative cost offered there);
+  `castPaymentSources` leaves the tapped creatures out of the pips' payment (CR 601.2g, 601.2h: Birds of Paradise tapped for the cost
+  can't make the {W}), `costReservedPermanentIds` reserves them from an Altar's victims (pw29's review, F2 — a flier sacrificed for the {W}
+  would be gone before it is tapped; Phyrexian Altar sacrifices the Grizzly Bears instead), and the dispatcher re-derives the count and
+  keyword from the printed cost and taps each one.
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone
@@ -1316,6 +1364,15 @@ a creature out; one exiled instead by Rest in Peace is in) — and the next atom
 that atom writes even when empty when it carries `stampMinted`), and `condX { min }` gates the whole destroy on the cast X.
 `parser.thisWaySequenceOk` (in programConfidence) refuses either read without its writer right before it. Reuse the stamps for a
 new "for each … destroyed this way" payoff; a different set or count needs its own matcher.
+**"Put into a graveyard this way" — which permanents the destroy put there** (2026-11-04 — for Terastodon, PARKED on its target choice:
+"you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a
+3/3 green Elephant creature token."). `spellEffects.destroyEvent` is `applyDestroyEffect`'s one event, returning beside the state `intoGraveyard`: the moved
+permanents whose leave record (`gameState.recordLeaveEvent`'s `toGraveyard`, written by the battlefield exit after its replacements)
+says graveyard — so a permanent a replacement kept (indestructible, regeneration, a shield counter) or one exiled or shuffled away
+instead (Rest in Peace, Leyline of the Void, a "would die" exile) is not in it, a token is (CR 111.7), and an Aura destroyed beside its
+host counts by its own record (a host's Aura that merely falls off, CR 704.5m, is no destroyed target). The rider fold
+`spanMatchers.matchRemovalGraveyardTokenRider` stamps the RIDER-REMOVAL token `onlyIfToGraveyard`, and `applyRemovalWithRider` gives
+the token only to those captured controllers. `applyDestroyEffect` returns `destroyEvent(…).state`, byte for byte.
 Since the play-weighted slice of 2026-10-18 (Bane of Progress, Whiptongue Hydra, Fracturing Gust, Paraselene, Righteous Fury)
 `templateMatchers.matchMassDestroyPerDestroyed` takes the destroy sentence from the DESTROY GRAMMAR itself — parser.js hands it
 `parseClauseToAtom` — and admits one mass set the count can read (`MASS_DESTROY_KINDS`: the creature wipe with the restrictions

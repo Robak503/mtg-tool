@@ -299,7 +299,7 @@ export function extractAdditionalCosts(oracle) {
 // Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
 // Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
 // periods / newlines so it can never span into the effect body.
-export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana", "tapCreature", "sacrificeLands"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
+export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana", "tapCreature", "sacrificeLands", "payManaTapCreatures"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
 
 // Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
 // recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
@@ -382,6 +382,12 @@ const ALT_COST_MATCHERS = [
       const subtype = w === "plains" ? "Plains" : w.replace(/s$/, "").replace(/^./, (x) => x.toUpperCase());
       return c && { kind: "sacrificeLands", count, subtype, condition: c };
     } },
+  // PAY MANA AND TAP FLIERS (play-weighted 2026-11-04 — Sephara, Sky's Blade, EDHREC #1374: "You may pay {W} and tap four untapped
+  // creatures you control with flying rather than pay this spell's mana cost."): an alternative cost of the printed pips (paid like a
+  // mana cost after the increases, CR 118.9d) and N untapped creatures with flying tapped (CR 601.2h — legalChoices offers the sets of N
+  // that have flying now). Only "with flying" and the counts two to five; any other filter or rider stays unread.
+  { re: /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) and tap (two|three|four|five) untapped creatures you control with flying rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "payManaTapCreatures", pips: m[1].toUpperCase(), count: { two: 2, three: 3, four: 4, five: 5 }[m[2].toLowerCase()], keyword: "Flying", condition: "always" }) },
   // RETURN-LANDS — "you may return two <Subtype>s you control to their owner's hand rather than pay this spell's mana cost." (Gush).
   { re: /(?:^|\n)\s*you may return (two|three) (\w+)s you control to their owner's hand rather than pay this spell's mana cost\.\s*/i,
     build: (m) => ({ kind: "returnLandsToHand", count: m[1] === "two" ? 2 : 3, subtype: m[2][0].toUpperCase() + m[2].slice(1), condition: "always" }) },

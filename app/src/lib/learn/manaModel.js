@@ -3730,7 +3730,9 @@ export function costReservedPermanentIds(action) {
   // A printed alternative cost's payment (the legalChoices twin's `altCost` — the creature it sacrifices or taps, the lands it
   // sacrifices or returns) is the cast's own cost too; it is paid after the mana (actionDispatcher step 2b') when a cost increase
   // leaves its {0} owing mana (CR 118.9d).
-  for (const key of ["sacId", "tapCreatureId", "sacLandIds", "returnLandIds"]) add(action?.altCost?.[key]);
+  // + the creatures Sephara's alternative cost taps (tapCreatureIds — pw29's review, F2): an Altar may not be fed one of them for the
+  // {W} (CR 601.2g, 601.2h — a creature sacrificed for mana is no longer there to be tapped for the cost).
+  for (const key of ["sacId", "tapCreatureId", "tapCreatureIds", "sacLandIds", "returnLandIds"]) add(action?.altCost?.[key]);
   if (action?.permanentId != null && (action.tapSelf || action.sacSelf || action.exileSelf)) ids.add(action.permanentId);
   add(action?.escapeCast?.exileIds);
   if (action?.cardId != null && (action.fromZone === "graveyard" || action.kind === "activate-gy-recursion" || action.kind === "activate-gy-exile")) ids.add(action.cardId);
@@ -3868,9 +3870,10 @@ export function castPaymentSources(state, action) {
   //   cost, and the card it exiles from the hand can't also be exiled for mana.
   const alt = action.altCost;
   if (alt) {
-    const tapped = alt.tapCreatureId ?? null;
+    // + the N creatures Sephara's alternative cost taps (tapCreatureIds — play-weighted 2026-11-04): none of them pays its {W}.
+    const tappedSet = new Set([alt.tapCreatureId, ...(alt.tapCreatureIds || [])].filter((id) => id != null));
     const removed = new Set([alt.sacId, ...(alt.sacLandIds || []), ...(alt.returnLandIds || [])].filter((id) => id != null));
-    sources = sources.filter((s) => !(tapped != null && (s.permanentId === tapped || (Array.isArray(s.extraTaps) && s.extraTaps.includes(tapped))))
+    sources = sources.filter((s) => !(tappedSet.has(s.permanentId) || (Array.isArray(s.extraTaps) && s.extraTaps.some((id) => tappedSet.has(id))))
       && !(alt.exilePitchId != null && s.permanentId === alt.exilePitchId)
       && !(s.sacrifices && removed.has(s.permanentId)));
   }

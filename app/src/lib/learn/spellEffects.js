@@ -1440,7 +1440,19 @@ export function applyDrawEffect(state, { controller, amount }) {
  * `targets` are descriptors: "creature" (the creature path / a mass wipe), "permanent" (non-creature removal — Disenchant, Stone
  * Rain, the typed wipes), "planeswalker" (Hero's Downfall). A target already gone is skipped (CR 608.2b).
  */
-export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
+export function applyDestroyEffect(state, opts) {
+  return destroyEvent(state, opts).state;
+}
+
+/**
+ * THE DESTROY EVENT and what it put into a graveyard (play-weighted 2026-11-04 — Terastodon's "For each permanent put into a graveyard
+ * this way"): applyDestroyEffect's one event (above), returning beside the state the ids of the destroyed permanents that went to a
+ * graveyard — read off the event's own leave records (gameState.recordLeaveEvent's `toGraveyard`, written by the one battlefield exit
+ * after its replacements), so a permanent a replacement kept on the battlefield (indestructible, regeneration, a shield counter), or one
+ * exiled or shuffled away instead (Rest in Peace, Leyline of the Void, a "would die" exile), is not among them, and a token put there
+ * (CR 111.7, 704.5d) is. An Aura destroyed beside its host, moved by the host's exit, counts by its own record.
+ */
+export function destroyEvent(state, { controller, targets = [], cannotRegenerate = false }) {
   const saved = [];   // { id, save } — the permanents a replacement keeps on the battlefield (CR 614.6: their destruction never happens)
   const moves = [];   // { id, controller, toZone, deathKind, name } — the permanents this event destroys (deathKind: a creature's, else null)
   const dead = [];    // the destroyed CREATURES' look-backs — the dies triggers' input
@@ -1475,6 +1487,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     else if (s.save.kind === "regenerate") next = regeneratePermanent(next, s.id);
   }
   for (const s of saved) if (s.save.kind === "umbraArmor") next = applyTotemArmor(next, s.id, s.save.auraId);
+  const leaveMark = (next.pendingLeaveEvents || []).length; // the leave records this event writes come after it
   for (const m of graveyardReplacementCarriersLast(state, moves)) {
     if (!findPermanent(next, m.id)) continue;
     next = moveCardToZone(next, { playerId: m.controller, fromZone: "battlefield", toZone: m.toZone, cardId: m.id });
@@ -1483,10 +1496,12 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   }
   // ONE EVENT (CR 608.2f, 603.10a): everything this destroys leaves together, creature or not — a leave watcher among them (Marionette
   // Apprentice, Disciple of the Vault) sees the others go.
+  const moved = new Set(moves.map((m) => m.id));
+  const intoGraveyard = [...new Set((next.pendingLeaveEvents || []).slice(leaveMark).filter((e) => e?.toGraveyard && moved.has(e.id)).map((e) => e.id))];
   next = groupLeaveEvents(next, moves.map((m) => m.id), { before: state }); // each member stamped off the board as the event began (F1)
   next = checkDiesTriggers(next, dead);
   next = checkPlaneswalkerDiesTriggers(next, deadPw);
-  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) });
+  return { state: logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented: saved.map((s) => s.id) }), intoGraveyard };
 }
 
 // ─── ONE DAMAGE EVENT — the shared non-combat deal path ────────────────────────────────────────────────────

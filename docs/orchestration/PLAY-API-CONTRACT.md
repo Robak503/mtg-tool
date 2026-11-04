@@ -10,7 +10,23 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.20.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.21.0"`
+
+> **v1.21.0 (additive MINOR, 2026-11-04 — new offers and a new alternative-cost value on existing kinds; the play-weighted slice pw29,
+> after pw28's 1.20.0):** each rides a kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").
+> - `"activate-ability"` for a seat a person plays (`state.humanSeats`): a counted sacrifice ("Sacrifice two other creatures", "Sacrifice
+>   N <subtype>s" — CR 602.2b, 601.2h) is offered once per set of permanents that pay differently (`sacCountIds`): two permanents are one
+>   offer only when nothing tells them apart (`legalChoices.interchangeablePayerKey`, the counted tap's — a blocker, a copy, a pumped or
+>   exerted creature, a chosen type, a per-turn ledger key keep each its own). Each such offer carries `sacCountNames` (each payer's
+>   printed name plus what tells it apart — `payerLabels`: "Zombie (blocking Hill Giant)", "Treasure (tapped)") and its `abilityText` names
+>   them. Bounded like the counted discard: the first 64 sets, then one covering set per payer in none; beside a list of targets the rows ×
+>   sets product while it stays within 64. Every other seat is offered the one least-valuable set, as before (no `sacCountNames`).
+> - `"cast-spell"`: the alternative cost `altCost.kind: "payManaTapCreatures"` with `tapCreatureIds` / `tapCreatureNames` (Sephara, Sky's
+>   Blade — "pay {W} and tap four untapped creatures you control with flying"). The cast's `cost` is the alternative cost's own pips after
+>   the cost increases (CR 118.9d); `altName` names the creatures tapped (`payerLabels`), the pips named by the cost. It is offered from the
+>   hand and — this kind only — from the command zone (`fromZone: "command"`, the commander tax in the cost, CR 903.8). A person's seat sees
+>   one variant per set of creatures that pay differently (the same key).
+> - No kind, decision or answer shape changed. The save format is unchanged (**v17**; no new persisted state).
 
 > **v1.20.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw28, after pw27's
 > 1.19.0):** each rides a kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").

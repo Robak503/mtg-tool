@@ -5,7 +5,7 @@
  * would create a cycle).
  */
 
-import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
+import { applyDestroyEffect, destroyEvent, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
 import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, removeCounter, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder, addCounter, updatePermanentSafe } from "../../gameState.js"; // + addCounter, updatePermanentSafe (Promise of Loyalty's vow) // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
@@ -70,9 +70,14 @@ export function applyRemovalWithRider(state, atom, ctx) {
     }
   }
   // Perform the removal through the shared resolver (exile → applyZoneMove, destroy → applyDestroyEffect).
-  let next = atom.op === "exile"
-    ? applyZoneMove(state, atom, ctx, "exile")
-    : applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
+  // "FOR EACH PERMANENT PUT INTO A GRAVEYARD THIS WAY" (Terastodon): the destroy event reports which of its permanents it put into a
+  // graveyard (spellEffects.destroyEvent), and only those carry the rider below.
+  const toGraveyardGate = atom.op === "destroy" && !!atom.controllerRider?.onlyIfToGraveyard;
+  let intoGraveyard = null;
+  let next;
+  if (atom.op === "exile") next = applyZoneMove(state, atom, ctx, "exile");
+  else if (toGraveyardGate) ({ state: next, intoGraveyard } = destroyEvent(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate }));
+  else next = applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
   // Apply the rider(s) to each captured controller. A removal can carry a controllerRider (Beast Within) OR a
   // damageRider (Smash to Smithereens / Molten Rain) — never both in the corpus, but both are applied if present.
   for (const cap of captures) {
@@ -82,6 +87,9 @@ export function applyRemovalWithRider(state, atom, ctx) {
     // into exile under Rest in Peace still counts (the bundled ruling: "If it is destroyed but put into a zone other than a
     // graveyard, you'll gain life").
     if (atom.controllerRider?.onlyIfDestroyed && findPermanent(next, cap.id)) continue;
+    // "PUT INTO A GRAVEYARD THIS WAY" (Terastodon's rulings): only a permanent the destroy put into a graveyard — not one it left on the
+    // battlefield (indestructible, regeneration), nor one a replacement exiled or shuffled away instead (Rest in Peace, Leyline of the Void).
+    if (toGraveyardGate && !(intoGraveyard || []).includes(cap.id)) continue;
     if (atom.controllerRider) {
       next = applyControllerRider(next, atom.controllerRider, cap, ctx);
       // A rampBasic rider suspends the program (a tutor pending-choice scoped to that player); stop the loop

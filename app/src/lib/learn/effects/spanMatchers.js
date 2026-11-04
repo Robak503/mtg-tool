@@ -257,6 +257,30 @@ export function matchRemovalCasterGainLife(oracle, parseLead = null) {
   return { atom: { ...lead, controllerRider: { kind: g ? "casterGainLife" : "casterLoseLife", metric } }, rest: "" };
 }
 
+/**
+ * A TOKEN FOR EACH PERMANENT PUT INTO A GRAVEYARD THIS WAY (play-weighted 2026-11-04 — Terastodon, EDHREC #1421: "you may destroy up to
+ * three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant
+ * creature token."): the RIDER-REMOVAL controller token below, applied only to a target the destroy actually put into a graveyard
+ * (`onlyIfToGraveyard` — removal.applyRemovalWithRider reads the destroy event's own leave records). Its bundled rulings: an
+ * indestructible or regenerating target gives no token, nor does one a replacement moved to another zone instead of the graveyard.
+ * The lead is the shared destroy grammar's multi-target form (its "you may" stamps `optional`); only the destroy verb, "permanent" as
+ * the rider's noun and the plain creature-token rider are read. Anything else → null (the card stays where it was).
+ * PARKED WITH TERASTODON (pw29's review, F1): the grammar reads no "destroy up to three target noncreature permanents" lead, so no
+ * printed card reaches this fold today. A person's up-to-three pick from a real board is cut by the 64-row subset cap
+ * (targeting.targetSubsets) before most three-target sets; a pick-one-target-at-a-time question is the lane. The fold and its
+ * resolver half (removal.applyRemovalWithRider's `onlyIfToGraveyard`, spellEffects.destroyEvent's `intoGraveyard`) stay for it.
+ */
+export function matchRemovalGraveyardTokenRider(oracle, parseLead = null) {
+  const m = stripReminder(oracle).trim().replace(/[’]/g, "'")
+    .match(/^((?:you may )?destroy up to (?:two|three) target .+?)\.\s+for each permanent put into a graveyard this way, its controller (creates a \d+\/\d+ [a-z ]+ creature token)\.?$/i);
+  if (!m) return null;
+  const lead = parseLead ? parseLead(m[1].trim())?.atoms : null;
+  if (!Array.isArray(lead) || lead.length !== 1 || lead[0].op !== "destroy" || !(lead[0].maxTargets > 1)) return null;
+  const rider = parseControllerRider(m[2].trim().toLowerCase());
+  if (!rider || rider.kind !== "createToken" || rider.keywords) return null;
+  return { atom: { ...lead[0], controllerRider: { ...rider, onlyIfToGraveyard: true } }, rest: "" };
+}
+
 export function matchRemovalControllerRider(oracle, parseLead = null) {
   // A TRAILING sentence is handed back as `rest` rather than blocking the match. The rider itself is always
   // period-free (every shape parseControllerRider models is a single clause, and its anchors are ^…$ — a

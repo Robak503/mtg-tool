@@ -34,7 +34,7 @@ import { abilityLossShape } from "../abilityLossShapes.js"; // the ability-loss 
 import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget, atomTargetSlotsKnown, programTriggerTargetsResolvable } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites + programConfidence's target-slot gate; the full family is re-exported at the bottom of this file
-import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterTrickery, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
+import { matchImprint, matchHandDisruption, matchRemovalGraveyardTokenRider, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterTrickery, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripGiftPromise, stripStormKeywordLine, stripDevoidLine, stripChangelingLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
 import { matchChaosWarp, matchLookThreeSplit, matchDiesGainDrawByPower, matchDrainEachOpponentX, matchDrainEachOpponent, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchSacThenReturnChosen, matchNamedTokenChoice, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchMassDestroyManaPerDestroyed, matchDestroyNotChosenType, matchNotChosenTypeSweep, matchMassDestroyPerDestroyed, matchTutorMvCapFromSacrificed, matchWindfallMaxDiscard, matchEdictUnableDiscard, matchSacrificeCreatureOrSelf, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchTaxedEdict, matchLoseLifeUnlessDiscard, matchPeerIntoTheAbyss, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchAuraReturnCreaturesOnly, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome, matchRevealTopCastIfLesser, matchEachPlayerMayWheel, matchEachPlayerMayDraw, matchDemonicConsultation, matchTaintedPact, matchDrawOrCountersByTriggeringPower } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
@@ -2408,6 +2408,31 @@ function matchWheelTargetOpponents(oracle, cardType) {
   ] };
 }
 
+// ANY NUMBER OF TARGET PLAYERS EACH LOSE N LIFE AND SACRIFICE A CREATURE (play-weighted 2026-11-04 — Priest of Forgotten Gods, EDHREC
+// #1391: "Any number of target players each lose 2 life and sacrifice a creature of their choice. You add {B}{B} and draw a card."): the
+// Wheel and Deal composite over target PLAYERS — the life loss on the any-number player slot (the cast and activation lanes enumerate
+// every subset of the players, the empty one included, CR 601.2c, 115.1), then the edict bound to exactly those players (each chooses
+// their own creature, CR 701.21a; APNAP, CR 101.4), in the printed order (CR 608.2c). Its rulings: no target at all is legal; a target
+// who can't sacrifice a creature still loses the life. A trailing sentence must parse HIGH on its own ("You add {B}{B} and draw a
+// card." — the controller's "you add" is the add-mana clause, run as the ability resolves).
+function matchEachTargetPlayerLoseSacrifice(oracle, cardType) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^any number of target players each lose (\d+) life and sacrifice a creature of their choice\.?(?:\s+(.+))?$/);
+  if (!m) return null;
+  let tailAtoms = [];
+  if (m[2]) {
+    const tailText = m[2].trim().replace(/^you add ((?:\{[wubrgc]\})+) and draw (a card|two cards)\.?$/, (_, mana, draw) => `add ${mana}. draw ${draw}.`);
+    const tail = parseEffectClauseImpl(tailText, cardType, { hasX: false });
+    if (!tail || programConfidence(tail) !== "high" || tail.structure === "modal" || tail.xSpell) return null;
+    tailAtoms = tail.atoms || [];
+  }
+  return { atoms: [
+    { op: "lose-life", amount: parseInt(m[1], 10), who: "target", targetType: "player", minTargets: 0, maxTargets: 99, anyNumber: true },
+    { op: "sacrifice", what: "creature", bindPreviousTargets: true },
+    ...tailAtoms,
+  ] };
+}
+
 function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
@@ -3085,6 +3110,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (gtr) return makeProgram({ confidence: "high", atoms: gtr.atoms, xSpell: false, unparsedTail: null });
   // ===== WHEEL AND DEAL ===== any number of target opponents each discard their hands, then draw N — see
   // matchWheelTargetOpponents. Two KNOWN atoms (the second bound to the first's players) → HIGH.
+  // ===== PRIEST OF FORGOTTEN GODS ===== any number of target players each lose N life and sacrifice a creature — see
+  // matchEachTargetPlayerLoseSacrifice. The two bound atoms, then the HIGH tail.
+  const etp = matchEachTargetPlayerLoseSacrifice(oracle, cardType);
+  if (etp && etp.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: etp.atoms, xSpell: false, unparsedTail: null });
+  }
   const wto = matchWheelTargetOpponents(oracle, cardType);
   if (wto && wto.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: wto.atoms, xSpell: false, unparsedTail: null });
@@ -4056,6 +4087,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // destroy-CREATURE lead (which destroyExileClauseParser does not own) can carry a controller rider. Guarded
   // to a single destroy/exile atom inside the matcher, and only reached when the existing lead parser
   // returned null — so no lead that resolves today changes path.
+  // A TOKEN FOR EACH PERMANENT PUT INTO A GRAVEYARD THIS WAY (Terastodon) — the same fold, its token only for a target the destroy put
+  // into a graveyard (spanMatchers.matchRemovalGraveyardTokenRider). Disjoint from the fold below ("for each permanent …" is no
+  // "its controller" lead), so the order is documentation.
+  const rgt = matchRemovalGraveyardTokenRider(oracle, (lead) => parseEffectClause(lead, cardType, { hasX: false }));
+  if (rgt) return collapsed(rgt);
   const rcr = matchRemovalControllerRider(oracle, (lead) => parseEffectClause(lead, cardType, { hasX: false }));
   if (rcr) return collapsed(rcr);
   // REMOVAL + CASTER GAIN-LIFE — the "You gain life equal to its <toughness|mana value>." sibling of the fold

@@ -588,10 +588,15 @@ function payerStateText(state) {
   }
   return text;
 }
-/** How many times `id` stands as a whole token in `text` — quoted, or inside a string ("[minted-leave sacrifice tok-2]"). */
+/**
+ * How many times `id` stands as a whole token in `text` — quoted, inside a string ("[minted-leave sacrifice tok-2]") or joined into a
+ * per-turn ledger key by an underscore ("otpt_tok-2_dies", "tok-2_draw", "<id>_freeCastOnce", "<id>_muldrotha_<type>" — pw28's round-4
+ * recheck, R4-N1): its boundary is a letter, a digit or a hyphen, never `\w` (which counts "_" as part of the word and missed those
+ * keys). Errs toward keeping two permanents apart.
+ */
 function idTokenCount(text, id) {
   const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return (text.match(new RegExp(`(?<![\\w-])${esc}(?![\\w-])`, "g")) || []).length;
+  return (text.match(new RegExp(`(?<![A-Za-z0-9-])${esc}(?![A-Za-z0-9-])`, "g")) || []).length;
 }
 export function interchangeablePayerKey(state, perm) {
   if (!perm || perm.id == null) return `id:${perm?.id}`;
@@ -633,6 +638,7 @@ export function payerLabels(state, pool) {
       parts.push(`${verb} ${nameOf(aid)}`);
     }
     if ((v.damageMarked || 0) > 0) parts.push(`${v.damageMarked} damage`);
+    if (v.tapped) parts.push("tapped"); // pw29's counted sacrifice: a tapped payer beside untapped ones (a counted tap's pool is untapped only)
     if (v.summoningSick && permanentIsCreature(state, v.id) && !permanentHasKeyword(state, v.id, "Haste")) parts.push("summoning sick");
     for (const [kind, n] of Object.entries(v.counters || {})) if (n > 0) parts.push(`${n} ${kind} counter${n > 1 ? "s" : ""}`);
     if (v.chosenType) parts.push(`${v.chosenType} chosen`);
@@ -1191,7 +1197,7 @@ function counterSpellTargetFilter(card) {
 // SUPPORTED_ALT_COST_KINDS (that set gates which STRIPS are coverage-vetted; this set gates which payments
 // the cast path knows how to ENFORCE). Growing this set never moves any card's tier (offering is
 // runtime-only); the parser stays untouched so the program fingerprint can't drift.
-const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand", "tapCreature", "sacrificeLands"]);
+const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "returnLandsToHand", "tapCreature", "sacrificeLands", "payManaTapCreatures"]); // + Sephara (play-weighted 2026-11-04)
 
 // Cheap oracle pre-screen so the offer layer never adds a parseEffectProgram call for a non-carrier
 // (castActionsFromZone otherwise parses programs only past the affordability gate). Curly apostrophes are
@@ -1313,6 +1319,23 @@ function enumerateAltPayments(state, playerId, card, alt) {
       return (player.battlefield || [])
         .filter((p) => !p.tapped && permanentIsCreature(state, p.id))
         .map((p) => ({ tapCreatureId: p.id, tapCreatureName: p.card?.name ?? null }));
+    case "payManaTapCreatures": {
+      // "you may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost" (Sephara,
+      // Sky's Blade — play-weighted 2026-11-04). The payments are the sets of `count` untapped creatures the caster controls that have
+      // the keyword NOW (layer-aware: a granted flying counts, a lost one doesn't; a summoning-sick creature pays — CR 302.6 bars only
+      // its own {T} abilities, Sephara's ruling). Which ones pay is the caster's choice (CR 601.2h): countedCostSets — the least
+      // valuable `count` for a seat no person plays, one set per choice for a person's seat (interchangeablePayerKey), bounded.
+      // The pips are the cast's cost (the caller assembles them, CR 118.9d); a set whose creatures leave too little mana for them is
+      // dropped by the owed-mana post-pass (manaModel.castPaymentSources leaves the tapped ones out).
+      // Two fliers are one choice only when nothing tells them apart (interchangeablePayerKey — pw29's review, F4 and its round-2 recheck,
+      // R2-F1: a blocker, a copy, a pumped or exerted creature is its own choice), and each set is named by payerLabels.
+      const pool = (player.battlefield || [])
+        .filter((p) => !p.tapped && permanentIsCreature(state, p.id) && permanentHasKeyword(state, p.id, alt.keyword))
+        .sort(leastValuablePermanentCmp);
+      const sets = countedCostSets(state, playerId, pool, alt.count, (p) => interchangeablePayerKey(state, p));
+      const labels = payerLabels(state, pool);
+      return sets.map((set) => ({ tapCreatureIds: set.map((p) => p.id), tapCreatureNames: set.map((p) => labels.get(p.id) ?? p.card?.name ?? null) }));
+    }
     default:
       return []; // un-offered kind — computeAltCastSpec already gated, defensive
   }
@@ -1326,6 +1349,7 @@ function altCastName(alt, pay) {
   if (pay.sacId) bits.push(`sacrifice ${pay.sacName ?? "a creature"}`);
   if (pay.returnLandIds) bits.push(`return ${pay.returnLandIds.length} ${alt.subtype ?? "land"}s to hand`);
   if (pay.tapCreatureId) bits.push(`tap ${pay.tapCreatureName ?? "a creature"}`);
+  if (pay.tapCreatureIds) bits.push(`tap ${pay.tapCreatureNames.map((n) => n ?? "a creature").join(", ")}`); // Sephara — its pips are the cast's cost, which the label names itself ("pay {W}")
   if (pay.sacLandIds) bits.push(`sacrifice ${pay.sacLandIds.length} ${alt.subtype ?? "land"}${pay.sacLandIds.length === 1 || alt.subtype === "Plains" ? "" : "s"}`);
   return bits.join(", ");
 }
@@ -1344,7 +1368,7 @@ function housePaymentIndex(state, playerId, payments) {
       : pay.sacId != null ? (player?.battlefield || []).find((p) => p.id === pay.sacId)?.card : null;
     return typeof card?.cmc === "number" ? card.cmc : 0;
   };
-  const idOf = (pay) => String(pay.exilePitchId ?? pay.sacId ?? (pay.returnLandIds || []).join("+"));
+  const idOf = (pay) => String(pay.exilePitchId ?? pay.sacId ?? (pay.returnLandIds || pay.tapCreatureIds || []).join("+"));
   let best = 0;
   for (let i = 1; i < payments.length; i++) {
     const mv = mvOf(payments[i]);
@@ -1375,6 +1399,8 @@ function computeAltCastSpec(state, playerId, card) {
   if (!alt && /\b(?:creature|artifact|enchantment|planeswalker)\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) {
     const off = extractAltCost(String(card?.oracle ?? card?.oracle_text ?? "")).altCost;
     if (off && off.evoke) { alt = off; needHigh = false; }
+    // + PAY MANA AND TAP FLIERS on a permanent (Sephara, Sky's Blade — play-weighted 2026-11-04): the same read, for the same reason.
+    if (off && off.kind === "payManaTapCreatures") { alt = off; needHigh = false; }
   }
   if (!alt || !OFFERED_ALT_COST_KINDS.has(alt.kind)) return null;
   if (needHigh && (!program || programConfidence(program) !== "high")) return null;
@@ -1788,11 +1814,19 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // must only ever see action.freeCast casts. The oracle pre-screen keeps non-carriers parse-free here.
     // The alternative pays no mana of its own, but what a cost increase leaves on its {0} is owed (`zeroAltCost`, CR 118.9d): the twin
     // carries it as its cost and pays it with the mana; while the caster can't fund it the alternative is not offered.
-    const altSpec = (!freeCast && fromZone === "hand" && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? ""))
-        && (!costOwesMana(zeroAltCost) || canAfford(player.manaPool, castSources(state, playerId), zeroAltCost, spendContext)))
+    // AN ALTERNATIVE COST THAT PAYS MANA OF ITS OWN (Sephara's "pay {W} and tap four …", play-weighted 2026-11-04): the cast owes its pips
+    // after the increases and reductions (CR 118.9d — assembled like the mana cost, the commander tax included), and it may be paid from
+    // the command zone too (CR 903.8: the tax applies to an alternative cost; the other kinds stay hand-only, as before).
+    const altSpecRaw = (!freeCast && (fromZone === "hand" || fromZone === "command") && ALT_COST_OFFER_HINT.test(String(card?.oracle ?? card?.oracle_text ?? "")))
       ? computeAltCastSpec(state, playerId, card)
       : null;
-    if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable, owed: zeroAltCost });
+    const altOwnPips = altSpecRaw?.alt?.kind === "payManaTapCreatures" ? altSpecRaw.alt.pips : null;
+    const altOwed = altOwnPips ? totalCost(parseManaCost(altOwnPips)) : zeroAltCost;
+    const altSpec = altSpecRaw && (fromZone === "hand" || altOwnPips)
+        && (!costOwesMana(altOwed) || canAfford(player.manaPool, castSources(state, playerId), altOwed, spendContext))
+      ? altSpecRaw
+      : null;
+    if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable, owed: altOwed });
     // CAST-RESTRICTION (the Fallen Empires combat-trick cycle): "Cast this spell only during the declare
     // attackers step and only if you've been attacked this step." A TIMING + STATE gate printed as a whole
     // sentence. Enforced HERE, at the single cast-offer chokepoint, so the card simply is not offered outside
@@ -2734,9 +2768,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const out = [];
     for (const a of actions) {
       // (The twin pays only what its {0} owes, so a cast whose cost carries additional mana is not twinned either — the twin would drop it.)
-      const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.faceCard
+      const spec0 = (a.kind === "cast-spell" && (a.fromZone === "hand" || a.fromZone === "command") && !a.freeCast && !a.faceCard
         && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
         && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId && !carriesAdditionalMana(a)) ? altSpecs.get(a.cardId) : undefined;
+      // The command zone twins only the alternative cost that pays its own mana (Sephara — its spec is built for that zone alone).
+      const spec = spec0 && (a.fromZone === "hand" || spec0.alt?.kind === "payManaTapCreatures") ? spec0 : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.affordable) out.push(a); // the normal hard-cast survives only when genuinely payable
       // ONE alternative-cost cast per target, never one per payment (costChoices.js — CR 601.2b, 601.2h: the pitch card, the
@@ -3610,21 +3646,33 @@ function actionsActivateAbility(state, playerId) {
       // outer — the exile's drawn from the graveyard less this row's own targets (the γ1d no-op guard, one zone over: a card the effect
       // targets can't also pay); one null pair without either cost; none when the row leaves too few to exile (that row can't pay,
       // another target may). Memoized by the graveyard cards the row's targets take out of the pool (most rows take none).
+      // A PERSON'S COUNTED SACRIFICE (play-weighted 2026-11-04 — Priest of Forgotten Gods' "Sacrifice two other creatures"; every SAC-N-CLASS
+      // and "Sacrifice N <subtype>" cost): which permanents pay is the activator's choice (CR 602.2b, 601.2h — pw25's review, F1, one zone
+      // over). For a person's seat the sets come from countedCostSets over the pool less this row's targets, keyed by interchangeablePayerKey
+      // (two permanents are one choice only when nothing on the state tells them apart — the round-2 recheck, R2-F1), least valuable first and
+      // bounded, and emitRow checks each set's mana; every other seat keeps the house pick in emitRow (the N least valuable not targeted),
+      // byte for byte, and carries none here.
+      const personSacCount = !!ab.sacCount && seatIsHuman(state, playerId);
+      let sacCountLabels = null; // a person's seat: each sacrifice payer's label (payerLabels), built once per ability
       const countedByTaken = new Map();
       const countedChoicesFor = (ch) => {
-        const targetIds = ab.exileGyCount ? new Set(ch.targets.map((t) => t.id)) : null;
-        const taken = targetIds ? exileGyPool.filter((g) => targetIds.has(g.id)).map((g) => g.id).join("\u0000") : "";
+        const targetIds = (ab.exileGyCount || personSacCount) ? new Set(ch.targets.map((t) => t.id)) : null;
+        const takenGy = ab.exileGyCount ? exileGyPool.filter((g) => targetIds.has(g.id)).map((g) => g.id).join("\u0000") : "";
+        const taken = personSacCount ? `${takenGy}\u0001${sacCountPool.filter((v) => targetIds.has(v.id)).map((v) => v.id).join("\u0000")}` : takenGy;
         if (!countedByTaken.has(taken)) {
           const exileGySets = ab.exileGyCount
             ? countedCostSets(state, playerId, exileGyPool.filter((g) => !targetIds.has(g.id)), ab.exileGyCount.count, graveyardCardKey(state)).map((set) => set.map((g) => g.id))
             : [null];
-          countedByTaken.set(taken, discardCountSets.flatMap((discardCountIds) => exileGySets.flatMap((exileGyIds) => tapCountSets.map((tapIds) => ({ discardCountIds, exileGyIds, tapIds })))));
+          const sacCountSets = personSacCount
+            ? countedCostSets(state, playerId, sacCountPool.filter((v) => !targetIds.has(v.id)), ab.sacCount.count, (v) => interchangeablePayerKey(state, v)).map((set) => set.map((v) => v.id))
+            : [null];
+          countedByTaken.set(taken, discardCountSets.flatMap((discardCountIds) => exileGySets.flatMap((exileGyIds) => tapCountSets.flatMap((tapIds) => sacCountSets.map((personSacIds) => (personSacIds ? { discardCountIds, exileGyIds, tapIds, personSacIds } : { discardCountIds, exileGyIds, tapIds }))))));
         }
         return countedByTaken.get(taken);
       };
       // ONE ROW'S ACTION for a victim set, a variant, a discard and one counted choice — or, for "Sacrifice X", one per X — or none
       // when that choice can't pay for that row (its own target, too few left for a counted cost). Returns whether it emitted.
-      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch, { discardCountIds, exileGyIds, tapIds = null }) => {
+      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch, { discardCountIds, exileGyIds, tapIds = null, personSacIds = null }) => {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
@@ -3649,7 +3697,19 @@ function actionsActivateAbility(state, playerId) {
           // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
           // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
           let sacCountIds = null;
-          if (ab.sacCount) {
+          let sacCountNames = null;
+          if (ab.sacCount && personSacIds) {
+            // A PERSON'S SET (countedChoicesFor): never a permanent this row targets (excluded there), and its mana — the cost less the
+            // permanents it sacrifices, which can't also tap for mana — paid from what is left (CR 601.2h; never an unpayable offer).
+            const paying = new Set(personSacIds);
+            const left = manaSources(state, playerId).filter((s) => !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) && !paying.has(s.permanentId)
+              && !(rowTapSet && rowTapSet.has(s.permanentId))); // a counted tap set beside it (pw28's) can't pay the mana either
+            if (!canAfford(player.manaPool, left, variant.cost, spendCtx)) return false;
+            sacCountIds = personSacIds;
+            // The set named for the person (pw29's review, F4): each victim by payerLabels — its copy, combat role and what tells it apart.
+            if (!sacCountLabels) sacCountLabels = payerLabels(state, sacCountPool);
+            sacCountNames = personSacIds.map((id) => sacCountLabels.get(id) ?? sacCountPool.find((v) => v.id === id)?.card?.name ?? null);
+          } else if (ab.sacCount) {
             const targetIds = new Set(ch.targets.map((t) => t.id));
             const pick = sacCountPool.filter((v) => !targetIds.has(v.id)).slice(0, ab.sacCount.count);
             if (pick.length < ab.sacCount.count) return false;
@@ -3710,7 +3770,9 @@ function actionsActivateAbility(state, playerId) {
           }
           // SAC-N-CLASS (P·17): a class sacrifice has no subtype to pluralize — name the frozen victims instead, so the
           // player sees exactly what goes (the spell-side count-sacrifice's sacName does the same).
-          const costText = ab.sacCount
+          const costText = ab.sacCount && sacCountNames
+            ? `Sacrifice ${sacCountNames.join(", ")}: ${ab.effectClause}`
+            : ab.sacCount
             ? (ab.sacCount.subtype
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
               : `Sacrifice ${sacCountPool.filter((v) => (sacCountIds || []).includes(v.id)).map((v) => v.card?.name).join(", ")}: ${ab.effectClause}`)
@@ -3742,6 +3804,7 @@ function actionsActivateAbility(state, playerId) {
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
+            ...(sacCountNames ? { sacCountNames } : {}),  // a person's seat: the victims by name and state (pw29's review, F4)
             tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
             tapCreatureName: tapVictim?.card?.name ?? null,
             tapCountIds: tapIds,                          // V6 slice 2 — the N untapped permanents to tap (cost): the house set, or a person's choice
@@ -3784,7 +3847,7 @@ function actionsActivateAbility(state, playerId) {
           for (const ch of rows) for (const counted of countedChoicesFor(ch)) emitRow(set, variant, discardVictim, ch, counted);
           return;
         }
-        const paysWith = ({ discardCountIds, exileGyIds, tapIds }) => [...(discardCountIds || []), ...(exileGyIds || []), ...(tapIds || [])];
+        const paysWith = ({ discardCountIds, exileGyIds, tapIds, personSacIds }) => [...(discardCountIds || []), ...(exileGyIds || []), ...(tapIds || []), ...(personSacIds || [])];
         const reached = new Set();
         let everyChoiceDone = false;
         for (const ch of rows) {
