@@ -58,6 +58,7 @@ export const PENDING_CHOICE_KINDS = [
   "trigger-target", // CR 603.3d / 601.2c — a person picks the targets (and mode, CR 603.3c) of their own triggered ability as it goes on the stack (asked of a human seat only)
   "trigger-order", // CR 603.3b / 405.3 — a person picks the order their own simultaneous triggered abilities go on the stack (asked of a human seat only)
   "protection-color", // CR 608.2d / 702.16 — a person announces the colour of "protection from the color of your choice" as it resolves (asked of a human seat only)
+  "copy-targets", // CR 707.10c — a person keeps a copy's targets or chooses new ones as the copy is put on the stack, once per copy (asked of a human seat only)
 ];
 
 /**
@@ -837,6 +838,38 @@ export function setPendingProtectionColorChoice(state, { controller, cardName = 
       ...(grantText ? { grantText } : {}),
       ...(step ? { step } : {}),
       ...(resume !== undefined ? { resume } : {}),
+    },
+  };
+}
+
+/**
+ * ===== COPY TARGETS (CR 707.10c, 115.7d) ===== — suspend while the person playing `controller` decides ONE target of a copy they control
+ * (`stackObjectId`), which is on the stack waiting for them (atoms/stack placeCopyForPerson puts it there with `awaitingCopyTargets`;
+ * raiseCopyTargetsChoice raises this pause), or of the spell or ability their Deflecting Swat aims at (`retarget: true` — applyRetarget).
+ * Asked one target at a time — `slotNumber` of `slotCount` — and only for a seat a person plays with a real choice, so the AI never sees
+ * it. `candidates` are `{ id, keep?, targets: [{ id, type, name, controller }] }` with ONE target each — `id` the value's index in the
+ * list the settler recomputes from the waiting record (never these); the first is `keep: true` (the target as it stands) when it may still
+ * be kept, then every other legal object for that target. `spellName` names the copied spell or ability, `objectKind` which it is
+ * ("spell" | "ability"), `sourceName` what made the copy; a storm copy carries `copyNumber` of `copyCount`. `suggestedId` is the
+ * house pick's value (the automatic answer). Plain JSON.
+ */
+export function setPendingCopyTargetsChoice(state, { controller, stackObjectId, spellName = null, sourceName = null, objectKind = "spell", copyNumber = null, copyCount = null, slotNumber = null, slotCount = null, retarget = false, candidates = [], suggestedId = "0" }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "copy-targets-pending", controller, stackObjectId, count: candidates.length, spellName, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "copy-targets",
+      controller,
+      stackObjectId,
+      spellName,
+      sourceName,
+      objectKind,
+      ...(copyCount != null ? { copyNumber, copyCount } : {}),
+      ...(slotCount != null ? { slotNumber, slotCount } : {}),
+      ...(retarget ? { retarget: true } : {}),
+      candidates,
+      suggestedId,
     },
   };
 }

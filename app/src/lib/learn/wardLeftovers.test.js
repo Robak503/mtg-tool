@@ -113,7 +113,12 @@ describe("1 · a target chosen again onto a ward permanent (CR 115.7a, 115.7d) r
     const murderId = asked.session.state.stack[0].id;
     const swatted = passUntilEmpty(castAt(asked, "swat", [murderId]));
     const may = swatted.decision.kind === "optional-effect" ? applyPendingChoice(swatted.session, { kind: "optional-effect", take: true }) : swatted;
-    const end = passUntilEmpty(may).session.state;
+    // The person chooses the new target (graduated by the copy-targets fix, F6 — CR 115.7d): the Murder's one target, keep or the Lightbringer.
+    const chose = passUntilEmpty(may);
+    expect(chose.decision.kind).toBe("copy-targets");
+    const toLight = (chose.decision.candidates || []).find((c) => !c.keep && c.targets[0]?.id === "light");
+    expect(toLight, "the Lightbringer is not offered").toBeTruthy();
+    const end = passUntilEmpty(applyPendingChoice(chose.session, { kind: "copy-targets", candidateId: toLight.id })).session.state;
     const row = { asks: wardAsks(end), ai2: names(end, "ai2"), user: names(end, "user") };
     console.log(`  WITNESS swat-onto-ward ${JSON.stringify(row)}`);
     expect(row).toEqual({ asks: [["ai1", "Murder", "Leonin Lightbringer"]], ai2: ["Leonin Lightbringer"], user: ["Grizzly Bears"] });
@@ -168,16 +173,25 @@ describe("2 · a targeted channel or graveyard ability is activated with its tar
 });
 
 /**
- * The AI casts `card` at the person's Grizzly Bears; the person, holding priority, Twincasts it. The copy is the person's and its
- * target (the person's own Bears, the wrong side for a destroy) is re-aimed (newTargetsForCopy) among the AI's creatures, the
- * Leonin Lightbringer listed first. Returns the driver's first stop after the Twincast resolves.
+ * The AI casts `card` at the user's Grizzly Bears; the user, holding priority, Twincasts it. The copy is the user's and its target (the
+ * user's own Bears, the wrong side for a destroy) is re-aimed (newTargetsForCopy) among the AI's creatures, the Leonin Lightbringer listed
+ * first. That pick is the house pick — every AI seat's — so the user seat stands in for one here (no state.humanSeats; graduated by the
+ * copy-targets fix: a person's copy now asks its targets, CR 707.10c — copyTargetChoice.test.js). With `copyTo` the user seat is a
+ * person and answers the copy-targets question with that target. Returns the driver's first stop after the Twincast resolves.
  */
-function twincastTheirs(aiCreatures, userPool) {
-  const start = board({ active: "ai", user: [P("ubear", GRIZZLY_BEARS, "user")], ai: aiCreatures, hand: [H("twin", TWINCAST), H("opt", OPT)], userPool, aiHand: [H("aispell", MURDER)], aiPool: { ...EMPTY, B: 3 } });
+function twincastTheirs(aiCreatures, userPool, copyTo = null) {
+  const seated = board({ active: "ai", user: [P("ubear", GRIZZLY_BEARS, "user")], ai: aiCreatures, hand: [H("twin", TWINCAST), H("opt", OPT)], userPool, aiHand: [H("aispell", MURDER)], aiPool: { ...EMPTY, B: 3 } });
+  const { humanSeats: _person, ...houseSeat } = seated;
+  const start = copyTo ? seated : houseSeat;
   const cast = dispatchAction(start, legalActionsForPlayer(start, "ai").find((a) => a.kind === "cast-spell" && a.cardId === "aispell" && targetsOf(a) === "ubear"));
   const asked = advanceUntilDecision(session(cast));
   const spellId = asked.session.state.stack[0].id;
-  return passUntilEmpty(castAt(asked, "twin", [spellId]));
+  const resolved = passUntilEmpty(castAt(asked, "twin", [spellId]));
+  if (!copyTo) return resolved;
+  expect(resolved.decision.kind).toBe("copy-targets");
+  const c = (resolved.decision.candidates || []).find((x) => !x.keep && (x.targets || []).map((t) => t.id).join(",") === copyTo);
+  expect(c, `no copy-targets row ${copyTo}`).toBeTruthy();
+  return passUntilEmpty(applyPendingChoice(resolved.session, { kind: "copy-targets", candidateId: c.id }));
 }
 
 describe("3 · the engine's pick of a copy's new targets (CR 707.10c) passes over a ward its controller can't pay while another target is free of it", () => {
@@ -189,7 +203,8 @@ describe("3 · the engine's pick of a copy's new targets (CR 707.10c) passes ove
   });
 
   it("⭐ the storm copy of your Scattershot (the second spell this turn) at the AI's Hill Giant, nothing left for a ward: the copy stays on a target free of ward — the Giant takes 2 (before: the copy went at the Lightbringer, asked, unpaid, countered)", () => {
-    const start = board({ ai: [P("light", LEONIN_LIGHTBRINGER, "ai"), P("giant", HILL_GIANT, "ai")], hand: [H("scatter", SCATTERSHOT), H("opt", OPT)], userPool: { ...EMPTY, R: 1, U: 1, C: 2 }, userSpells: 1 });
+    // The house pick — every AI seat's — so the user seat stands in for one (no state.humanSeats; graduated by the copy-targets fix).
+    const { humanSeats: _person, ...start } = board({ ai: [P("light", LEONIN_LIGHTBRINGER, "ai"), P("giant", HILL_GIANT, "ai")], hand: [H("scatter", SCATTERSHOT), H("opt", OPT)], userPool: { ...EMPTY, R: 1, U: 1, C: 2 }, userSpells: 1 });
     const first = advanceUntilDecision(session(start));
     const end = passUntilEmpty(castAt(first, "scatter", ["giant"])).session.state;
     const row = { asks: wardAsks(end), giantDamage: end.players.ai.battlefield.find((p) => p.id === "giant")?.damageMarked ?? null, lightDamage: end.players.ai.battlefield.find((p) => p.id === "light")?.damageMarked ?? null };
@@ -222,7 +237,7 @@ describe("4 · Diffusion Sliver triggers on every path ward does, for every Sliv
   });
 
   it("⭐ on a COPY: your Twincast's copy of the AI's Murder is re-aimed at its Diffusion Sliver — you are asked the {2} (before: the copy destroyed it free)", () => {
-    const asked = twincastTheirs([P("diff", DIFFUSION_SLIVER, "ai")], { ...EMPTY, U: 3, C: 2 });
+    const asked = twincastTheirs([P("diff", DIFFUSION_SLIVER, "ai")], { ...EMPTY, U: 3, C: 2 }, "diff"); // the person re-aims it (copy-targets)
     const row = decisionRow(asked.decision);
     console.log(`  WITNESS diffusion-copy ${JSON.stringify(row)}`);
     expect(row).toEqual({ kind: "soft-counter", controller: "user", spellName: "Murder", sourceName: "Diffusion Sliver", cost: MANA(2) });

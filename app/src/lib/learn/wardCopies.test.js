@@ -67,22 +67,32 @@ function passUntilEmpty(r) {
   return cur;
 }
 const answer = (r, pay) => applyPendingChoice(r.session, { kind: "soft-counter", pay });
+/**
+ * The person's copy-targets question (CR 707.10c — graduated by the copy-targets fix: a person's copy asks its new targets, before its
+ * ward is asked): answer it with the candidate whose targets are `targetId` ("keep" — the copied ones), then pass until the next stop.
+ */
+function copyTo(r, targetId) {
+  expect(r.decision.kind).toBe("copy-targets");
+  const c = (r.decision.candidates || []).find((x) => (targetId === "keep" ? x.keep : !x.keep && (x.targets || []).map((t) => t.id).join(",") === targetId));
+  expect(c, `no copy-targets row ${targetId}`).toBeTruthy();
+  return passUntilEmpty(applyPendingChoice(r.session, { kind: "copy-targets", candidateId: c.id }));
+}
 const names = (s, seat) => s.players[seat].battlefield.map((p) => p.card?.name).sort();
 const wardAsks = (s) => (s.log || []).filter((e) => e.kind === "soft-counter-pending").map((e) => [e.controller, e.spellName, e.sourceName]);
 const MANA = (generic) => ({ kind: "mana", mana: { generic, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
 const decisionRow = (d) => ({ kind: d.kind, controller: d.controller ?? null, spellName: d.spellName ?? null, sourceName: d.sourceName ?? null, cost: d.cost ?? null });
 
 /**
- * The AI casts `card` at the person's Grizzly Bears; the person, holding priority, Twincasts it. The copy is the person's, and its
- * target (the person's own Bears, the wrong side for a destroy) is re-aimed at the AI's only creature (newTargetsForCopy). Returns
- * the driver's first stop after the Twincast resolves.
+ * The AI casts `card` at the person's Grizzly Bears; the person, holding priority, Twincasts it. The copy is the person's, and they
+ * re-aim it from their own Bears at the AI's only creature (`theirs`) — the copy-targets question (CR 707.10c; graduated by the
+ * copy-targets fix — before it, newTargetsForCopy re-aimed it for them). Returns the driver's first stop after that answer.
  */
 function twincastTheirs(card, aiCreature = LEONIN_LIGHTBRINGER, aiPool = { ...EMPTY, B: 3 }) {
   const start = board({ active: "ai", user: [P("ubear", GRIZZLY_BEARS, "user")], ai: [P("theirs", aiCreature, "ai")], hand: [H("twin", TWINCAST), H("opt", OPT)], userPool: { ...EMPTY, U: 3, C: 2 }, aiHand: [H("aispell", card)], aiPool });
   const cast = dispatchAction(start, legalActionsForPlayer(start, "ai").find((a) => a.kind === "cast-spell" && a.cardId === "aispell" && targetsOf(a) === "ubear"));
   const asked = advanceUntilDecision(session(cast));
   const spellId = asked.session.state.stack[0].id;
-  return passUntilEmpty(applyChoice(asked.session, option(asked, (a) => a.kind === "cast-spell" && a.cardId === "twin" && targetsOf(a) === spellId)));
+  return copyTo(passUntilEmpty(applyChoice(asked.session, option(asked, (a) => a.kind === "cast-spell" && a.cardId === "twin" && targetsOf(a) === spellId))), "theirs");
 }
 
 describe("a copy of a spell with a new target (Twincast — CR 707.10c)", () => {
@@ -148,7 +158,7 @@ describe("a storm copy (CR 702.40a), a copied activated ability (Illusionist's B
     const start = board({ user: [pyro, bracers], ai: [P("light", LEONIN_LIGHTBRINGER, "ai")], hand: [H("opt", OPT)], userPool: { ...EMPTY, U: 1, C: 4 } });
     const first = advanceUntilDecision(session(start));
     const paid = answer(applyChoice(first.session, option(first, (a) => a.kind === "activate-ability" && a.permanentId === "pyro" && targetsOf(a) === "light")), true);
-    const copyAsked = passUntilEmpty(paid);
+    const copyAsked = copyTo(passUntilEmpty(paid), "keep"); // the person keeps the copy's target (graduated by the copy-targets fix — CR 707.10c)
     const row = { copyAsk: decisionRow(copyAsked.decision), asks: wardAsks(copyAsked.session.state) };
     console.log(`  WITNESS bracers-copy ${JSON.stringify(row)}`);
     expect(row).toEqual({ copyAsk: { kind: "soft-counter", controller: "user", spellName: "Prodigal Pyromancer", sourceName: "Leonin Lightbringer", cost: MANA(2) },

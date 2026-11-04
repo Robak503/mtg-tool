@@ -51,6 +51,7 @@ import {
   setPendingTriggerTargetChoice,
   setPendingTriggerOrderChoice,
   setPendingProtectionColorChoice,
+  setPendingCopyTargetsChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -142,6 +143,9 @@ const FIXTURES = {
   // PROTECTION COLOR (CR 608.2d) — raised only for a seat a person plays, so an AI controller is the contract's auto path: the
   // suggestion is taken, the paused grant has no target left (no step), and the choice clears in one tick.
   "protection-color": (s) => setPendingProtectionColorChoice(s, { controller: "ai", candidates: [{ id: "W", name: "White" }, { id: "R", name: "Red", suggested: "board" }], suggestedId: "R", sourceName: "Mother of Runes" }),
+  // COPY TARGETS (CR 707.10c) — raised only for a seat a person plays, so an AI controller is the contract's auto path: nothing waits on
+  // the stack under that id (the autopick returns null, the copied targets' "0" is taken), the settle logs "gone", and it clears in one tick.
+  "copy-targets": (s) => setPendingCopyTargetsChoice(s, { controller: "ai", stackObjectId: "gone", spellName: "Grapeshot", sourceName: "Grapeshot", candidates: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

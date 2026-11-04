@@ -117,6 +117,9 @@ describe("the bounced permanent's controller decides", () => {
     const s = chainAt(table({ caster: "ai", user: [on("user", "stone", STONE), on("user", "i1", ISLAND)], ai: [] }), "stone", "ai");
     expect({ ask: s.pendingChoice ?? null, stack: s.stack.length, bf: ids(s.players.user.battlefield), hand: ids(s.players.user.hand) }).toEqual({ ask: null, stack: 0, bf: ["i1"], hand: ["c-stone"] });
   });
+  // These tables carry no state.humanSeats, so the user seat plays the house policy — every AI seat's. A seat a person plays chooses the
+  // copy's target among every legal one, their own included, and is asked the land question whenever the copy would have one
+  // (copyTargetChoice.test.js — the copy-targets fix, CR 707.10c).
   it("⛔ the review's probe (F2) — only the copier's own nonland permanents left: the AI's Chain returns the person's Mind Stone, the person also has Sol Ring and an Island, the AI only an Island — the person isn't asked, and Sol Ring and the Island stay", () => {
     const s = chainAt(table({ caster: "ai", user: [on("user", "stone", STONE), on("user", "sol", SOL), on("user", "i1", ISLAND)], ai: [on("ai", "ai-i", ISLAND)] }), "stone", "ai");
     expect({ ask: s.pendingChoice ?? null, stack: s.stack.length, bf: ids(s.players.user.battlefield), hand: ids(s.players.user.hand) }).toEqual({ ask: null, stack: 0, bf: ["sol", "i1"], hand: ["c-stone"] });

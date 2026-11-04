@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 import { faceManaValue } from "../learn/modalDfc.js"; // a leaf chain (splitCard, spellColors): the face's own mana value, v13 → v14's one rewrite
 
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 18;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -260,6 +260,21 @@ export const MIGRATIONS = {
   // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v17 save
   // instead of dropping a counter or an exile Baral or Laelia was waiting to hear. (CONTRACT-MIG.)
   16: (doc) => ({ ...doc, schemaVersion: 17 }),
+
+  // v17 → v18 — the copy-targets fix (2026-11-04, CR 707.10c, 115.7d) persists these new shapes, each ABSENT meaning what every earlier game
+  // says:
+  //   · a stack object's `awaitingCopyTargets` `{ positions: [{ keep, options, group, atomKey }], chosen, at, house?, sourceName, copyNumber?,
+  //     copyCount?, chooser?, retarget? }` (a copy a person controls, or the spell or ability their Deflecting Swat aims at, waiting for them
+  //     to keep its targets or choose new ones one at a time — atoms/stack placeCopyForPerson, applyRetarget): absent, it has its targets;
+  //   · a pending choice of kind "copy-targets" (`stackObjectId`, `spellName`, `sourceName`, `objectKind`, `copyNumber` / `copyCount`,
+  //     `slotNumber` / `slotCount`, `retarget`, `candidates`, `suggestedId`): absent, nothing is asked;
+  //   · a "copy-activated-ability" / "copy-ability" atom's `newTargets`, and a "copy-self-spell" atom's `copiedTargets` and `copyColors` (in
+  //     a pending choice's effect atoms or a suspended program): absent, the copy keeps the original's targets for every seat and names no
+  //     colours, as an earlier build did;
+  //   · a self-copy's source `colors` (on a stack object): absent, no colours named.
+  // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v18 save
+  // (migrate throws on a newer version) instead of resolving a copy that is still waiting for its targets. (CONTRACT-MIG.)
+  17: (doc) => ({ ...doc, schemaVersion: 18 }),
 };
 
 /** v13 → v14's rewrite: each battlefield permanent that is a modal DFC's land face carries that face's own mana value. */

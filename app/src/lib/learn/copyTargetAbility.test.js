@@ -52,11 +52,14 @@ const offers = (s, permId) => legalActionsForPlayer(s, "user").filter((a) => a.k
 const resolveAll = (s) => { while (s.stack.length) s = resolveTopOfStack(s); return s; };
 
 describe("parser — the chosen-target copy arm", () => {
+  // `newTargets` (the copy-targets fix, CR 707.10c): the printed permission, so a person is asked the copy's targets; the bare sentence has none.
   it("Resonator copies triggered abilities only; the Camera copies either kind", () => {
     expect(parseEffectClause("Copy target triggered ability you control. You may choose new targets for the copy.", "Artifact").atoms)
-      .toEqual([{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds: ["triggered"] }]);
+      .toEqual([{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds: ["triggered"], newTargets: true }]);
     expect(parseEffectClause("Copy target activated or triggered ability you control. You may choose new targets for the copy.", "Artifact").atoms)
-      .toEqual([{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds: ["activated", "triggered"] }]);
+      .toEqual([{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds: ["activated", "triggered"], newTargets: true }]);
+    expect(parseEffectClause("Copy target triggered ability you control.", "Artifact").atoms)
+      .toEqual([{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds: ["triggered"] }]);
   });
   it("CREED near-miss: no controller scope, or a spell, stays out of this arm", () => {
     expect(parseEffectClause("Copy target triggered ability. You may choose new targets for the copy.", "Artifact").confidence).toBe("low");

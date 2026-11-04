@@ -1322,6 +1322,8 @@ export function resolveTopOfStack(state) {
   // A person's triggered ability still waiting for its targets has not finished being put on the stack (CR 601.2a–c via 603.3d):
   // the session driver asks before anyone receives priority, so reaching it here is an engine bug — surfaced, never resolved blind.
   if (top.awaitingTargets) throw new Error(`resolveTopOfStack: ${top.source?.name || "a triggered ability"} is still waiting for its controller to choose its targets`);
+  // The same for a person's copy still waiting for its new targets (CR 707.10c — atoms/stack placeCopyForPerson; the driver asks first).
+  if (top.awaitingCopyTargets) throw new Error(`resolveTopOfStack: the copy of ${top.source?.name || "a spell or ability"} is still waiting for its controller to choose its targets`);
   const remainingStack = state.stack.slice(0, -1);
 
   // THE RESOLUTION WINDOW (gameState.openResolutionWindow, CR 704.4): while the resolver runs, an effect that leaves a creature with
@@ -2453,6 +2455,12 @@ export function castTriggerOutcomes(state, controller, card, { castFromZone = "h
  */
 export { phaseInAndExpireShield as _phaseInAndExpireShieldForTests }; // TEFERI'S PROTECTION — the untap-step hook, re-exported for the witness
 export function flushTriggers(state, { chooseTargets } = {}) {
+  // ONE BATCH WITH A PERSON'S COPY (the copy-targets fix, the review's R2-F2 — CR 603.3b, 101.4): while a copy a person controls waits on the
+  // stack for its targets (atoms/stack placeCopyForPerson; a Deflecting Swat's object), what the resolution that made it triggered — the
+  // magecraft and copy triggers — and what its targets will trigger (copyTargetEvents, with the last answer) are one batch: nothing is put
+  // on the stack until the last answer, then learnSession.settleCopyTargets flushes them together, in APNAP order and with the person's
+  // own trigger-order question. Every AI seat, and every table with no person at it, never has a waiting copy: unchanged.
+  if ((state.stack || []).some((o) => o.awaitingCopyTargets)) return state;
   // GY-EVENT drain (SHELF S7): convert queued graveyard enter/leave events into pending triggers FIRST —
   // every settlement path funnels through this flush, so a recorded event always fires here (BEFORE the
   // empty-pending early return, which would otherwise strand a queue with no other pending triggers).

@@ -67,7 +67,8 @@ describe("the parse + the tiers", () => {
   it("the payoff collapses to the copy atom; the condition is readable only with a definite activation context", () => {
     const p = parseEffectClause("copy that ability. You may choose new targets for the copy.", "Instant");
     expect(p.confidence).toBe("high");
-    expect(p.atoms).toEqual([{ op: "copy-activated-ability", targetType: null }]);
+    expect(p.atoms).toEqual([{ op: "copy-activated-ability", targetType: null, newTargets: true }]); // the printed permission (the copy-targets fix, CR 707.10c)
+    expect(parseEffectClause("copy that ability.", "Instant").atoms).toEqual([{ op: "copy-activated-ability", targetType: null }]); // none printed, none carried
     expect(parseEffectClause("copy it. You may choose new targets for the copy.", "Instant").atoms[0].op).toBe("copy-activated-ability");
     expect(interveningIfParseable("it isn't a mana ability")).toBe(true);
     expect(spellConditionParseable("it isn't a mana ability")).toBe(false); // a spell has no activation to read

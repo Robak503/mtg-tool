@@ -672,7 +672,7 @@ describe("migrate", () => {
         decisionLog: [] },
       checksum: "sha256:stale-but-unused-after-verify",
     };
-    expect([typeof MIGRATIONS[16], typeof MIGRATIONS[17]]).toEqual(["function", "undefined"]); // the v16 → v17 step exists and is the last (CONTRACT-MIG)
+    expect([typeof MIGRATIONS[16], typeof MIGRATIONS[17]]).toEqual(["function", "function"]); // the v16 → v17 step exists (CONTRACT-MIG); graduated (the copy-targets fix): v17 → v18 follows it
     expect(MIGRATIONS[16](JSON.parse(JSON.stringify(v16)))).toEqual({ ...v16, schemaVersion: 17 }); // the version only
     const upgraded = migrate(JSON.parse(JSON.stringify(v16)));
     expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v16.session.state });
@@ -691,7 +691,7 @@ describe("migrate", () => {
     const v17 = { ...upgraded, session: { ...upgraded.session, state } };
     expect(isSerializable(v17.session).ok).toBe(true);
     const back = migrate(JSON.parse(JSON.stringify(v17)));
-    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 17, state });
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state }); // graduated (the copy-targets fix): a v17 save now walks to v18
     const s = back.session.state;
     const heard = (n) => (n.pendingTriggers || []).map((t) => t.source?.name);
     const declined = resolveSoftCounterChoice(s, false);
@@ -700,6 +700,46 @@ describe("migrate", () => {
       laelia: heard(checkLibraryGraveyardExileTriggers({ ...s, pendingChoice: undefined })), // two events: the unbatched one and the named batch
       counteredFor: declined.pendingCounteredSpells.map((r) => [r.counterer, r.spellId]),
     }).toEqual({ baral: ["Baral, Chief of Compliance"], laelia: ["Laelia, the Blade Reforged", "Laelia, the Blade Reforged"], counteredFor: [["user", "stk-9"], ["user", "stk-2"]] });
+  });
+  // CONTRACT-MIG (the copy-targets fix, CR 707.10c, 115.7d): a v18 game may hold a person's copy waiting on the stack for its targets
+  // (`awaitingCopyTargets` — its positions, the answers so far) and the copy-targets pause that asks for them. A v17 save has neither;
+  // absent means the copy has its targets, so the migration stamps the version only (pw28's v16 → v17 step before it does too,
+  // for a v16 save). The round trip: the waiting copy and its question survive save → JSON → migrate, and the restored pause settles to the chosen
+  // target with the copy no longer waiting.
+  it("carries a v17 save forward to v18 (stamp-only; a v18 game's waiting copy and its copy-targets pause round-trip and still settle)", async () => {
+    const { raiseCopyTargetsChoice, settleCopyTargetsChoice } = await import("../learn/effects/atoms/stack.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v17 = {
+      schemaVersion: 17, kind: "learn-session-save", savedAt: "2026-11-04T00:00:00.000Z", sessionId: "learn-v17", serializable: true,
+      session: { id: "learn-v17", difficulty: "beginner", mode: "standard", status: "active",
+        state: { turn: 3, idSeq: 5, stack: [], log: [], rngSeed: 4, continuousEffects: [], timestampCounter: 1, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([16, 17].map((v) => typeof MIGRATIONS[v])).toEqual(["function", "function"]); // the reserved step and the v17 → v18 step (CONTRACT-MIG)
+    expect(typeof MIGRATIONS[18]).toBe("undefined"); // and v18 is the last
+    expect(MIGRATIONS[17](JSON.parse(JSON.stringify(v17)))).toEqual({ ...v17, schemaVersion: 18 }); // the version only
+    expect(migrate(JSON.parse(JSON.stringify({ ...v17, schemaVersion: 16 }))).schemaVersion).toBe(CURRENT_SCHEMA_VERSION); // v16 walks the whole chain
+    const upgraded = migrate(JSON.parse(JSON.stringify(v17)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v17.session.state });
+    const bolt = { name: "Lightning Bolt", type: "Instant", mana: "{R}", cmc: 1, colors: ["R"], oracle: "Lightning Bolt deals 3 damage to any target." };
+    const program = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: [{ op: "deal-damage", amount: 3, targetType: "any" }], modal: null, xSpell: false, unparsedTail: null };
+    const kept = { type: "player", id: "user", name: "user", atomIndex: 0 };
+    const other = { type: "player", id: "ai", name: "ai", atomIndex: 0 };
+    const copy = { id: "stk-4", kind: "spell", source: bolt, controller: "user", targets: [kept], cost: null, isCopy: true,
+      payload: { resolver: "effect-program", params: { program, controller: "user", targets: [kept] } },
+      awaitingCopyTargets: { positions: [{ keep: kept, options: [other], group: "0||", atomKey: 0 }], chosen: [], at: 0, sourceName: "Reverberate" } };
+    const base = { ...v17.session.state, humanSeats: ["user"], activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", turnOrder: ["user", "ai"], mode: "standard", pendingTriggers: [], stack: [copy] };
+    const state = raiseCopyTargetsChoice(base);
+    expect({ kind: state.pendingChoice?.kind, rows: (state.pendingChoice?.candidates || []).map((c) => [c.id, !!c.keep, c.targets.map((t) => t.id)]), slot: [state.pendingChoice?.slotNumber, state.pendingChoice?.slotCount] })
+      .toEqual({ kind: "copy-targets", rows: [["0", true, ["user"]], ["1", false, ["ai"]]], slot: [1, 1] });
+    const v18 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v18.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v18)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, state: JSON.parse(JSON.stringify(state)) });
+    const settled = settleCopyTargetsChoice(back.session.state, "1");
+    expect({ pending: settled.pendingChoice ?? null, stack: settled.stack.map((o) => ({ id: o.id, targets: o.targets.map((t) => t.id), params: o.payload.params.targets.map((t) => t.id), waiting: !!o.awaitingCopyTargets })) })
+      .toEqual({ pending: null, stack: [{ id: "stk-4", targets: ["ai"], params: ["ai"], waiting: false }] });
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

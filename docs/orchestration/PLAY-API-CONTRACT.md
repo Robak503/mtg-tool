@@ -10,7 +10,44 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.21.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.22.0"`
+
+> **v1.22.0 (additive MINOR, 2026-11-04 — a new decision kind; the copy-targets fix, numbered after pw28's 1.20.0 and pw29's 1.21.0):**
+> - **`copy-targets`** (CR 707.10c, 115.7d, 702.40a, 707.10): the person playing a seat keeps a copy's targets or chooses new ones as the
+>   copy is put on the stack — every copy whose effect lets its controller choose new targets: each storm copy (its own question, the first
+>   put on the stack first — `copyNumber` of `copyCount`), the self-copy ("you may copy this spell and may choose a new target for the copy"
+>   — Sevinne's Reclamation, Chain of Vapor), a copy of another spell ("Copy target instant or sorcery spell. You may choose new targets for
+>   the copy." — Reverberate, Twincast, Dualcaster Mage, Narset's Reversal …) and a copied ability ("You may choose new targets for the
+>   copy." — Strionic Resonator, Illusionist's Bracers, Rings of Brighthearth …); and Deflecting Swat's "choose new targets for target spell
+>   or ability" (`retarget: true` — the object is the spell or ability itself, not a copy; `controller` is the Swat's caster).
+> - **One target per question** (`slotNumber` of `slotCount`, in the order the targets were chosen). `candidates` are `{ id, keep?,
+>   targets: [one target { id, type, name, controller }] }`: the first is `keep: true` — the target as it stands, offered even when no longer
+>   legal (CR 707.10c, 115.7d) — when it may still be kept, then every other legal object for that target, enumerated for the copy's
+>   controller (Deflecting Swat: the object's controller) with its colours, X and context, an opponent-bound target (Grasp of Fate) among
+>   that opponent's objects only. A value is offered only when the later targets can still be completed legally: one instance of "target"
+>   never names an object twice (CR 115.3), the number of targets is fixed (CR 601.2c), and a change never makes an unchanged target
+>   illegal (CR 115.7d — a pair's two objects, a joint total mana value, a single graveyard, a shared creature type, cards from the chosen
+>   player's graveyard), each checked as a target is placed, so the offer is whole on full graveyards. So every legal final set is
+>   reachable, the mixed "keep this one, change that one" sets included, and nothing illegal is. (The search has a backstop bound; were it
+>   ever reached, the value it could not complete is left out, the log records `copy-targets-search-budget`, and that target is asked,
+>   never filled unasked.) The decision names `spellName` (the copied spell or ability), `sourceName` (what made the copy) and `objectKind`
+>   (`"spell"` | `"ability"`); `suggestedId` is the house pick's value (the automatic answer). Answer `{ kind, candidateId }` (row in
+>   §1.1a). Asked only of a `state.humanSeats` seat and only when there is a real choice: a target with one legal value is filled unasked,
+>   a copy with no other legal value anywhere keeps its targets, and one with no legal target at all is removed, as for every seat. While
+>   it is asked the object sits on the stack (engine-internal stack-object field `awaitingCopyTargets`); its wards are asked after the last
+>   answer — a copy's on every target (it is a new object), Deflecting Swat's object's only on the targets that changed. Asked before the
+>   trigger-order and trigger-target questions. While it is asked, the abilities the copying resolution triggered (magecraft, "whenever you
+>   copy") wait; with the last answer they go on the stack together with what the new targets triggered, as one batch — APNAP order (CR
+>   603.3b, 101.4), and one trigger-order question for the person's own. Every AI seat's copies and Swats take the house pick; a pilot is offered one action per
+>   candidate.
+> - For every seat (state, not shape): a copy's targets become its targets as it is put on the stack — becomes-the-target triggers
+>   (Phantasmal Bear, valiant, the Glasskites) and Kira, Great Glass-Spinner's counter see copies (CR 601.2c), and Deflecting Swat's new
+>   targets (CR 115.7d — the ones it did not already have, the person's answer and the house deflection alike); a self-copy carries the
+>   copied spell's colours (CR 707.2 — protection from them refuses its target); a copied activated ability (Illusionist's and Battlemage's
+>   Bracers) is controlled by the copy trigger's controller, the Equipment's (CR 707.10).
+> - `"copy-activated-ability"` and `"copy-ability"` atoms carry `newTargets: true` where the printed text gives the permission; a
+>   `"copy-self-spell"` atom may carry `copiedTargets` (Chain of Vapor's copy, for a person) and `copyColors` (Chain of Vapor's copy).
+> - Save format **v18** (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[17]`, after pw28's v16 → v17).
 
 > **v1.21.0 (additive MINOR, 2026-11-04 — new offers and a new alternative-cost value on existing kinds; the play-weighted slice pw29,
 > after pw28's 1.20.0):** each rides a kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").
@@ -365,6 +402,7 @@ General rules, all kinds:
 | `trigger-order` | `{ kind, resolveOrder: string[] }` | v1.6.0, CR 603.3b / 405.3 — the controller of two or more simultaneous triggered abilities chooses the order they go on the stack; `resolveOrder` is every `candidates[].id` exactly once, the one that resolves FIRST first (it is put on the stack last). `candidates` (`{ id, sourceName, abilityText, targets: [{ id, type, name, controller }], targetsNext? }`) list the abilities as they stand, the topmost first — so answering them in the order given keeps the order they triggered in; `id` is the ability's stack id, `targetsNext` marks one whose targets are asked after the order. The abilities are permuted among their own stack positions, so other players' abilities keep their APNAP places. Anything else — not a list, an id missing, twice or not of the batch — decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, and not when every ability is an identical copy of the same ability from the same source for the same event. |
 | `protection-color` | `{ kind, color }` | v1.7.0, CR 608.2d / 702.16 — the controller of a "protection from the color of your choice" grant announces the colour as it resolves; `color` ∈ `candidates[].id` — a WUBRG letter, or `"C"` (colorless) where the grant offers it (Giver of Runes). `candidates` are `{ id, name, threats?, suggested? }`: `threats` the names of the opponents' spells and abilities of that colour on the stack that target or damage the protected permanent (only where protection from that colour stops it in this engine — never a colourless one, nor an ability whose source has left unless all it does is deal damage), `suggested` (`"threat"` | `"board"`) the automatic chooser's pick; `cardName` the protected permanent, `sourceName` the card granting it. No decline; a colour not on offer decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat. |
 | `trigger-target` | `{ kind, candidateId }` | v1.4.0, CR 603.3d / 601.2c / 603.3c — the controller of a triggered ability chooses its targets (or mode) as it goes on the stack; `candidateId` ∈ `candidates[].id` (`{ id, label?, targets: [{ id, type, name, controller }] }` — `label` is a mode's text; an empty `targets` is the "up to" decline), or `"none"` when `allowNone` (a modal "choose up to one" — the ability is removed, CR 603.3c). `abilityText` is the printed sentence. An id that is no candidate decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, one ability at a time in stack order (the first put on the stack first). |
+| `copy-targets` | `{ kind, candidateId }` | v1.22.0, CR 707.10c / 115.7d / 702.40a / 707.10 — the controller of a copy whose effect lets them choose new targets (or the caster of Deflecting Swat, `retarget: true`) keeps or changes ONE target per question (`slotNumber` of `slotCount`); `candidateId` ∈ `candidates[].id` (`{ id, keep?, targets: [one target { id, type, name, controller }] }` — `keep: true` the target as it stands, when it may still be kept; then every other legal object for it whose choice leaves the later targets completable). `spellName` / `sourceName` / `objectKind` name the object; a storm copy carries `copyNumber` / `copyCount`; `suggestedId` is the house pick. An id that is no candidate decides nothing (the question is asked again). Asked only of a `state.humanSeats` seat, one object at a time in stack order (the first put on the stack first), its targets in the order they were chosen. |
 | `aura-entry-host` | `{ kind, hostId }` | v1.3.0, CR 303.4f — the Aura's controller picks what it enchants as it enters without being cast; `hostId` ∈ `candidates[].id` (`{ id, name, controller }` — the legal hosts on the board it enters; nothing is targeted, so hexproof doesn't exclude one, protection does). No decline: an id that isn't a candidate takes the house pick. Asked only of a `state.humanSeats` seat; another of that seat's Auras entering in the same event asks again. |
 
 (Shape source of truth: the `apply*Choice` settlers in `app/src/lib/learn/learnSession.js` —

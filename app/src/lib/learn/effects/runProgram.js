@@ -36,7 +36,7 @@ import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTarg
 import { moveStackTarget } from "./atoms/stack.js"; // CHANGE THE TARGET (shelf D14) — the settle writes the pick back; runProgram already reaches atoms/stack.js through parser → effectAtoms, so no new cycle
 import { changeTargetAlternatives, atomForStackTarget, resolutionTargetVerdicts } from "./targeting.js"; // CHANGE THE TARGET — the settle re-derives the alternatives; the auto-pick finds the redirected slot's atom; + the CR 608.2b target re-check
 import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
-import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
+import { applyDrawEffect, resolutionSource } from "../spellEffects.js"; // + resolutionSource: the resolving spell's colours for its self-copy (the copy-targets fix, F2); // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard, sacrificesByIn, spellSourceQualities, countForSpec } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe // + sacrificesByIn (2026-10-17): "if you do" reads the controller's victim, single or in a batch // + spellSourceQualities: a resolving spell's colours and types as a damage source
 import { grantVoidPlay } from "./atoms/voidPlay.js"; // P·28 — the playFree milled-pick settles into Dauthi Voidwalker's grant (voidPlay imports gameState + pendingChoice only)
 
@@ -470,7 +470,9 @@ export function runEffectProgram(state, stackObject, { startIndex = 0, prevSacri
     else if (atoms[i]?.playerFrom === "owner") {
       atomTargets = atomTargets.map((t) => { const pid = t?.owner || t?.controller; return pid ? { type: "player", id: pid } : null; }).filter(Boolean);
     }
-    const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
+    // CHAIN OF VAPOR'S COPY (the copy-targets fix, F2 — CR 707.2, 707.10): the copy it may make copies this spell's colours, so the bounce
+    // atom is handed them (`spellColors`, the resolving object's — a copy's own source carries them on) to stamp on its copy atom.
+    const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId, ...(atom?.op === "chain-bounce" && Array.isArray(stackObject?.source?.colors) ? { spellColors: resolutionSource(next, stackObject).colors } : {}) }; // a source naming no colours names none (never read as colourless)
     const logLenBefore = next.log?.length ?? 0;
     const after = resolveAtomAsking(next, atom, ctx);
     if (after == null) {
@@ -1776,7 +1778,12 @@ export function resolveOptionalChoice(state, doIt) {
   const i = pc.atomIndex;
   const atom = programAtoms(r.program, r.chosenMode)[i];
   if (doIt) {
-    const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
+    // THE SELF-COPY'S COPIED TARGETS (CR 707.10, 707.10c): "you may copy this spell" copies the whole spell, its targets included, though
+    // the copy atom takes none of its own — `spellTargets` hands it the spell's, the "keep" a person may choose (atoms/stack
+    // copySelfSpellForPerson). A person's self-copy always comes through here: its "may" is their yes/no.
+    // ... and its colours (F2), read off the card the spell's disposition holds (CR 707.2).
+    const spellCard = atom?.op === "copy-self-spell" ? r.spellToGraveyard?.card : null;
+    const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId, ...(atom?.op === "copy-self-spell" ? { spellTargets: r.targets, ...(spellCard ? { spellColors: resolutionSource(next, { kind: "spell", source: spellCard }).colors } : {}) } : {}) };
     const logLenBefore = next.log?.length ?? 0;
     const after = resolveAtomAsking(next, { ...atom, optional: false }, ctx);
     if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);

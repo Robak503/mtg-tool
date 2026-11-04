@@ -3182,6 +3182,60 @@ export function TriggerTargetPanel({ decision, onChoose }) {
   );
 }
 
+/** A value for one of a copy's targets as you read it: "Keep its target" first (as it stands), then each other legal object by name and whose. */
+export function copyTargetsChoiceLabel(c) {
+  const targets = (c?.targets || []).map(changeTargetLabel).join(", ");
+  if (c?.keep) return targets ? `Keep its target — ${targets}` : "Keep its target";
+  return targets || "No target";
+}
+
+/**
+ * COPY TARGETS (CR 707.10c, 115.7d): a copy you control is going on the stack, and the effect that made it lets you choose new targets for
+ * it — or your Deflecting Swat lets you choose new targets for a spell or ability (`retarget`). One question per target (`slotNumber` of
+ * `slotCount`): keep it as it is (even when it is no longer legal), or any other legal object for it. A storm copy names which copy it is.
+ * The engine asks only when there is a real choice.
+ */
+export function CopyTargetsPanel({ decision, onChoose }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (candidateId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(candidateId);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const what = decision.spellName || (decision.objectKind === "ability" ? "the ability" : "the spell");
+  const which = decision.copyCount ? ` (copy ${decision.copyNumber} of ${decision.copyCount})` : "";
+  const slot = decision.slotCount > 1 ? ` — target ${decision.slotNumber} of ${decision.slotCount}` : "";
+  const title = decision.retarget ? `Choose new targets for ${what}${slot}` : `Choose targets for the copy of ${what}${which}${slot}`;
+  const lead = decision.retarget
+    ? `${decision.sourceName || "Your spell"} lets you choose new targets for it. `
+    : decision.sourceName && decision.sourceName !== decision.spellName ? `${decision.sourceName} copied it, and you may choose new targets for the copy. ` : "You may choose new targets for the copy. ";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner icon="🎯" title={title}>
+        {lead}Keep this target as it is, or pick another legal one{decision.retarget ? "." : " — the copy is going on the stack now."}
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {(decision.candidates || []).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ley-glass ley-card"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer", color: "var(--ley-text)" }}
+            onClick={() => submit(c.id)}
+            disabled={submitting}
+          >
+            <strong>{copyTargetsChoiceLabel(c)}</strong>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Where an ability sits in the order you are building: the first resolves first, the last resolves last. */
 export function triggerOrderPlaceLabel(i, n) {
   if (i === 0) return "Resolves first";

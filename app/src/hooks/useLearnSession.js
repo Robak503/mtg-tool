@@ -151,6 +151,14 @@ export function triggerOrderChoicePayload(resolveOrder) {
 }
 
 /**
+ * The /api/learn/choose payload for the targets of a copy you control (CR 707.10c — kept or chosen anew as the copy is put on the stack):
+ * the picked choice's id, with the `kind` echo the server checks (WI-5). Pure, so it is tested without React.
+ */
+export function copyTargetsChoicePayload(candidateId) {
+  return { kind: "copy-targets", candidateId: typeof candidateId === "string" ? candidateId : null };
+}
+
+/**
  * The /api/learn/choose payload for the colour of "protection from the color of your choice" (CR 608.2d — announced as it resolves):
  * the picked colour (a WUBRG letter, or "C" for colourless where the grant offers it), with the `kind` echo the server checks (WI-5).
  * Anything else posts null, which the server asks again. Pure, so it is tested without React.
@@ -1260,6 +1268,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** COPY TARGETS (CR 707.10c) — keep the targets of a copy you control, or choose new ones, as the copy is put on the stack. */
+  const applyCopyTargetsChoice = useCallback(
+    (candidateId) => submitPendingChoice("copy-targets", copyTargetsChoicePayload(candidateId)),
+    [submitPendingChoice],
+  );
+
   /** PROTECTION COLOR (CR 608.2d) — the colour of your "protection from the color of your choice" grant, chosen as it resolves. */
   const applyProtectionColorChoice = useCallback(
     (color) => submitPendingChoice("protection-color", protectionColorChoicePayload(color)),
@@ -1983,6 +1997,7 @@ export default function useLearnSession() {
     applyTriggerTargetChoice, // CR 603.3d — the targets of your own triggered ability
     applyTriggerOrderChoice, // CR 603.3b — the order of your own simultaneous triggered abilities
     applyProtectionColorChoice, // CR 608.2d — the colour of your "protection from the color of your choice"
+    applyCopyTargetsChoice, // CR 707.10c — the targets of a copy you control
     applyCommanderReturnChoice,
     mulligan,
     reset,

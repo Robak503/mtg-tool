@@ -70,6 +70,11 @@ const PENDING_WIRE_FIELDS = [
   "objectKind", // soft-counter (2026-10-20) — "spell" | "ability": SoftCounterPanel names an ability's threat as the ability
   "optionsAffordable", // soft-counter — per alternative of a ward cost with alternatives (`cost.options`): which the payer can pay
   "grantText", // protection-color — what the colour gives when the grant is not protection (Skrelv, Defector Mite's toxic, hexproof and evasion); ProtectionColorPanel's banner
+  "copyNumber", // copy-targets (CR 707.10c) — which storm copy this is …
+  "copyCount", // copy-targets — … of how many (CopyTargetsPanel's "copy 2 of 3")
+  "slotNumber", // copy-targets (CR 115.7d) — which of the object's targets this question is …
+  "slotCount", // copy-targets — … of how many (CopyTargetsPanel's "target 1 of 2")
+  "retarget", // copy-targets — Deflecting Swat's "choose new targets": the object is not a copy (CopyTargetsPanel's banner)
 ];
 
 /**

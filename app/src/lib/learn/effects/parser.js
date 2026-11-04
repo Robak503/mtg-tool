@@ -3545,12 +3545,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // trigger: "copy that ability. You may choose new targets for the copy." (Illusionist's Bracers, Rings of
   // Brighthearth's "If you do" branch) / "copy it. You may choose new targets for the copy." (Rowan Kenrith's
   // emblem). ONE atom; the referent is the trigger context's activatedStackObjectId, never a chosen target. The
-  // "may choose new targets" is honoured as a decline (the copy keeps the original's targets — legal under
-  // "may"); a retargeting choice is a later arm.
+  // "may choose new targets" is honoured as a decline for every AI seat (the copy keeps the original's targets — legal
+  // under "may"); a person is asked (`newTargets`, CR 707.10c — atoms/stack placeCopyForPerson).
   {
     const ca = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
-    if (/^copy (?:that ability|it)(?:\. you may choose new targets for the copy)?$/.test(ca) && KNOWN.has("copy-activated-ability")) {
-      return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null }], xSpell: false, unparsedTail: null });
+    const cam = ca.match(/^copy (?:that ability|it)(\. you may choose new targets for the copy)?$/);
+    if (cam && KNOWN.has("copy-activated-ability")) {
+      // `newTargets` — the printed permission (CR 707.10c): a person is asked the copy's targets (atoms/stack placeCopyForPerson);
+      // every other seat keeps the original's, as before.
+      return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null, ...(cam[1] ? { newTargets: true } : {}) }], xSpell: false, unparsedTail: null });
     }
   }
   // ===== COPY TARGET ABILITY (SHELF-85 V6, 2026-09-04 — CR 707.10) ===== the CHOSEN-target twin of the arm above:
@@ -3558,14 +3561,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // Camera) / "Copy target triggered ability you control. …" (Strionic Resonator, Kirol, Attentive First-Year). ONE atom
   // whose target is a STACK OBJECT of the printed kind(s) controlled by the activator (targetType "abilityYouControl" →
   // spellEffects.addStackAbilities), resolved by the target-keyed copy resolver. "May choose new targets" is honoured as
-  // a decline exactly like the trigger-referent arm. An opponent's ability, a spell, or the bare "target ability" (no
+  // a decline for an AI seat and asked of a person, exactly like the trigger-referent arm. An opponent's ability, a spell, or the bare "target ability" (no
   // controller scope) never anchors here → LOW → Arbiter.
   {
     const ct = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
-    const cm = ct.match(/^copy target (activated or triggered|triggered) ability you control(?:\. you may choose new targets for the copy)?$/);
+    const cm = ct.match(/^copy target (activated or triggered|triggered) ability you control(\. you may choose new targets for the copy)?$/);
     if (cm && KNOWN.has("copy-ability")) {
       const abilityKinds = cm[1] === "triggered" ? ["triggered"] : ["activated", "triggered"];
-      return makeProgram({ confidence: "high", atoms: [{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds }], xSpell: false, unparsedTail: null });
+      // `newTargets` — the printed permission (CR 707.10c), asked of a person (atoms/stack placeCopyForPerson); every other seat keeps the original's.
+      return makeProgram({ confidence: "high", atoms: [{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds, ...(cm[2] ? { newTargets: true } : {}) }], xSpell: false, unparsedTail: null });
     }
   }
   // ===== GRANT FLASHBACK (CORPUS ④-G, 2026-09-03 — Snapcaster Mage / Stingcaster Mage, CR 702.34) ===== two

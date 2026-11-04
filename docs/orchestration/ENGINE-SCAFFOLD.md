@@ -464,6 +464,60 @@ the contract path) is the standing order. `resolveTopOfStack` does not refuse an
 the driver asks before anyone receives priority). Every AI seat, and every table with no person, never collects a
 `personAbilities` entry: byte-identical. Witness: `triggerOrderChoice.test.js`; panel `TriggerOrderPanel`.
 
+**Where a copy's new targets are chosen** (the `copy-targets` pause, 2026-11-04, CR 707.10c, 115.7d — "the player may leave any number of
+the targets unchanged, even if those targets would be illegal … the new targets must be legal and must not cause any unchanged targets to
+become illegal"; CR 115.3, 601.2c, 702.40a, 707.10). ONE site for every copy that may take new targets: `atoms/stack.placeCopyForPerson`,
+called as the copy is put on the stack by the storm copies (`applyCopySpell`, a targeted body), the self-copy (`applyCopySelfSpell` —
+Sevinne's Reclamation; Chain of Vapor's copy), the copy of another instant or sorcery with `newTargets` (`applyCopyInstantOrSorcery` —
+Reverberate, Twincast, Dualcaster Mage, Narset's Reversal) and a copied ability with `newTargets` (`applyCopyActivatedAbility` /
+`applyCopyTargetAbility` — Illusionist's Bracers, Rings of Brighthearth, Strionic Resonator …; the parser sets the flag only where the
+permission is printed). Deflecting Swat's "choose new targets for target spell or ability" asks a person through the same question
+(`applyRetarget` marks the object itself, `retarget` and `chooser`). Every AI seat keeps the house picks — `freshCopyTargets` (enemy side,
+then first legal; `sideOnly` for Chain of Vapor), `newTargetsForCopy` (keep or re-aim), a copied ability's kept targets, applyRetarget's
+deflection — and their order is unchanged. For a seat in `state.humanSeats` the question goes ONE TARGET AT A TIME
+(`targeting.newTargetPositions` / `newTargetCandidates` / `advanceNewTargets` — no product, no 64-row cap): each recorded target is a
+position, offering "keep" (the target as it stands, legal or not) and every legal object for its slot — the pool the CR 608.2b re-check
+rebuilds for it (`offeredTargetSlot`; an untagged storm target the program's first targeting atom), enumerated for the copy's controller
+(Swat: the object's controller) with its colours (`resolutionSource`), X and context, an opponent-bound slot (Grasp of Fate's `slotPlayer`)
+narrowed to that opponent, never the object itself. A value is offered only when the later positions can be completed (a keep-first
+search): distinct within one instance of "target" (CR 115.3), a pair atom's two objects distinct, and an atom's joint constraints (total
+mana value X or less, a single graveyard, a shared creature type, cards from the chosen player's graveyard — `atomTargetSetOk`) holding
+whenever one of its targets changed. Each constraint is monotone, so it is checked on the atom's targets chosen SO FAR at every position
+(the review's R2-F1 — checked only at the atom's last position, the search walked the whole product of the middle positions and its
+20,000-step bound dropped legal players and graveyards on ordinary 20-card graveyards, and filled a target unasked): a completion is found
+in about positions × pool steps (a few milliseconds a question on those boards, where the bounded search took most of a second). The bound stays as a backstop — a value it can't
+complete is not offered (an under-offer, never an illegal one), the raise logs `copy-targets-search-budget`, and `advanceNewTargets`
+never fills a position unasked when it was reached. So every legal final set is reachable, the mixed sets included, and nothing illegal
+is. A position with one legal value is filled unasked; a copy with no real
+choice anywhere keeps its targets (a house pick of null still removes it, CR 608.2b). Otherwise the object waits (`awaitingCopyTargets`:
+`positions`, `chosen`, `at`, the aligned house pick as `house`, `sourceName`, a storm copy's `copyNumber` / `copyCount`); the session
+driver raises the pause FIRST, before the trigger-order and trigger-target raises (`raiseCopyTargetsChoice` — the lowest waiting object,
+its current position), and `settleCopyTargetsChoice` recomputes the same list, fills the position and moves on; with the last answer a
+copy's targets are written where the house pick writes them, its wards recorded on every target (`withWardOwed`), and its targets'
+events run (`copyTargetEvents`); a Swat's object has its targets changed in place, a ward recorded and the events run only for the changed
+ones (the review's R2-F3; applyRetarget's house deflection runs them for the targets it did not already have). **One batch** (the review's
+R2-F2 — CR 603.3b, 101.4): while any stack object waits, `gameEngine.flushTriggers` puts nothing on the stack — the triggers the copying
+resolution queued (`checkCopyTriggers` — magecraft, "whenever you copy") wait with the copy — and learnSession `settleCopyTargets` flushes
+everything once nothing waits, so the resolution's triggers and the new targets' go on in APNAP order with one trigger-order question for
+the person's own (before, the first went on before the question, the second after it: an active player's trigger above a non-active
+player's, and a person's own triggers split into two batches). Each copy's offer is computed as it is made, so a
+storm copy may aim at an earlier copy, never a later one. `resolveTopOfStack` throws on a waiting object.
+
+**A copy's targets become its targets — every seat** (2026-11-04, CR 601.2c's last sentence, 707.10c; the review's F3).
+`atoms/stack.copyTargetEvents` runs at every site that puts a copy on the stack with targets — the house copy sites (storm, the self-copy,
+the instant or sorcery copy, "copy that spell", both ability copies), a person's copy placed unasked, and a person's last answer — with
+the copy's own id as the targeting object: `checkBecomesTargetTriggers` (Phantasmal Bear's sacrifice, valiant, the Glasskites' counter —
+queued for the next flush) and `applyKiraTargetCounter` (synchronous, as at the cast sites). Ward is not one of them: it is the copy's
+`wardOwed`, recorded once with the targets, so it stays asked exactly once per copy. **The self-copy's colours** (the review's F2 — CR 707.2,
+707.10): `selfCopySource` names the copied spell's colours — `ctx.spellColors` from `resolveOptionalChoice` (the resolving spell's card),
+or Chain of Vapor's `copyColors` (applyChainBounce stamps the resolving object's, `runEffectProgram` handing a chain-bounce atom
+`spellColors`) — so protection from blue refuses Chain of Vapor's copy in the offer and at its resolution, for every seat; a copy of the
+copy reads its own source's. **A copied activated ability's controller** (the review's F4 — CR 707.10, 603.3a, 301.5d): the copy trigger's
+controller (`ctx.controller` — Illusionist's and Battlemage's Bracers: the Equipment's, not the equipped creature's); Kurkesh and Rings of
+Brighthearth ("whenever you activate") are the same player as the original's. Not covered: a permanent-spell storm copy's Aura host
+(`params.targetId` — Amphibian Downpour stays parked), and the bare "copy target instant or sorcery spell" arm reached with its rider
+stripped (no credited card). Witness: `copyTargetChoice.test.js`; panel `CopyTargetsPanel`.
+
 **"Protection from the color of your choice" — chosen as it resolves** (`protectionChoice.js`, the `protection-color` pause,
 2026-10-20, CR 608.2d — a choice the effect offers is announced while applying the effect; the bundled Gods Willing ruling: "You
 choose the color as Gods Willing resolves"). Every grant of the kind is the one `grant-protection` atom with `colorChoice` (Giver's
@@ -671,7 +725,7 @@ ability `applyDiscardAbility` and the graveyard exile-cost ability `applyActivat
 `gameEngine.markWardOwed` (a triggered ability) and `atoms/stack.withWardOwed` (a copy, Misdirection's `moveStackTarget`, and now
 Deflecting Swat's `applyRetarget` and Hydroelectric Specimen's `applyRedirectToSource`). So Diffusion Sliver is no longer
 single-target, first-source, cast-and-activation-only, or crowded out when a ward took the choice slot first. **The copy picks**
-(`freshCopyTargets` — storm, the self-copy; `newTargetsForCopy` — "you may choose new targets for the copy") take, among the target
+(`freshCopyTargets` — storm, the self-copy; `newTargetsForCopy` — "you may choose new targets for the copy"; an AI seat's — a person is asked, the `copy-targets` pause above) take, among the target
 sets on the wanted side, the first whose ward the copier would pay or that has none (`copyKeepsTargets`: `targetTaxForStackObject`
 answered by `ward.canPayWardCost` — moved from runProgram, the AI's pay-if-able answer); kept targets on the wanted side are
 re-aimed only to such a set; when every set carries a ward it won't pay, the old pick stands. **Priority** after a ward or Diffusion

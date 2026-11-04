@@ -5,17 +5,17 @@
 
 import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here); + resolutionSource: a copy's own colours for its new-target pick (protection, CR 702.16b; colorless, CR 105.2c)
 import { graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice, setPendingCopyTargetsChoice, clearPendingChoice } from "../../pendingChoice.js"; // + the copy-targets pause (CR 707.10c — a person chooses a copy's new targets)
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
 import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider, sacrificePoolMatchNow } from "./removal.js"; // + sacrificePoolMatchNow (Chain of Vapor): a land as it is now, the edict pools' read
 import { applyTrickeryRider } from "./library.js"; // TIBALT'S TRICKERY (2026-11-02) — the countered spell's controller's mill and dig (library.js imports no stack atom)
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
-import { expandCastChoices, changeTargetAlternatives, atomForStackTarget } from "../targeting.js"; // + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
+import { expandCastChoices, changeTargetAlternatives, atomForStackTarget, newTargetPositions, newTargetCandidates, advanceNewTargets } from "../targeting.js"; // + the per-position "choose new targets" question (CR 115.7d, 707.10c — a person's copy, Deflecting Swat). + CHANGE THE TARGET (shelf D14) — the other legal targets for a stack object's one target; STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c); + atomForStackTarget: the atom a copy's recorded target belongs to (its new-target pick). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { atomTargetIntent } from "../programQueries.js"; // the side a copy's target slot wants (its new-target pick, CR 707.10c). A leaf (imports only targetTypes) — the one intent table, not a second mirror
 import { spellMatchesCounterFilter, stackSpellManaValue } from "../../spellOnStack.js"; // THE read of a spell on the stack — its mana value (CR 202.3) and a counter's filter, shared with the enumeration (spellEffects) and the cast watchers (triggers). A zero-import leaf — cycle-free
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
-import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
+import { checkCopyTriggers, checkBecomesTargetTriggers } from "../../triggers.js"; // + checkBecomesTargetTriggers: a copy's targets become its targets (copyTargetEvents, CR 601.2c). MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
 import { stackSpellIsUncounterable } from "../../staticAbilityParser.js"; // the shared CR 701.6a predicate for the untargeted counter (the Glasskites)
@@ -23,6 +23,8 @@ import { protectionApplies } from "../../protection.js"; // ATTACH-ON-ENTER EQUI
 import { auraMayEnchantCreature } from "../../auraHost.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move — the shared reader (a leaf; zones.js reads it too)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 import { RESOLVER_KEYS } from "../../resolverKeys.js"; // P·23 — the self-copy builds a fresh effect-program payload (a zero-import leaf; resolvers.js re-exports it)
+import { applyKiraTargetCounter } from "../../kiraTargetCounter.js"; // Kira's counter on a copy's targets (copyTargetEvents). kiraTargetCounter imports counterIfCounterable from this file: a runtime-only cycle — each side calls the other only inside functions, never at module evaluation
+import { seatIsHuman } from "../../auraEntry.js"; // who is a person (state.humanSeats) — whose copies' new targets are theirs to choose (CR 707.10c). auraEntry's closure (gameState, staticAbilityParser, layers, faceUp, protection, creatureRestrictions, controlAura, auraPrintedSide) never reaches atoms/stack — no cycle
 import { targetTaxForStackObject, canPayWardCost } from "../../ward.js"; // WARD ON A CHANGED TARGET OR A COPY (withWardOwed, CR 702.21a), and the copy-target picks' "would its controller pay" (canPayWardCost). ward.js reaches gameState, layers, faceUp, groupWard and manaModel — none reaches atoms/stack — so this edge adds no cycle
 
 /**
@@ -1759,7 +1761,8 @@ export function spellCopyPayload(payload) {
  * off the LIVE state `s`: prefer all-enemy-side (per copyAtomIntent) — among those, the first whose ward and Diffusion Sliver
  * triggers its controller would pay or that has none (copyKeepsTargets; 2026-10-21 — before, a copy went at a ward permanent its
  * controller couldn't pay for while another enemy target was free of it, and was countered for nothing) — else first legal, else the
- * original spell's targets (the CR 707.10c default). Shared by the storm copies and the self-copy (P·23).
+ * original spell's targets (the CR 707.10c default). Shared by the storm copies and the self-copy (P·23). The pick every AI seat takes; a
+ * seat a person plays chooses instead, and this pick is only the suggestion (placeCopyForPerson, below).
  * Whether ANY atom in the body takes a chosen target drives the re-enumeration: a targeting atom OR carried original targets
  * both signal a targeted spell; a non-targeted body (no targeting atom, no original targets) gets empty targets
  * (byte-identical to the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm). Returns null
@@ -1795,7 +1798,8 @@ function freshCopyTargets(s, controller, bodyProgram, originalTargets, { sideOnl
  * NEW TARGETS FOR A COPY OF ANOTHER SPELL (CR 707.10c) — "You may choose new targets for the copy": the copy's controller
  * may leave any number of targets unchanged, and a changed target must be legal. `copyObj` is the copy as it will go on the
  * stack (the copier's — CR 707.10), still carrying the original's targets. The house policy (the choice is a player's; the
- * engine's default takes it the way the storm copies' pick does):
+ * engine's default takes it the way the storm copies' pick does — for every AI seat; a seat a person plays chooses instead, this pick
+ * the suggestion, placeCopyForPerson below):
  *  - KEEP every target when each already sits where its slot's effect wants it for the copier (atomTargetIntent: a harmful
  *    slot on another player's side, a beneficial one on the copier's own; a slot with no decided side is never a reason to
  *    move), or when the copy carries no effect program to re-enumerate (declining is always legal).
@@ -1874,6 +1878,203 @@ function copyKeepsTargets(state, controller, targets, uncounterable = false) {
 }
 
 /**
+ * ===== A COPY'S NEW TARGETS, CHOSEN BY A PERSON (CR 707.10c, 115.7d) ===== "Some effects copy a spell or ability and state that its controller
+ * may choose new targets for the copy. The player may leave any number of the targets unchanged, even if those targets would be illegal.
+ * If the player chooses to change some or all of the targets, the new targets must be legal. Once the player has decided what the copy's
+ * targets will be, the copy is put onto the stack with those targets." The copy's controller is the player who put it on the stack
+ * (CR 707.10). The picks above — freshCopyTargets (the storm copies, CR 702.40a, and the self-copy), newTargetsForCopy (a copy of another
+ * spell) and a copied ability's kept targets — are the choice every AI seat makes. A seat a person plays (state.humanSeats) is asked
+ * instead, as the copy is put on the stack: `placeCopyForPerson`, the one site every copy that may take new targets goes through
+ * (applyCopySpell, applyCopySelfSpell — Sevinne's Reclamation, Chain of Vapor —, applyCopyInstantOrSorcery with `newTargets`,
+ * applyCopyActivatedAbility and applyCopyTargetAbility with `newTargets`); Deflecting Swat's "choose new targets for target spell or
+ * ability" asks a person through the same question (applyRetarget — `retarget`).
+ *
+ * ONE TARGET AT A TIME (the review's F1 — targeting.newTargetPositions / newTargetCandidates, the pw26 per-opponent pattern): each recorded
+ * target is a position, asked in order, offering "keep" — the target as it stands, legal or not — and every legal object for that slot, a
+ * value offered only when the later positions can still be completed legally (CR 115.3 distinctness, a pair atom's two objects, an atom's
+ * joint constraints — CR 115.7d's "must not cause any unchanged targets to become illegal"). No product and no cap: every legal final set
+ * is reachable, the mixed "keep this one, change that one" sets included, and nothing illegal is. A position with one legal value is filled
+ * unasked; a copy with no real choice at any position keeps its targets, or is removed when the house pick finds no legal target at all —
+ * exactly as for every other seat. Otherwise the copy goes on the stack with the targets it copied and `awaitingCopyTargets` (`positions`,
+ * `chosen`, `at`, the house pick aligned to the positions as `house`, `sourceName`, a storm copy's `copyNumber` / `copyCount`), and the
+ * session driver asks before anyone receives priority (raiseCopyTargetsChoice → the `copy-targets` pause → settleCopyTargetsChoice), the
+ * lowest waiting copy first — the order the copies were put on the stack — one position per question. With the last answer the copy's
+ * targets are written, its wards recorded (withWardOwed, CR 702.21a) and its targets become its targets (copyTargetEvents). Every AI seat,
+ * and every table with no person at it (Expert, self-play), never comes here.
+ */
+
+/**
+ * A COPY'S TARGETS BECOME ITS TARGETS (the review's F3 — CR 601.2c, last sentence; 707.10c): the copy is a new spell or ability put on the
+ * stack with those targets, kept or new, so each permanent it targets becomes the target of it — the same events every target-choice site
+ * runs (settleTriggerTargetChoice): the becomes-the-target triggers (Phantasmal Bear, valiant, the Glasskites — queued for the next flush,
+ * with the copy's own id as the targeting object), and Kira, Great Glass-Spinner's counter (kiraTargetCounter — synchronous, as at every
+ * site). Ward is not one of them: it is the copy's `wardOwed` (withWardOwed), recorded once with the targets. Run at every copy site that
+ * gives a copy targets, for every seat.
+ */
+function copyTargetEvents(state, copyObj) {
+  if (!(copyObj?.targets || []).length) return state;
+  const next = checkBecomesTargetTriggers(state, copyObj);
+  return applyKiraTargetCounter(next, copyObj);
+}
+
+/** A copy just put on the stack with its targets runs their events now; one still waiting for them runs them with the last answer. */
+const afterCopyPlaced = (state, copyObj) => (copyObj?.awaitingCopyTargets ? state : copyTargetEvents(state, copyObj));
+
+const copyWithTargets = (obj, targets) => ({ ...obj, ...(Array.isArray(obj.targets) || !obj.payload ? { targets } : {}), payload: { ...obj.payload, params: { ...(obj.payload?.params || {}), targets } } });
+const sameTarget = (a, b) => (a?.type ?? null) === (b?.type ?? null) && (a?.id ?? null) === (b?.id ?? null);
+
+/** The house pick, position by position, when it fills the same positions (the suggestion a pilot's fallback takes); else null. */
+function houseByPosition(positions, house) {
+  if (!Array.isArray(house) || house.length !== positions.length) return null;
+  const group = (t) => `${t.atomIndex ?? "legacy"}|${t.role ?? ""}|${t.slotPlayer ?? ""}`;
+  return house.every((t, j) => group(t) === positions[j].group) ? house : null;
+}
+
+/**
+ * Put a person's copy on the stack (the one shared site — see above). `copyObj` carries the targets it copied; `house` is the house pick
+ * (null: no legal target — the copy is removed); `meta` `{ sourceName, copyNumber?, copyCount? }` names it for the question. Returns
+ * `{ state, copyObj }` with the copy on top of the stack — waiting for its targets, or with them — or `{ state, removed: true }` (the state
+ * unchanged). The caller runs the copy triggers, then afterCopyPlaced (its targets' events, unless it waits — the answer runs them).
+ */
+function placeCopyForPerson(state, copyObj, house, meta = {}) {
+  const positions = newTargetPositions(state, copyObj, copyObj.controller);
+  if (!positions) {
+    if (house === null) return { state, removed: true };
+    const placed = withWardOwed(state, { ...copyWithTargets(copyObj, house), isCopy: true }); // its targets' wards (CR 702.21a)
+    return { state: { ...state, stack: [...state.stack, placed] }, copyObj: placed };
+  }
+  const ask = advanceNewTargets(state, copyObj, { positions, chosen: [], at: 0 });
+  if (ask.done) {
+    const placed = withWardOwed(state, { ...copyWithTargets(copyObj, ask.chosen), isCopy: true });
+    return { state: { ...state, stack: [...state.stack, placed] }, copyObj: placed };
+  }
+  const { wardOwed: _owed, ...base } = copyObj; // a copied ability's record of its original's ward is the original's, never the copy's
+  const waiting = {
+    ...base,
+    isCopy: true,
+    awaitingCopyTargets: {
+      positions,
+      chosen: ask.chosen,
+      at: ask.at,
+      ...(houseByPosition(positions, house) ? { house } : {}),
+      sourceName: meta.sourceName ?? null,
+      ...(meta.copyCount != null ? { copyNumber: meta.copyNumber, copyCount: meta.copyCount } : {}),
+    },
+  };
+  return { state: { ...state, stack: [...state.stack, waiting] }, copyObj: waiting };
+}
+
+/** A target as the panel reads it: id, kind, name and controller (a player's is the player). A face-down permanent's name never shows (CR 708.2). */
+function copyTargetView(state, t) {
+  if (t.type === "player") return { id: t.id, type: t.type, name: t.name ?? null, controller: t.id };
+  const perm = findPermanent(state, t.id)?.permanent;
+  const onStack = perm ? null : (state.stack || []).find((o) => o.id === t.id);
+  const name = perm?.faceDown ? "Face-down creature" : t.name ?? perm?.card?.name ?? onStack?.source?.name ?? null;
+  return { id: t.id, type: t.type, name, controller: t.controller ?? perm?.controller ?? onStack?.controller ?? null };
+}
+
+/** The question at the waiting object's current position: its legal values (keep first when still legal), the house pick's index among them, and whether the search hit its backstop budget. */
+function currentCopyQuestion(state, obj) {
+  const ask = obj.awaitingCopyTargets;
+  const { cands, budgetHit } = newTargetCandidates(state, obj, ask.positions, ask.chosen, ask.at);
+  const houseAt = ask.house?.[ask.at];
+  const suggested = houseAt ? cands.findIndex((c) => sameTarget(c.target, houseAt)) : -1;
+  return { cands, suggested: Math.max(0, suggested), budgetHit };
+}
+
+/**
+ * THE COPY-TARGETS PAUSE (CR 707.10c, 115.7d) — raise the question for the lowest object on the stack still waiting for its new targets
+ * (placeCopyForPerson's or applyRetarget's `awaitingCopyTargets`, a person's seat only), one position at a time. The session driver calls
+ * this before anyone receives priority, and before the trigger-order and trigger-target raises: copies are put on the stack as the spell or
+ * ability that makes them resolves, so they are below every triggered ability that resolution triggered. The asked seat is the copy's
+ * controller, or Deflecting Swat's (`chooser`). Returns the same state when a choice is already pending or nothing waits (every game with no
+ * person at it, always).
+ */
+export function raiseCopyTargetsChoice(state) {
+  if (state.pendingChoice) return state;
+  const obj = (state.stack || []).find((o) => o.awaitingCopyTargets);
+  if (!obj) return state;
+  const ask = obj.awaitingCopyTargets;
+  const { cands, suggested, budgetHit } = currentCopyQuestion(state, obj);
+  // The search's backstop (the review's R2-F1): a value whose completion wasn't found within the bound is not offered — logged, never silent.
+  const logged = budgetHit ? logEvent(state, { kind: "copy-targets-search-budget", stackObjectId: obj.id, slot: ask.at + 1, offered: cands.length }) : state;
+  return setPendingCopyTargetsChoice(logged, {
+    controller: ask.chooser ?? obj.controller,
+    stackObjectId: obj.id,
+    spellName: obj.source?.name ?? null,
+    sourceName: ask.sourceName ?? null,
+    objectKind: obj.kind === "spell" ? "spell" : "ability",
+    copyNumber: ask.copyNumber ?? null,
+    copyCount: ask.copyCount ?? null,
+    slotNumber: ask.at + 1,
+    slotCount: ask.positions.length,
+    retarget: !!ask.retarget,
+    candidates: cands.map((c, i) => ({ id: String(i), ...(c.keep ? { keep: true } : {}), targets: [copyTargetView(state, c.target)] })),
+    suggestedId: String(suggested),
+  });
+}
+
+/**
+ * Settle the copy-targets pause with the person's answer — `candidateId`, a value's index in the current position's list (recomputed here
+ * from the waiting record, so the answer is judged on the same list the question showed). The value fills the position; positions with a
+ * single legal value after it are filled unasked; with positions left the object keeps waiting and the driver asks the next. With the last:
+ *   · a copy — the chosen targets are written where the house pick writes them (`targets`, `payload.params.targets`), its wards recorded
+ *     (withWardOwed, CR 702.21a — asked by the driver once nothing waits, raiseWardOwed) and its targets become its targets (copyTargetEvents —
+ *     the becomes-the-target triggers are queued; the driver flushes them once nothing waits);
+ *   · Deflecting Swat's object (`retarget`) — its targets are changed in place, a ward recorded only for the targets that changed (the
+ *     unchanged ones were already its targets), as applyRetarget's house pick does.
+ * An answer that is no candidate decides nothing: the question stands. An object no longer on the stack (its controller left the game,
+ * CR 800.4a) has nothing to choose. Pure.
+ */
+export function settleCopyTargetsChoice(state, candidateId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "copy-targets") return state;
+  const at = (state.stack || []).findIndex((o) => o.id === pc.stackObjectId && o.awaitingCopyTargets);
+  if (at < 0) return logEvent(clearPendingChoice(state), { kind: "copy-targets-gone", stackObjectId: pc.stackObjectId ?? null, controller: pc.controller ?? null });
+  const obj = state.stack[at];
+  const ask = obj.awaitingCopyTargets;
+  const { cands } = currentCopyQuestion(state, obj);
+  const choice = typeof candidateId === "string" && /^\d+$/.test(candidateId) ? cands[Number(candidateId)] : undefined;
+  if (!choice) return state;
+  const cleared = clearPendingChoice(state);
+  const advanced = advanceNewTargets(cleared, obj, { ...ask, chosen: [...ask.chosen, choice.target], at: ask.at + 1 });
+  if (!advanced.done) {
+    const { done: _d, ...rest } = advanced;
+    const waiting = { ...obj, awaitingCopyTargets: rest };
+    return logEvent({ ...cleared, stack: cleared.stack.map((o, i) => (i === at ? waiting : o)) },
+      { kind: "copy-targets-slot-chosen", controller: pc.controller, objectId: obj.id, slot: ask.at + 1, target: choice.target.id, kept: !!choice.keep });
+  }
+  const { awaitingCopyTargets: _answered, ...bare } = obj;
+  const targets = advanced.chosen;
+  if (ask.retarget) {
+    const before = obj.payload?.params?.targets || obj.targets || [];
+    const changed = targets.filter((t, i) => !sameTarget(t, before[i]));
+    const placed = changed.length ? withWardOwed(cleared, copyWithTargets(bare, targets), changed) : copyWithTargets(bare, targets);
+    let next = { ...cleared, stack: cleared.stack.map((o, i) => (i === at ? placed : o)) };
+    // The changed targets become its targets (the review's R2-F3 — CR 601.2c, 115.7d): their becomes-the-target triggers and Kira's counter,
+    // the same events a copy's targets run; the unchanged ones were already its targets.
+    if (changed.length) next = copyTargetEvents(next, { ...placed, targets: changed });
+    return logEvent(next, changed.length
+      ? { kind: "spell-effect", effect: "retarget", targetId: obj.id, cardName: obj.source?.name || null, controller: pc.controller, from: before.map((x) => x.name || x.id), to: targets.map((x) => x.name || x.id) }
+      : { kind: "spell-effect", effect: "retarget-decline", targetId: obj.id, reason: "kept", controller: pc.controller });
+  }
+  const placed = withWardOwed(cleared, copyWithTargets(bare, targets));
+  let next = { ...cleared, stack: cleared.stack.map((o, i) => (i === at ? placed : o)) };
+  next = logEvent(next, { kind: "copy-targets-chosen", controller: obj.controller, copyId: obj.id, cardName: obj.source?.name ?? null, targets: targets.map((t) => t.id), kept: targets.every((t, i) => sameTarget(t, ask.positions[i].keep)) });
+  return copyTargetEvents(next, placed);
+}
+
+/**
+ * The automatic answer to a copy-targets pause — the contract's settle-in-one-tick path (a pause the driver doesn't hold for a person):
+ * the house pick's value at this position, the choice an AI seat makes (its index; "keep" when the house pick is none of them). Null when
+ * nothing waits.
+ */
+export function autoPickCopyTargets(state, pc) {
+  const obj = (state.stack || []).find((o) => o.id === pc?.stackObjectId && o.awaitingCopyTargets);
+  return obj ? String(currentCopyQuestion(state, obj).suggested) : null;
+}
+
+/**
  * ===== SELF-COPY (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "you may copy this spell and may choose a
  * new target for the copy": the resolving spell puts ONE copy of itself on the stack (CR 707.10), above anything below it.
  * The copy's program is `atom.body` — the effect the parser bound. The printed copy also carries the copy sentence, but a
@@ -1885,17 +2086,56 @@ function copyKeepsTargets(state, controller, targets, uncounterable = false) {
  */
 function applyCopySelfSpell(state, atom, ctx) {
   const bodyProgram = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: atom.body || [], modal: null, xSpell: false, unparsedTail: null };
+  if (seatIsHuman(state, ctx.controller)) return copySelfSpellForPerson(state, atom, ctx, bodyProgram);
   const targets = freshCopyTargets(state, ctx.controller, bodyProgram, ctx.targets || [], { sideOnly: !!atom.sideOnly });
   if (targets === null) {
     return logEvent(state, { kind: "spell-effect", effect: "self-copy-removed", controller: ctx.controller, cardName: ctx.cardName, reason: "no legal target" });
   }
   const { id, state: s2 } = mintId(state, "stk");
-  const sourceCard = { name: ctx.cardName, type: atom.spellType, token: true, isCopy: true };
+  const sourceCard = selfCopySource(atom, ctx);
   const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: bodyProgram, controller: ctx.controller, targets } };
   const copyObj = createStackObject({ id, kind: "spell", source: sourceCard, controller: ctx.controller, targets, payload });
-  let next = { ...s2, stack: [...s2.stack, withWardOwed(s2, { ...copyObj, isCopy: true })] }; // its targets' wards (CR 702.21a, 707.10c)
+  const placed = withWardOwed(s2, { ...copyObj, isCopy: true }); // its targets' wards (CR 702.21a, 707.10c)
+  let next = { ...s2, stack: [...s2.stack, placed] };
   next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
+  next = copyTargetEvents(next, placed); // its targets become its targets (CR 601.2c — the review's F3)
   return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: targets.map((t) => t.id) });
+}
+
+/**
+ * The self-copy's source: the spell it copies — its name and type, and its COLOURS (the review's F2 — CR 707.2, 707.10: a copy copies the
+ * spell's characteristics, so protection from them refuses the copy's target, CR 702.16b, in the offer and at its resolution, CR 608.2b).
+ * The colours ride `atom.copyColors` (Chain of Vapor's copy, made as the sacrifice settles — applyChainBounce stamps them) or
+ * `ctx.spellColors` (resolveOptionalChoice — the resolving spell's card); a copy of the copy reads its own source's. Neither known → none
+ * named (read as unknown, never as colourless).
+ */
+function selfCopySource(atom, ctx) {
+  const colors = Array.isArray(atom.copyColors) ? atom.copyColors : Array.isArray(ctx.spellColors) ? ctx.spellColors : null;
+  return { name: ctx.cardName, type: atom.spellType, ...(colors ? { colors: [...colors] } : {}), token: true, isCopy: true };
+}
+
+/**
+ * The self-copy for a seat a person plays (placeCopyForPerson): the copy copies the spell's targets — the resolving spell's
+ * (`ctx.spellTargets`, those of the atoms the copy's body holds), or `atom.copiedTargets` where the copy is made outside it (Chain of
+ * Vapor's copy, made as the sacrifice is settled) — and its controller keeps them or chooses any other legal target for the same slot
+ * (CR 707.10c), its own permanents included: "may choose a new target" is theirs, so no side is preferred for them. The house pick (freshCopyTargets — with `sideOnly`, none off the wanted side) is the
+ * suggestion, and with no legal target at all the copy is removed, as for every seat.
+ */
+function copySelfSpellForPerson(state, atom, ctx, bodyProgram) {
+  const bodyLength = (atom.body || []).length;
+  const copied = atom.copiedTargets || (ctx.spellTargets || ctx.targets || []).filter((t) => typeof t?.atomIndex !== "number" || t.atomIndex < bodyLength);
+  const house = freshCopyTargets(state, ctx.controller, bodyProgram, ctx.targets || [], { sideOnly: !!atom.sideOnly });
+  const { id, state: s2 } = mintId(state, "stk");
+  const sourceCard = selfCopySource(atom, ctx);
+  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: bodyProgram, controller: ctx.controller, targets: copied } };
+  const copyObj = createStackObject({ id, kind: "spell", source: sourceCard, controller: ctx.controller, targets: copied, payload });
+  const placed = placeCopyForPerson(s2, copyObj, house, { sourceName: ctx.cardName ?? null });
+  if (placed.removed) {
+    return logEvent(state, { kind: "spell-effect", effect: "self-copy-removed", controller: ctx.controller, cardName: ctx.cardName, reason: "no legal target" });
+  }
+  const next = afterCopyPlaced(checkCopyTriggers(placed.state, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj: placed.copyObj }), placed.copyObj);
+  const asking = !!placed.copyObj.awaitingCopyTargets;
+  return logEvent(next, { kind: "spell-effect", effect: "self-copy", controller: ctx.controller, cardName: ctx.cardName, targets: asking ? null : placed.copyObj.targets.map((t) => t.id), ...(asking ? { asking: true } : {}) });
 }
 
 /**
@@ -1907,10 +2147,11 @@ function applyCopySelfSpell(state, atom, ctx) {
  * chooses: one of their lands (each listed — the optional-sac pause's chosen form; a land as it is now, layers.permanentHasTypeWord, so
  * an animated land is one) or none — no land, no question. A sacrificed land puts ONE copy of this spell on the stack under that
  * player's control (CR 707.10; stack.applyCopySelfSpell, the self-copy every spell's "copy this spell" shares) whose body is this same
- * atom, so the copy can chain again; its new target is the copy picker's (the house policy for every seat, as for Sevinne's Reclamation
+ * atom, so the copy can chain again; for an AI seat its new target is the copy picker's (the house policy, as for Sevinne's Reclamation
  * and the storm copies — CR 707.10c lets its controller choose) and only ever a nonland permanent of another player's: with none, that
- * player isn't asked at all (no copy could do them good — the house never aims it at their own). The copy's "may" is folded into the
- * sacrifice: the land is sacrificed only to copy. Returns { atom } | null.
+ * player isn't asked at all (no copy could do them good — the house never aims it at their own). A person chooses the copy's target
+ * among every legal one, their own included (placeCopyForPerson), so they are asked the land question whenever the copy would have any
+ * legal target. The copy's "may" is folded into the sacrifice: the land is sacrificed only to copy. Returns { atom } | null.
  */
 export function matchChainBounceLandCopy(oracle, cardType) {
   const s = String(oracle || "").trim().toLowerCase().replace(/[’]/g, "'");
@@ -1929,9 +2170,13 @@ function applyChainBounce(state, atom, ctx) {
   // side for the copier — and with none there is nothing a sacrifice could buy (its other targets would be the copier's own, which the
   // house never takes for them, CR 707.10c), so there is no question. A land sacrificed doesn't change that set (it is no nonland
   // permanent), and the copy re-picks on the same side with no fallback (`sideOnly`).
-  const copyAtom = { op: "copy-self-spell", body: [atom], spellType: atom.spellType, sideOnly: true, targetType: null };
+  // A PERSON (placeCopyForPerson, CR 707.10c): the copy's new target is theirs to choose among every legal one, their own nonland
+  // permanents included, so they are asked the land question whenever the copy would have any legal target; the copy carries the
+  // bounced permanent as the target it copied (`copiedTargets` — the sacrifice is settled outside this spell's resolution context).
+  const person = seatIsHuman(next, chooser);
+  const copyAtom = { op: "copy-self-spell", body: [atom], spellType: atom.spellType, sideOnly: true, targetType: null, ...(person ? { copiedTargets: [t] } : {}), ...(Array.isArray(ctx.spellColors) ? { copyColors: ctx.spellColors } : {}) }; // + the spell's colours (selfCopySource — the review's F2)
   const copyProgram = { version: 1, source: "parser", confidence: "high", structure: "sequence", atoms: copyAtom.body, modal: null, xSpell: false, unparsedTail: null };
-  if (freshCopyTargets(next, chooser, copyProgram, [], { sideOnly: true }) == null) {
+  if (freshCopyTargets(next, chooser, copyProgram, [], { sideOnly: !person }) == null) {
     return logEvent(next, { kind: "spell-effect", effect: "chain-rider", controller: chooser, sourceName: ctx.cardName || null, reason: "no target for a copy" });
   }
   const candidates = (next.players[chooser].battlefield || []).filter((p) => sacrificePoolMatchNow("land", next, p))
@@ -2037,7 +2282,32 @@ function applyCopySpell(state, atom, ctx) {
 
   let next = state;
   let made = 0;
+  // A PERSON CHOOSES EACH COPY'S TARGETS (placeCopyForPerson, CR 702.40a, 707.10c — the rulings: "You can make different choices for
+  // each copy"): a targeted body's copy copies the spell's targets and is put on the stack waiting for its controller's choice, one
+  // question per copy in the order they are put on the stack; the house pick (pickCopyTargets) is the suggestion. A copy of an
+  // untargeted body asks nothing.
+  const personAsks = seatIsHuman(state, ctx.controller) && ((bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0);
   for (let i = 0; i < n; i++) {
+    if (personAsks) {
+      const house = pickCopyTargets(next);
+      const { id, state: s2 } = mintId(next, "stk");
+      const clonedPayload = spellCopyPayload(sourcePayload);
+      clonedPayload.params.targets = originalTargets; // the copy copies the spell's targets (CR 707.10)
+      // The copy's colours are the spell's (CR 707.2, 707.10 — a copy copies its characteristics): the storm context names only the
+      // spell's name and type, so they are read off the card its payload will put in the graveyard. Protection from them refuses a
+      // target in the offer (CR 702.16b) and at the copy's own resolution (CR 608.2b).
+      const spellCard = sourcePayload?.params?.spellToGraveyard?.card;
+      const copySource = { ...sourceCard, ...(spellCard ? { colors: resolutionSource(next, { kind: "spell", source: spellCard }).colors } : {}), token: true, isCopy: true }; // the card's colours as a spell's are read (characteristicColors)
+      const copyObj = createStackObject({ id, kind: "spell", source: copySource, controller: ctx.controller, targets: originalTargets, payload: clonedPayload });
+      const placed = placeCopyForPerson(s2, copyObj, house, { sourceName: sourceCard?.name ?? null, copyNumber: i + 1, copyCount: n });
+      if (placed.removed) {
+        next = logEvent(next, { kind: "spell-effect", effect: "storm-copy-removed", controller: ctx.controller, cardName: sourceCard?.name, reason: "no legal target" });
+        continue;
+      }
+      made++;
+      next = afterCopyPlaced(checkCopyTriggers(placed.state, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj: placed.copyObj }), placed.copyObj);
+      continue;
+    }
     // Re-enumerate against `next` so each copy sees the prior copies (they're on the stack but not yet resolved —
     // the board is unchanged, so each copy independently re-derives the same enemy-side legal set; deterministic).
     const copyTargets = pickCopyTargets(next);
@@ -2062,7 +2332,8 @@ function applyCopySpell(state, atom, ctx) {
       targets: copyTargets, // the copy's chosen targets (empty for a non-targeted body)
       payload: clonedPayload,
     });
-    next = { ...next, stack: [...next.stack, withWardOwed(next, { ...copyObj, isCopy: true })] }; // each copy's targets' wards (CR 702.21a, 707.10c)
+    const placedCopy = withWardOwed(next, { ...copyObj, isCopy: true }); // each copy's targets' wards (CR 702.21a, 707.10c)
+    next = { ...next, stack: [...next.stack, placedCopy] };
     made++;
     // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10) — each copy of an instant/sorcery is a distinct "copy" event, so
     // a magecraft "cast or copy" watcher fires ONCE PER COPY (CR ruling: storm making N copies triggers magecraft N
@@ -2070,6 +2341,7 @@ function applyCopySpell(state, atom, ctx) {
     // fire — a plain "whenever you cast" never does (a copy is not a cast). sourceCard carries the storm spell's
     // type, so the instantSorcery filter is satisfied for the always-instant/sorcery storm spell.
     next = checkCopyTriggers(next, { copiedSpellCard: sourceCard, controllerId: ctx.controller, copyObj });
+    next = copyTargetEvents(next, placedCopy); // its targets become its targets (CR 601.2c — the review's F3)
   }
   return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
 }
@@ -2214,12 +2486,23 @@ function applyCopyInstantOrSorcery(state, atom, ctx) {
     const clonedPayload = spellCopyPayload(targetObj.payload); // no disposition: the copy never puts the original's card in a graveyard
     clonedPayload.params.controller = ctx.controller; // you control the copy (CR 707.10)
     let copyObj = createStackObject({ id: minted.id, kind: "spell", source: targetObj.source, controller: ctx.controller, targets: targetObj.targets || [], payload: clonedPayload });
+    if (atom.newTargets && seatIsHuman(minted.state, ctx.controller)) {
+      // A PERSON CHOOSES (placeCopyForPerson, CR 707.10c): keep the copied targets or any other legal set for the same slots; the house
+      // pick (newTargetsForCopy) is the suggestion. It never removes the copy — with no other set the copied targets stand.
+      const house = newTargetsForCopy(minted.state, ctx.controller, copyObj, atom.returnOriginal ? targetObj.id : null);
+      const placed = placeCopyForPerson(minted.state, copyObj, house, { sourceName: ctx.cardName ?? null });
+      next = afterCopyPlaced(checkCopyTriggers(placed.state, { copiedSpellCard: targetObj.source, controllerId: ctx.controller, copyObj: placed.copyObj }), placed.copyObj);
+      if (atom.returnOriginal) next = counterSpellById(next, targetObj.id, { via: "return-to-hand", counterDest: "hand" });
+      return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: 1, cardName: targetObj.source?.name, ...(placed.copyObj.awaitingCopyTargets ? { asking: true } : {}) });
+    }
     if (atom.newTargets) {
       const targets = newTargetsForCopy(minted.state, ctx.controller, copyObj, atom.returnOriginal ? targetObj.id : null);
       copyObj = { ...copyObj, targets, payload: { ...clonedPayload, params: { ...clonedPayload.params, targets } } };
     }
-    next = { ...minted.state, stack: [...minted.state.stack, withWardOwed(minted.state, { ...copyObj, isCopy: true })] }; // its targets' wards, new or kept (CR 702.21a, 707.10c)
+    const placedCopy = withWardOwed(minted.state, { ...copyObj, isCopy: true }); // its targets' wards, new or kept (CR 702.21a, 707.10c)
+    next = { ...minted.state, stack: [...minted.state.stack, placedCopy] };
     next = checkCopyTriggers(next, { copiedSpellCard: targetObj.source, controllerId: ctx.controller, copyObj });
+    next = copyTargetEvents(next, placedCopy); // its targets become its targets (CR 601.2c — the review's F3)
   }
   if (atom.returnOriginal) next = counterSpellById(next, targetObj.id, { via: "return-to-hand", counterDest: "hand" });
   return logEvent(next, { kind: "spell-effect", effect: "copy-instant-or-sorcery", controller: ctx.controller, count: copyable ? 1 : 0, cardName: targetObj.source?.name });
@@ -2261,6 +2544,7 @@ function applyCopyCastSpell(state, atom, ctx) {
   }
   let next = { ...s2, stack: [...s2.stack, copyObj] };
   next = checkCopyTriggers(next, { copiedSpellCard: copiedCard, controllerId: ctx.controller, copyObj });
+  next = copyTargetEvents(next, copyObj); // its targets become its targets (CR 601.2c — the review's F3)
   return logEvent(next, { kind: "spell-effect", effect: "copy-cast-spell", controller: ctx.controller, count: 1, cardName: obj.source?.name || null, token: permanentSpell, fromLastKnown: !live });
 }
 
@@ -2397,6 +2681,10 @@ function applyBounceSpellOrPermanent(state, atom, ctx) {
  * controller's perspective (target legality — protection, hexproof, "can't be the target" — is judged
  * for the spell, not for Swat's controller; only the CHOICE among legal combos belongs to Swat's caster).
  *
+ * A PERSON chooses (the copy-targets fix, the review's F6 — CR 115.7d): Swat's caster, a seat in state.humanSeats, is asked the object's
+ * targets one at a time — keep, or any legal object for that target — whoever the object is aimed at (the copy-targets pause with
+ * `retarget`, the question a person's copy asks). The house policy below is every AI seat's.
+ *
  * The deterministic house policy (documented like the auto-pick policies, riot discipline):
  *   - DECLINE (keep every target, CR 115.7d — always legal for a printed "may") when the object's
  *     current targets don't touch the retargeter (nothing to deflect), when the object carries no
@@ -2431,6 +2719,24 @@ function applyRetarget(state, atom, ctx) {
       next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: !program ? "no-program" : "no-targets" });
       continue;
     }
+    // A PERSON CHOOSES (the review's F6 — CR 115.7d: "the player may leave any number of the targets unchanged … the new targets must be
+    // legal and must not cause any unchanged targets to become illegal"): the person casting the retarget is asked the object's targets one
+    // at a time, the same question a person's copy asks (targeting.newTargetPositions — keep, or any legal object for that target, as the
+    // object's controller would target it, with its colours), whoever it is aimed at. The object stays where it is, waiting
+    // (`awaitingCopyTargets` with `retarget` and the `chooser`), and the driver asks before anyone receives priority; the answer changes
+    // its targets (settleCopyTargetsChoice). Nothing to change → nothing asked. Every AI seat keeps the house policy below.
+    if (seatIsHuman(next, me)) {
+      const positions = newTargetPositions(next, obj, obj.controller);
+      const ask = positions ? advanceNewTargets(next, obj, { positions, chosen: [], at: 0 }) : null;
+      if (!ask || ask.done) {
+        next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "no-other-legal-target" });
+        continue;
+      }
+      const { done: _done, ...waitingAsk } = ask;
+      next = { ...next, stack: next.stack.map((o, i) => (i === idx ? { ...o, awaitingCopyTargets: { ...waitingAsk, chooser: me, retarget: true, sourceName: ctx?.cardName || null } } : o)) };
+      next = logEvent(next, { kind: "spell-effect", effect: "retarget-asking", targetId: t.id, cardName: obj.source?.name || null, controller: me });
+      continue;
+    }
     if (!originals.some(isMine)) {
       next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "not-aimed-at-me" });
       continue;
@@ -2448,11 +2754,12 @@ function applyRetarget(state, atom, ctx) {
       continue;
     }
     const newTargets = deflected.targets;
+    const deflectedObj = withWardOwed(next, { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } }, newTargets);
     next = {
       ...next,
       stack: [
         ...next.stack.slice(0, idx),
-        withWardOwed(next, { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } }, newTargets),
+        deflectedObj,
         ...next.stack.slice(idx + 1),
       ],
     };
@@ -2460,6 +2767,9 @@ function applyRetarget(state, atom, ctx) {
       kind: "spell-effect", effect: "retarget", targetId: t.id, cardName: obj.source?.name || null, controller: me,
       from: originals.map((x) => x.name || x.id), to: newTargets.map((x) => x.name || x.id),
     });
+    // Its new targets become its targets (the review's R2-F3 — CR 601.2c, 115.7d): every seat, the targets it did not already have.
+    const newlyTargeted = newTargets.filter((x) => !originals.some((o) => sameTarget(o, x)));
+    if (newlyTargeted.length) next = copyTargetEvents(next, { ...deflectedObj, targets: newlyTargeted });
   }
   return next;
 }
@@ -2639,34 +2949,54 @@ function applyCounterTargetingObject(state, atom, ctx) {
 /**
  * COPY-ACTIVATED-ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10): copy the activated ability whose activation fired this
  * trigger. The referent is the trigger context's activatedStackObjectId; the copy is the same stack object under a
- * fresh id, stamped isCopy, controlled by the original's controller, with the original's targets ("you may choose
- * new targets" honoured as a decline — a legal choice; retargeting is a later arm). An ability already off the
- * stack is a logged no-op, never a guess at another object.
+ * fresh id, stamped isCopy, controlled by the original's controller, with the original's targets — every AI seat declines "you may
+ * choose new targets" (a legal choice); with the permission printed (`newTargets`) a seat a person plays keeps them or chooses new ones
+ * (copyAbilityForPerson, CR 707.10c). An ability already off the stack is a logged no-op, never a guess at another object.
  */
 function applyCopyActivatedAbility(state, atom, ctx) {
   const abilityId = ctx?.activatedStackObjectId;
   const original = abilityId ? (state.stack || []).find((o) => o.id === abilityId && o.kind === "activated-ability") : null;
   if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-activated-ability-fizzle", targetId: null, controller: ctx?.controller });
   const { id: copyId, state: s2 } = mintId(state, "stk");
-  const copy = withWardOwed(s2, { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } }); // the targets' wards again (CR 702.21a, 707.10)
-  const next = { ...s2, stack: [...s2.stack, copy] };
-  return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: abilityId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
+  // WHO CONTROLS THE COPY (the review's F4 — CR 707.10, 603.3a): the player who put it on the stack, the copy trigger's controller — for
+  // Illusionist's and Battlemage's Bracers the Equipment's controller, who need not control the equipped creature (CR 301.5d); for Kurkesh
+  // and Rings of Brighthearth ("whenever you activate") the same player as the original's. The copy's program runs for that player too.
+  const copier = ctx?.controller ?? original.controller;
+  if (atom.newTargets && seatIsHuman(s2, copier)) return copyAbilityForPerson(s2, { ...original, controller: copier, payload: { ...original.payload, params: { ...(original.payload?.params || {}), controller: copier } } }, copyId, abilityId, ctx);
+  const copy = withWardOwed(s2, { ...original, id: copyId, isCopy: true, controller: copier, payload: { ...original.payload, params: { ...(original.payload?.params || {}), controller: copier } } }); // the targets' wards again (CR 702.21a, 707.10)
+  let next = { ...s2, stack: [...s2.stack, copy] };
+  next = copyTargetEvents(next, copy); // its targets become its targets (CR 601.2c — the review's F3)
+  return logEvent(next, { kind: "copy-ability", controller: copier, originalId: abilityId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
+}
+
+/**
+ * A copied ability whose copier may choose new targets ("You may choose new targets for the copy" — `atom.newTargets`), for a seat a
+ * person plays (placeCopyForPerson, CR 707.10c): the copy copies the original's targets, and its controller keeps them or chooses any
+ * other legal set for the same slots, enumerated with the ability's own source and context. Every other seat keeps the original's.
+ */
+function copyAbilityForPerson(state, original, copyId, originalId, ctx) {
+  const params = original.payload?.params || {};
+  const copyObj = { ...original, id: copyId, isCopy: true, targets: original.targets || params.targets || [], payload: { ...original.payload, params: { ...params } } };
+  const placed = placeCopyForPerson(state, copyObj, copyObj.targets, { sourceName: ctx?.cardName || null });
+  return logEvent(afterCopyPlaced(placed.state, placed.copyObj), { kind: "copy-ability", controller: original.controller, originalId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null, ...(placed.copyObj.awaitingCopyTargets ? { asking: true } : {}) });
 }
 
 /**
  * COPY TARGET ABILITY (SHELF-85 V6, 2026-09-04 — CR 707.10): the CHOSEN-target twin of applyCopyActivatedAbility. The
  * referent is the activation's chosen stack target ({ type: "ability", id }); the copy is the same stack object under
  * a fresh id, stamped isCopy, controlled by the original's controller, with the original's targets ("you may choose
- * new targets" honoured as a decline). A target already off the stack (resolved, countered) is a logged no-op — the
- * ability fizzles under CR 608.2b, never a guess at another object.
+ * new targets" honoured as a decline by every AI seat, and asked of a person — copyAbilityForPerson). A target already off the stack
+ * (resolved, countered) is a logged no-op — the ability fizzles under CR 608.2b, never a guess at another object.
  */
 function applyCopyTargetAbility(state, atom, ctx) {
   const t = (ctx?.targets || []).find((x) => x?.type === "stackAbility");
   const original = t ? (state.stack || []).find((o) => o.id === t.id && /-ability$/.test(String(o.kind || ""))) : null;
   if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-ability-fizzle", targetId: t?.id || null, controller: ctx?.controller });
   const { id: copyId, state: s2 } = mintId(state, "stk");
+  if (atom.newTargets && seatIsHuman(s2, original.controller)) return copyAbilityForPerson(s2, original, copyId, original.id, ctx);
   const copy = withWardOwed(s2, { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } }); // the targets' wards again (CR 702.21a, 707.10)
-  const next = { ...s2, stack: [...s2.stack, copy] };
+  let next = { ...s2, stack: [...s2.stack, copy] };
+  next = copyTargetEvents(next, copy); // its targets become its targets (CR 601.2c — the review's F3)
   return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: original.id, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
 }
 

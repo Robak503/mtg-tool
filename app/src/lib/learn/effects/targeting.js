@@ -967,6 +967,154 @@ export function resolutionTargetVerdicts(state, obj, { legality = false } = {}) 
   });
 }
 
+/**
+ * ===== CHOOSING NEW TARGETS, ONE TARGET AT A TIME (CR 707.10c, 115.7d, 115.3, 601.2c) ===== "If an effect allows a player to 'choose new
+ * targets' for a spell or ability, the player may leave any number of the targets unchanged, even if those targets would be illegal. If the
+ * player chooses to change some or all of the targets, the new targets must be legal and must not cause any unchanged targets to become
+ * illegal" (CR 115.7d; 707.10c for a copy). The number of targets is fixed (CR 601.2c) and one instance of "target" never names the same
+ * object twice (CR 115.3). A person is asked such a choice one recorded target — one POSITION — at a time, each offering "keep" (the target
+ * as it stands, legal or not) and every legal object for that position's slot: the pool the CR 608.2b re-check rebuilds for it
+ * (offeredTargetSlot — a two-target atom's role, the graveyard half of a player-and-cards atom, the legacy single-effect slot), enumerated
+ * for `controllerId` with the object's own colours (resolutionSource), its X and its context, an opponent-bound slot narrowed to its
+ * opponent's objects (Grasp of Fate's `slotPlayer`), never the object itself (CR 115.5). There is no product and no cap, so every legal
+ * final set is reachable — the mixed "keep this one, change that one" sets included. A value is offered at a position only when the
+ * positions after it can still be completed legally (`completes`): distinct within an instance, a pair atom's two objects distinct, and an
+ * atom whose targets constrain each other (total mana value X or less, a single graveyard, a shared creature type, cards from the chosen
+ * player's graveyard) satisfied whenever one of its targets changed — so nothing illegal is reachable and no answer leads to a dead end. The
+ * completion search keeps first (keeping is always one completion of an untouched suffix) and checks every constraint on each partial set
+ * as it is built (they are monotone — newTargetCandidates), so a completion is found in about positions × pool steps. Its bound
+ * (NEW_TARGET_SEARCH_BUDGET steps per value) is a backstop only: a value whose completion isn't found within it is not offered — an
+ * under-offer, never an illegal one — logged by the raise, and that position is always asked (advanceNewTargets).
+ */
+const NEW_TARGET_SEARCH_BUDGET = 20000;
+const targetKey = (t) => `${t?.type ?? ""}:${t?.id ?? ""}`;
+
+/**
+ * The positions of `obj`'s recorded targets for a "choose new targets" question, each `{ keep, options, group, atomKey }`: `keep` the
+ * target as recorded, `options` every OTHER legal object for its slot as `controllerId` would target it (tagged with the position's
+ * atomIndex / role / slotPlayer, so the resolver binds it where the kept one bound), `group` its instance of "target", `atomKey` its atom.
+ * Null when the object carries no effect program or no targets (nothing to choose).
+ */
+export function newTargetPositions(state, obj, controllerId) {
+  const params = obj?.payload?.params;
+  const current = Array.isArray(obj?.targets) && obj.targets.length ? obj.targets : (params?.targets || []);
+  if (!params?.program || current.length === 0) return null;
+  const sourceId = offerSourceId(params) ?? null;
+  const source = resolutionSource(state, obj, sourceId);
+  // A source that names no colours of its own is read as unknown, never as colourless (CR 105.2c).
+  const known = source.known && (obj.kind !== "spell" || Array.isArray(obj.source?.colors));
+  const ctx = { ...(params.context || {}), ...(sourceId != null ? { sourceId } : {}), ...(params.xValue != null ? { xValue: params.xValue } : {}), ...(known ? { sourceColorsKnown: true } : {}) };
+  const colors = known ? source.colors : [];
+  const pools = new Map();
+  return current.map((t) => {
+    let slot = offeredTargetSlot(obj, t);
+    // An untagged target whose source carries no text to rebuild its legacy slot from (a storm copy's source is the spell's name, type and
+    // colours) is the program's first targeting atom's, as atomForStackTarget reads it.
+    if (!slot.spec && t.atomIndex == null) slot = { key: "legacy-atom", spec: atomTargetSpec(targetingAtomOf(atomForStackTarget(obj, t))) };
+    let options = [];
+    if (slot.spec) {
+      if (!pools.has(slot.key)) pools.set(slot.key, enumerateTargets(state, controllerId, slot.spec, colors, ctx));
+      options = pools.get(slot.key)
+        .filter((o) => o.id !== obj.id && targetKey(o) !== targetKey(t) && (t.slotPlayer == null || o.controller === t.slotPlayer))
+        .map((o) => ({ ...o, ...(t.atomIndex != null ? { atomIndex: t.atomIndex } : {}), ...(t.role ? { role: t.role } : {}), ...(t.slotPlayer != null ? { slotPlayer: t.slotPlayer } : {}) }));
+    }
+    return { keep: t, options, group: `${t.atomIndex ?? "legacy"}|${t.role ?? ""}|${t.slotPlayer ?? ""}`, atomKey: t.atomIndex ?? "legacy" };
+  });
+}
+
+/**
+ * The constraints an atom puts on its own targets together (castSlots enforces the same at enumeration): true when `ts` — every one of
+ * the atom's targets, or the ones chosen SO FAR — satisfies them. Each is monotone (a set that breaks it can't be repaired by adding
+ * targets), so a partial set that breaks one has no legal completion and is cut at once (the review's R2-F1): a pair's objects distinct,
+ * cards from the chosen player's graveyard (judged once the player is chosen — it comes first), total mana value at most X (mana values are
+ * never negative), one graveyard, a shared creature type.
+ */
+function atomTargetSetOk(state, atom, ts, xValue) {
+  if (!atom) return true;
+  if (atom.secondaryTargetType) {
+    const ids = ts.filter((t) => t.type !== "player").map((t) => t.id);
+    if (new Set(ids).size !== ids.length) return false; // a pair atom's two objects are distinct
+  }
+  if (atom.gyFromTargetPlayer) {
+    const player = ts.find((t) => t.type === "player");
+    if (player && ts.some((t) => t.type === "graveyardCard" && t.controller !== player.id)) return false; // cards from THAT player's graveyard
+  }
+  if (atom.totalMvXConstraint && ts.reduce((sum, t) => sum + permanentManaValue(state, t.id), 0) > Math.max(0, xValue ?? 0)) return false;
+  if (atom.singleGraveyard && new Set(ts.map((t) => t.controller)).size > 1) return false;
+  if (atom.sharesCreatureType && !subsetSharesCreatureType(state, ts)) return false;
+  return true;
+}
+
+/**
+ * The legal values at position `at` once `chosen` (positions 0..at-1) is fixed: `{ cands: [{ target, keep }], budgetHit }`, "keep" first
+ * when it is still legal to keep. Each value is offered only when the later positions can be completed (see the section note). Every
+ * position's value is checked as it is placed — the instance rule, and the atom's joint constraints on its targets chosen so far once one of
+ * them has changed (atomTargetSetOk, monotone) — so the search cuts a dead branch where it starts and a completion is found in about
+ * positions × pool steps (the review's R2-F1: checked only at the atom's last position, the search walked the whole product of the middle
+ * positions and ran out of budget on ordinary graveyards). `budgetHit`: the backstop bound was reached for some value, which is then not
+ * offered (an under-offer, never an illegal one) — the caller logs it and always asks that position (never fills it unasked). Pure.
+ */
+export function newTargetCandidates(state, obj, positions, chosen, at) {
+  const params = obj?.payload?.params || {};
+  const atoms = new Map();
+  const atomPositions = new Map();
+  positions.forEach((p, j) => {
+    if (!atoms.has(p.atomKey)) atoms.set(p.atomKey, p.atomKey === "legacy" ? null : targetingAtomOf(atomForStackTarget(obj, p.keep)));
+    if (!atomPositions.has(p.atomKey)) atomPositions.set(p.atomKey, []);
+    atomPositions.get(p.atomKey).push(j);
+  });
+  const values = chosen.slice(0, at);
+  // Is the value at `j` consistent with every value before it?
+  const okAt = (j) => {
+    const v = values[j];
+    for (let i = 0; i < j; i++) {
+      if (targetKey(values[i]) !== targetKey(v)) continue;
+      if (positions[i].group === positions[j].group) return false; // CR 115.3 — one instance never names an object twice
+    }
+    const mine = atomPositions.get(positions[j].atomKey).filter((i) => i <= j); // the atom's targets chosen so far
+    const changed = mine.some((i) => targetKey(values[i]) !== targetKey(positions[i].keep));
+    if (changed && !atomTargetSetOk(state, atoms.get(positions[j].atomKey), mine.map((i) => values[i]), params.xValue)) return false;
+    return true;
+  };
+  let steps = 0;
+  let budgetHit = false;
+  const completes = (j) => {
+    if (j === positions.length) return true;
+    for (const v of [positions[j].keep, ...positions[j].options]) {
+      if (++steps > NEW_TARGET_SEARCH_BUDGET) { budgetHit = true; return false; }
+      values[j] = v;
+      if (okAt(j) && completes(j + 1)) return true;
+    }
+    values.length = j;
+    return false;
+  };
+  const cands = [];
+  for (const [k, v] of [positions[at].keep, ...positions[at].options].entries()) {
+    values.length = at;
+    values[at] = v;
+    steps = 0;
+    if (okAt(at) && completes(at + 1)) cands.push({ target: v, keep: k === 0 });
+  }
+  return { cands, budgetHit };
+}
+
+/**
+ * Walk a waiting question forward past every position with a single legal value (no choice to make), filling it. Returns the record with
+ * `at` at the next real question, or `done: true` with every position chosen. A position whose search reached the budget is never filled
+ * unasked (the review's R2-F1 — a lone surviving "keep" there would be the engine choosing for the person): it stops the walk.
+ */
+export function advanceNewTargets(state, obj, ask) {
+  const chosen = [...(ask.chosen || [])];
+  let at = ask.at ?? chosen.length;
+  while (at < ask.positions.length) {
+    const { cands, budgetHit } = newTargetCandidates(state, obj, ask.positions, chosen, at);
+    if (cands.length !== 1 || budgetHit) break;
+    chosen.push(cands[0].target);
+    at++;
+  }
+  return { ...ask, chosen, at, done: at >= ask.positions.length };
+}
+
 // Test-only handles (repo convention) — pins the bounded-enumeration prefix identity + the OOM guard; castSlots and DECLINE — a
 // cast's target slots before combining (castTargetCover.test.js checks every slot's every option is offered in some cast).
 export const _internals = { kCombinations, targetSubsets, MAX_CAST_EXPANSIONS, castSlots, DECLINE };

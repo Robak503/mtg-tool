@@ -55,7 +55,25 @@ import {
   settleTriggerOrderChoice,
   autoPickTriggerOrder,
   raiseWardOwed,
+  flushTriggers,
+  chooseTriggerTargets,
 } from "./gameEngine.js";
+import { raiseCopyTargetsChoice, settleCopyTargetsChoice, autoPickCopyTargets } from "./effects/atoms/stack.js"; // the copy-targets pause (CR 707.10c — a person's copy's new targets)
+
+/**
+ * Settle a copy-targets answer, then — once nothing on the stack waits for a choice — put on the stack, as ONE batch, everything queued
+ * while the copies waited: what the resolution that made them triggered (the magecraft and copy triggers — gameEngine.flushTriggers holds
+ * them while a copy waits, the review's R2-F2) and what their targets triggered (the becomes-the-target triggers settleCopyTargetsChoice
+ * queues with a last answer, F3). So APNAP order (CR 603.3b, 101.4) and the person's trigger-order question see one batch — the flush the
+ * copies' own resolution would have run; settleTriggerTargetChoice's finishTriggerTargets is the same step for a triggered ability's
+ * targets.
+ */
+function settleCopyTargets(state, candidateId) {
+  const next = settleCopyTargetsChoice(state, candidateId);
+  if (next === state || next.pendingChoice) return next;
+  if ((next.stack || []).some((o) => o.awaitingCopyTargets || o.awaitingTargets)) return next;
+  return flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+}
 
 // The human seat id (createGameState always names the player's seat "user"; opponents are
 // "ai" / the pod). Used by the interactive human-mulligan phase below.
@@ -1715,6 +1733,13 @@ function advanceUntilDecisionUnguarded(
       continue;
     }
 
+    // COPY TARGETS (CR 707.10c) — a person's copy waits on the stack for its new targets (atoms/stack placeCopyForPerson): asked first,
+    // the lowest first — copies are put on the stack as the spell or ability making them resolves, below every ability that resolution
+    // triggered. The same state, no allocation, when nothing waits — every game with no person at it.
+    if (!current.state.pendingChoice) {
+      const raised = raiseCopyTargetsChoice(current.state);
+      if (raised !== current.state) current = { ...current, state: raised };
+    }
     // TRIGGER ORDER (CR 603.3b, 405.3) — two or more of a person's own simultaneous triggered abilities wait on the stack for the order
     // they go on it: asked before their targets (each ability's targets are chosen as it is put on the stack, CR 603.3d), so the
     // trigger-target question below follows in the order chosen. The same state, no allocation, when nothing waits — every game with
@@ -2371,6 +2396,29 @@ function advanceUntilDecisionUnguarded(
           },
         });
         current = { ...current, state: settleTriggerTargetChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // ===== COPY TARGETS ===== (CR 707.10c) — the person playing pc.controller keeps a copy's targets or chooses new ones as the copy
+      // is put on the stack. Raised only for a seat a person plays (atoms/stack raiseCopyTargetsChoice), so `pause` is the path it takes;
+      // the rest is the contract's settle-in-one-tick path (and a pilot's offer): one action per candidate, the house pick as the fallback.
+      if (pc.kind === "copy-targets") {
+        if (pause) {
+          return { session: current, decision: { kind: "copy-targets", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, candidateId: c.id })),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickCopyTargets(current.state, pc) },
+        });
+        // Never a livelock on this path: an id that is no candidate takes the house pick (and that failing, the copied targets).
+        const ids = (pc.candidates || []).map((c) => c.id);
+        const fallback = autoPickCopyTargets(current.state, pc);
+        const candidateId = ids.includes(picked.candidateId) ? picked.candidateId : ids.includes(fallback) ? fallback : "0";
+        current = { ...current, state: settleCopyTargets(current.state, candidateId) };
         continue;
       }
       // ===== TRIGGER ORDER ===== (CR 603.3b, 405.3) — the person playing pc.controller chooses the order their own simultaneous
@@ -3731,6 +3779,46 @@ export function applyTriggerTargetChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== COPY TARGETS ===== (CR 707.10c) — the player kept a copy's targets or chose new ones (`choice.candidateId`, one of the pause's
+ * candidates' ids). settleCopyTargetsChoice writes them onto the waiting copy and records its wards; an answer that is no candidate
+ * decides nothing and the question is asked again. A double-submit (nothing pending) re-derives. Mirrors applyTriggerTargetChoice.
+ */
+export function applyCopyTargetsChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "copy-targets") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const candidateId = typeof choice?.candidateId === "string" ? choice.candidateId : null;
+  let newState;
+  try {
+    newState = settleCopyTargets(session.state, candidateId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  if (newState === session.state) return advanceUntilDecision(session, opts); // not a legal choice — ask again
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "copy-targets-choice", stackObjectId: pc.stackObjectId, candidateId },
+    auto: false,
+    reasoning: "user-chose-copy-targets",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== TRIGGER ORDER ===== (CR 603.3b, 405.3) — the player chose the order their own simultaneous triggered abilities go on the stack
  * (`choice.resolveOrder`, the abilities' ids with the one that resolves FIRST first). settleTriggerOrderChoice places them; an answer
  * that is not an order of exactly those abilities decides nothing and the question is asked again. A double-submit (nothing pending)
@@ -4693,6 +4781,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "change-target") return applyChangeTargetChoice(session, choice, opts); // shelf D14 (Misdirection)
   if (kind === "aura-entry-host") return applyAuraEntryHostChoice(session, choice, opts); // CR 303.4f — what a person's entering Aura enchants
   if (kind === "trigger-target") return applyTriggerTargetChoice(session, choice, opts); // CR 603.3d — the targets of a person's own triggered ability
+  if (kind === "copy-targets") return applyCopyTargetsChoice(session, choice, opts); // CR 707.10c — a person's copy's new targets
   if (kind === "trigger-order") return applyTriggerOrderChoice(session, choice, opts); // CR 603.3b — the order of a person's own simultaneous triggered abilities
   if (kind === "protection-color") return applyProtectionColorChoice(session, choice, opts); // CR 608.2d — the colour of a person's "protection from the color of your choice"
   if (kind === "optional-draw-discard")

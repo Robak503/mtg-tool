@@ -498,7 +498,27 @@ export function observe(state, seat) {
 //     variant per set of creatures that pay differently (the same key).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays as before. The save format is unchanged (v17; no
 //   new persisted state).
-export const PLAY_API_VERSION = "1.21.0";
+// 1.22.0 (additive MINOR — a new decision kind, 2026-11-04, the copy-targets fix; numbered after pw28's 1.20.0 and pw29's 1.21.0):
+//   - "copy-targets" (CR 707.10c, 115.7d, 702.40a, 707.10): the person playing a seat keeps a copy's targets or chooses new ones as the copy
+//     is put on the stack — every copy whose effect lets its controller choose new targets: the storm copies (each its own question, the
+//     first put on the stack first — `copyNumber` / `copyCount`), "copy this spell and may choose a new target" (Sevinne's Reclamation, Chain
+//     of Vapor), "copy target instant or sorcery spell. You may choose new targets for the copy" (Reverberate, Twincast, Dualcaster Mage …)
+//     and the copied abilities (Strionic Resonator, Illusionist's Bracers, Rings of Brighthearth …); and Deflecting Swat's "choose new
+//     targets for target spell or ability" (`retarget: true` — the object is not a copy, `controller` is the Swat's caster). ONE TARGET PER
+//     QUESTION (`slotNumber` / `slotCount`, in the order the targets were chosen): candidates[] = `{ id, keep?, targets: [one target
+//     { id, type, name, controller }] }` — the first is `keep: true` (the target as it stands, legal or not) when it may still be kept,
+//     then every other legal object for that target; a value is offered only when the later targets can still be completed legally (one
+//     instance of "target" never names an object twice, CR 115.3; a change never makes an unchanged target illegal, CR 115.7d). Answer
+//     `{ kind, candidateId }`, candidateId ∈ candidates[].id. The decision carries `spellName` (the copied spell or ability), `sourceName`
+//     (what made the copy), `objectKind` ("spell" | "ability"); `suggestedId` is the house pick's value (the automatic answer). Raised only
+//     for a seat in state.humanSeats and only when there is a real choice; an answer that is no candidate is asked again. A pilot is offered
+//     one action per candidate. The object waits on the stack meanwhile (additive stack-object field `awaitingCopyTargets`,
+//     engine-internal). Every AI seat's copies and Swats take the house pick, as before.
+//   - For every seat: a copy's targets become its targets as it is put on the stack (becomes-the-target triggers and Kira see copies); a
+//     self-copy carries the spell's colours; a copied activated ability (Illusionist's / Battlemage's Bracers) is the copy trigger's
+//     controller's.
+//   - Save format v18 (stamp-only; v17 is pw28's number).
+export const PLAY_API_VERSION = "1.22.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for
