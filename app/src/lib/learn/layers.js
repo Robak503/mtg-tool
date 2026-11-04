@@ -45,7 +45,7 @@ import { isGraveyardReanimateAura, animateDeadBonusView } from "./animateDeadGat
 import { commanderColorIdentityOf } from "./commanderIdentity.js"; // CR 903.4 — the shared read (stamp + command zone); a zero-import leaf
 import { abilityLossShapesMayEmit } from "./abilityLossShapes.js"; // can a static carry a loss? (false while every stage is off — the board fast path; a zero-import leaf)
 import { registerAbilityView, registerTypeLineView } from "./abilityView.js"; // the ability view for the modules this one imports (a zero-import leaf; registered below)
-import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
+import { parseProtectionColors, parseProtectionClasses, parseProtectionEverything } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`); + protection from everything (CR 702.16j — permanentProtectedFromEverything)
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
 
@@ -3193,6 +3193,41 @@ export function permanentProtectionClasses(state, permanentId) {
     for (const k of e.op.classes || []) set.add(String(k).toLowerCase());
   }
   return set;
+}
+
+/**
+ * PROTECTION FROM EVERYTHING on a PERMANENT (CR 702.16j — "has protection from each object regardless of that object's characteristic
+ * values. Such a permanent … can't be targeted by spells or abilities and can't be enchanted by Auras. Such a permanent can't be equipped
+ * by Equipment, fortified by Fortifications, or blocked by creatures. All damage that would be dealt to such a permanent … is
+ * prevented."): does the permanent have it right now? The sibling of permanentProtectionColors / permanentProtectionClasses, read at the
+ * same enforcement sites (spellEffects.canBeTargetedBy and protectedFromDealer, combatResolution's protectionPrevents,
+ * combatEvasion.canBlockAttacker, sba.protectionRemovesAttachment, auraEntry.mayBeEnchantedBy and the attach-without-targeting sites).
+ *   · PRINTED — the card's own clause (protection.parseProtectionEverything) read off the card its ability readers parse
+ *     (abilityCardOf: a layer-1 copy's copiable values, CR 707.2 — a Clone of Progenitus has it, a Progenitus that became a copy of a Bear
+ *     doesn't; ability loss, CR 613.1f), unconditional (Progenitus) or inside a LEVEL band (Hexdrinker at 8+ level counters, CR 711.2a —
+ *     the band's gate, read live through gateMet like every band static).
+ *   · GRANTED — a layer-6 addProtection op carrying `everything: true` that affects it (gate-aware, as the colour union is). No printed
+ *     card's grant is parsed yet (Vexilus Praetor's "Commanders you control have protection from everything" is body-only; "gains
+ *     protection from everything" is refused by the grant atoms), so this half is the read side waiting for a writer, as the colour
+ *     union's was.
+ * `skipEffect(e)` — as permanentProtectionColors': a granted effect it answers true for is left out (the attachment state-based action's
+ * "This effect doesn't remove this Aura"). The player's protection from everything (Teferi's Protection, The One Ring, The Stasis Coffin)
+ * is a player flag — gameState.playerProtectedFromEverything — and is not read here.
+ */
+export function permanentProtectedFromEverything(state, permanentId, skipEffect = null) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return false;
+  const printed = parseProtectionEverything(abilityCardOf(state, perm));
+  if (printed.always) return true;
+  for (const gate of printed.levelGates) if (gateMet(state, perm, gate)) return true;
+  for (const e of l6IndexOf(state).protection) {
+    if (e.op.everything !== true) continue;
+    if (skipEffect && skipEffect(e)) continue;
+    if (!effectAffects(e, perm, state)) continue;
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
+    return true;
+  }
+  return false;
 }
 
 const ALL_WUBRG = ["W", "U", "B", "R", "G"];

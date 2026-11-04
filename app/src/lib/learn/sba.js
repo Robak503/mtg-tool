@@ -50,7 +50,7 @@ import {
   updatePermanentSafe,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkLeavesTriggers, checkStateTriggers } from "./triggers.js";
-import { permanentIsCreature, permanentHasCardType, permanentColorsIfKnown, permanentProtectionColors, permanentTypes, boardSetsTypes } from "./layers.js";
+import { permanentIsCreature, permanentHasCardType, permanentColorsIfKnown, permanentProtectionColors, permanentProtectedFromEverything, permanentTypes, boardSetsTypes } from "./layers.js";
 import { protectionApplies } from "./protection.js"; // CR 702.16c/d — the one quality matcher (colours and colorless)
 import { grantCitysBlessings } from "./ascend.js"; // shelf D5 — Ascend (CR 702.131b) at the same cadence
 import { isRoleCard } from "./auraEntry.js"; // the one reading of "a Role" (CR 303.7) — the entry choice and the token copy share it
@@ -99,8 +99,11 @@ function grantSparesAttachment(state, effect, attachmentId) {
  * Sword must not fall off for it). The attachment's colours are its current ones, and only when they are known
  * (permanentColorsIfKnown — a card shape with no colours recorded is never read as colourless). Colour qualities only: the
  * qualities the layer engine doesn't read stay unenforced here, as at every other protection site.
+ * + PROTECTION FROM EVERYTHING (CR 702.16j — "can't be enchanted by Auras … can't be equipped by Equipment"): every attachment, whatever its
+ * colours (known or not), less one a grant says it doesn't remove (the same grantSparesAttachment) — layers.permanentProtectedFromEverything.
  */
 function protectionRemovesAttachment(state, hostId, attachmentId) {
+  if (permanentProtectedFromEverything(state, hostId, (e) => grantSparesAttachment(state, e, attachmentId))) return true;
   if (permanentProtectionColors(state, hostId, null, true).size === 0) return false; // the common case — no protection at all
   const colors = permanentColorsIfKnown(state, attachmentId);
   if (colors == null) return false;

@@ -44,6 +44,7 @@
 import { addCounter, logEvent, moveCardToZone, destroyLethalCreaturesAfterEffect, findPermanent } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // PS-1: a 1/1 persister returns 0/0 → the immediate lethal SBA (CR 704.5f) — cycle-safe (triggers doesn't import atoms/selfReturn)
 import { enterCardFromZone } from "./zones.js";
+import { permanentProtectedFromEverything } from "../../layers.js"; // CR 702.16j — a host with protection from everything can't be enchanted (layers is a lower layer: no cycle)
 
 /**
  * The two NARROW self-LTB trigger CONDITIONS, classified for detectTriggers' registry seam (consulted only
@@ -397,6 +398,9 @@ export function applyGySelfAttachReturn(state, atom, ctx) {
   if (!owner || !cardId || !state.players?.[owner]) return state;
   if (!(state.players[owner].graveyard || []).some((c) => c.id === cardId)) return noop("card-left-graveyard");
   if (!hostId || !findPermanent(state, hostId)) return noop("no-legal-host");   // CR 303.4g
+  // A host with protection from everything (CR 702.16j — Progenitus, which has mana value 10, entering) can't be enchanted, so the Aura has
+  // nothing legal to enchant and stays in the graveyard (CR 303.4g) — never entering only to be put back by the state-based action.
+  if (permanentProtectedFromEverything(state, hostId)) return noop("no-legal-host");
   const r = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard", attachTo: hostId });
   if (!r.entered || !r.permanentId) return noop("did-not-enter");
   return logEvent(r.state, { kind: "spell-effect", effect: "gy-self-attach-return", returned: true, controller: owner, host: hostId });

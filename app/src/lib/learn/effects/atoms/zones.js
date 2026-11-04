@@ -13,7 +13,7 @@ import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
-import { permanentProtectionColors, permanentIsCreature, permanentHasTypeWord, addContinuousEffect } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
+import { permanentProtectionColors, permanentProtectedFromEverything, permanentIsCreature, permanentHasTypeWord, addContinuousEffect } from "../../layers.js"; // shelf D41 — the host's live protection colours vs a returning card's colours (CR 702.16c/d); + permIsEveryCreatureType (P·39b — Essence Flux's returned Spirit)
 import { protectionApplies } from "../../protection.js"; // shelf D41 — the shared colour-protection test (an import-free leaf)
 import { auraMayEnchantCreature } from "../../auraHost.js"; // shelf D41 — the shared Enchant-line reader (a leaf; stack.js reads it too)
 import { entersByDiscardingLand, applyDiscardLandToEnter } from "../../discardLandToEnter.js"; // MOX DIAMOND (play-weighted #247, CR 614.1a / 614.12a) — whether it enters at all; a leaf over gameState / triggers / staticAbilityParser, which this file already reaches
@@ -2421,6 +2421,7 @@ function applyReturnAttachedFromGraveyard(state, atom, ctx) {
   const returned = [];
   for (const card of [...picked.filter((c) => !isAura(c)), ...picked.filter(isAura)]) {
     if (protectionApplies(permanentProtectionColors(next, hostId), characteristicColors(card))) continue; // CR 702.16c/d
+    if (permanentProtectedFromEverything(next, hostId)) continue; // CR 702.16j — nothing can be attached to it
     if (isAura(card) && !auraMayEnchantCreature(next, card, findPermanent(next, hostId), owner)) continue; // CR 303.4i
     // "…to the battlefield attached to enchanted creature": the effect names the host, so it enters attached to it (CR 303.4f).
     const r = enterCardFromZone(next, { playerId: owner, cardId: card.id, fromZone: "graveyard", attachTo: hostId });

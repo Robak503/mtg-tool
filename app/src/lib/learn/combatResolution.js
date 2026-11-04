@@ -56,7 +56,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness, withAbilityLoss, boardSetsTypes, permanentIsCreature, grantedToxicAmount } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, permanentProtectedFromEverything, assignsCombatDamageWithToughness, withAbilityLoss, boardSetsTypes, permanentIsCreature, grantedToxicAmount } from "./layers.js"; // + the ability view (CR 613.1f — a creature that lost its abilities has no printed combat-damage text)
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — combat damage to a player dealt to a creature instead (CR 614.9)
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, attachedPreventPutCountersPlacer, selfPreventPutCounters, groupPreventPutCounters } from "./combatEvasion.js"; // + groupPreventPutCounters (Vigor, 2026-10-17)
@@ -363,8 +363,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (unpreventable) return false;
     // B7 — PROTECTION FROM CREATURES (CR 702.16e): every combat-damage source is a creature, so the class quality
     // prevents the damage outright, beside the color check.
+    // + PROTECTION FROM EVERYTHING (CR 702.16j — "All damage that would be dealt to such a permanent … is prevented"): a creature or an
+    // attacked planeswalker, from any combat-damage source.
     return protectionApplies(permanentProtectionColors(state, targetId), sourceColors)
-      || permanentProtectionClasses(state, targetId).has("creatures");
+      || permanentProtectionClasses(state, targetId).has("creatures")
+      || permanentProtectedFromEverything(state, targetId);
   };
   // MAZE OF ITH's "dealt to" half (SHELF-85 V13): a creature stamped for this turn is dealt no combat damage — a prevention effect,
   // so not while combat damage can't be prevented (CR 615.12).

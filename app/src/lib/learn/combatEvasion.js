@@ -66,7 +66,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow, permanentUnblockableByColors } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentProtectedFromEverything, permanentIsCreature, permIsEveryCreatureType, deriveCharacteristics, permanentHasCardType, withAbilityLoss, boardHasAbilityLoss, boardSetsTypes, typeLineNow, permanentUnblockableByColors } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no combat text: ABILITY-LOSS-PROGRAM.md, S0b)
 import { findPermanent, creaturePower } from "./gameState.js";
 import { faceUpView } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8d) — the evasion text is the front face's
 import { hasCitysBlessing } from "./ascend.js"; // shelf D5 — "can't attack or block unless you have the city's blessing"
@@ -1412,6 +1412,9 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16f): every blocker is a creature, so an attacker with the class
   // quality can't be blocked at all. Layer-aware (printed OR granted by Unquestioned Authority / the Mantles).
   if (permanentProtectionClasses(state, attackerId).has("creatures")) return false;
+  // PROTECTION FROM EVERYTHING (CR 702.16j — "Such a permanent can't be … blocked by creatures"): no blocker at all, printed (Progenitus),
+  // in a level band (Hexdrinker at 8+) or granted — layers.permanentProtectedFromEverything.
+  if (permanentProtectedFromEverything(state, attackerId)) return false;
 
   // Skulk — not blockable by a creature with greater power (CR 702.118b).
   if (permanentHasKeyword(state, attackerId, "Skulk")) {

@@ -17,9 +17,19 @@
  *                       spell's targeting), Equip's targeting, a card returned attached (effects/atoms/zones) — and by the state-based
  *                       action when a host GAINS the protection (CR 704.5m, 704.5n — sba.protectionRemovesAttachment: the Aura to
  *                       its owner's graveyard, the Equipment unattached; "This effect doesn't remove this Aura" honoured).
- * Non-color qualities (artifacts, creatures,
- * "everything", a card name, instants/sorceries, a dynamic "chosen"/"commander color identity") are NOT
- * parsed here → unenforced, also safe.
+ * Two non-colour qualities are read too: the source class "creatures" (parseProtectionClasses — B7) and "EVERYTHING" (CR 702.16j —
+ * parseProtectionEverything, 2026-11-04), the card's own clause, unconditional (Progenitus) or inside a LEVEL band (Hexdrinker at 8+,
+ * CR 711.2a — a level-counter gate). Everything is enforced at all four sub-rules for a PERMANENT through layers.permanentProtectedFromEverything
+ * (printed ∪ a granted layer-6 addProtection `everything` op): every target offer and the CR 608.2b re-check (spellEffects.canBeTargetedBy
+ * — absolute, like shroud), all damage (spellEffects.protectedFromDealer, combatResolution's protectionPrevents — not while combat damage
+ * can't be prevented, CR 615.12), every block (combatEvasion.canBlockAttacker), and every attachment: none is made (Equip and Aura
+ * targeting; auraEntry.mayBeEnchantedBy; the attach-on-enter atoms — Hero's Blade, Shielded by Faith, Dragon Fangs, Mantle of the
+ * Ancients, attach-to-self) and one already there falls off (sba.protectionRemovesAttachment, CR 704.5m / 704.5n). Wraths, sacrifice and
+ * -X/-X don't target and aren't stopped. A PLAYER's protection from everything (Teferi's Protection, The One Ring, The Stasis Coffin) is
+ * a player flag, gameState.playerProtectedFromEverything — not read here.
+ * The other non-colour qualities (artifacts, a card name, instants/sorceries, a dynamic "chosen"/"commander color identity") are NOT
+ * parsed here → unenforced. That is safe only on a card the classifier doesn't credit: a credited card whose printed protection is
+ * unenforced is a false credit (why "everything" is read now — Progenitus is native-body).
  *
  * parseProtectionColors reads PRINTED text only and SKIPS granted/conditional protection (so the printed
  * axis can't over-fire). GRANTED protection-from-color (a Captain America Sword's "Equipped creature has
@@ -107,7 +117,7 @@ let _protectionTextMemo = new Map();
 function protectionTextEntry(oracle) {
   let entry = _protectionTextMemo.get(oracle);
   if (entry === undefined) {
-    entry = { colors: null, ownColorsByName: new Map(), classes: null };
+    entry = { colors: null, ownColorsByName: new Map(), classes: null, everythingByName: new Map() };
     if (_protectionTextMemo.size >= PROTECTION_TEXT_MEMO_LIMIT) _protectionTextMemo = new Map();
     _protectionTextMemo.set(oracle, entry);
   }
@@ -175,6 +185,62 @@ function protectionClassesOfText(oracle) {
     if (m[1].toLowerCase().trim() === "creatures") set.add("creatures");
   }
   return [...set];
+}
+
+/**
+ * PROTECTION FROM EVERYTHING (CR 702.16j), the card's OWN printed instance: `{ always, levelGates }`.
+ *   · `always` — an unconditional own clause (Progenitus's keyword line).
+ *   · `levelGates` — one gate per own clause printed inside a LEVEL band (CR 711.2a: "as long as this creature has at least N1 [and at
+ *     most N2] level counters on it, it has … [abilities]" — Hexdrinker's LEVEL 8+), in the layer engine's self-counter gate shape
+ *     (`countersOnSelf`, counterType "level"), so layers.permanentProtectedFromEverything opens it exactly when the band is.
+ * Read positively, like the colour reader's `ownOnly`: only the card's own clause (isOwnProtectionClause — a keyword line, or the card as
+ * the subject). Never read: a grant to something else ("Commanders you control have protection from everything" — Vexilus Praetor; "you
+ * gain protection from everything" — the player's, playerProtectedFromEverything), a "gains" grant, an "as long as" gate (no carrier).
+ * Memoized per text and name, like the own-colour read.
+ */
+export function parseProtectionEverything(card) {
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  if (!EVERYTHING_RE.test(oracle)) return NO_EVERYTHING; // the common case — no such clause anywhere in the text
+  const entry = protectionTextEntry(oracle);
+  const nameKey = String(card?.name || "");
+  let read = entry.everythingByName.get(nameKey);
+  if (read === undefined) {
+    read = protectionEverythingOfText(oracle, card?.name);
+    if (entry.everythingByName.size >= OWN_NAMES_PER_TEXT_LIMIT) entry.everythingByName.clear();
+    entry.everythingByName.set(nameKey, read);
+  }
+  return read;
+}
+
+const EVERYTHING_RE = /protection from everything/i;
+const NO_EVERYTHING = Object.freeze({ always: false, levelGates: Object.freeze([]) });
+// A level band's header (leveler.js's BAND_RANGE_RE / BAND_OPEN_RE: printed uppercase, a whole line). Everything after a header is that
+// band's, up to the next header — bands are the tail of a leveler's text (CR 711.2b).
+const LEVEL_HEADER_RE = /^LEVEL (\d+)(?:-(\d+)|\+)$/;
+
+function protectionEverythingOfText(oracle, name) {
+  let always = false;
+  const levelGates = [];
+  for (const m of oracle.matchAll(/protection from everything\b/gi)) {
+    const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
+    if (/\bgains?\s+$/.test(before)) continue; // "… gains protection from everything" — a grant, not this card's own
+    if (/\bas long as\b/.test(protectionSentence(oracle, m.index))) continue; // a gate this reader doesn't evaluate (no carrier — safe miss)
+    if (!isOwnProtectionClause(oracle, m.index, name)) continue; // another object's (Vexilus Praetor's commanders) or the player's
+    const band = levelBandAt(oracle, m.index);
+    if (band) levelGates.push({ countSpec: { kind: "countersOnSelf", counterType: "level" }, atLeast: band.atLeast, atMost: band.atMost });
+    else always = true;
+  }
+  return always || levelGates.length ? Object.freeze({ always, levelGates: Object.freeze(levelGates) }) : NO_EVERYTHING;
+}
+
+/** The LEVEL band the text at `index` sits in (`{ atLeast, atMost }` — atMost null for "N+"), or null outside every band. */
+function levelBandAt(oracle, index) {
+  const lines = oracle.slice(0, index).split("\n");
+  for (let i = lines.length - 2; i >= 0; i--) { // the match's own line is the last; a header is a line of its own above it
+    const h = lines[i].trim().match(LEVEL_HEADER_RE);
+    if (h) return { atLeast: parseInt(h[1], 10), atMost: h[2] != null ? parseInt(h[2], 10) : null };
+  }
+  return null;
 }
 
 /**

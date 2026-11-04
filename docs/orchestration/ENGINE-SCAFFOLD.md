@@ -494,8 +494,10 @@ choice anywhere keeps its targets (a house pick of null still removes it, CR 608
 driver raises the pause FIRST, before the trigger-order and trigger-target raises (`raiseCopyTargetsChoice` — the lowest waiting object,
 its current position), and `settleCopyTargetsChoice` recomputes the same list, fills the position and moves on; with the last answer a
 copy's targets are written where the house pick writes them, its wards recorded on every target (`withWardOwed`), and its targets'
-events run (`copyTargetEvents`); a Swat's object has its targets changed in place, a ward recorded and the events run only for the changed
-ones (the review's R2-F3; applyRetarget's house deflection runs them for the targets it did not already have). **One batch** (the review's
+events run (`copyTargetEvents`); a Swat's object has its targets changed in place, a ward recorded and the events run only for the targets
+it did not already have — by IDENTITY, not position (the review's R2-F3, then round 3's R3-N1, 2026-11-04: a target moved from one
+instance of "target" to another was already a target, CR 702.21a, 601.2c); applyRetarget's house deflection decides its ward and its events
+the same way (its ward was charged on every new target, a kept one included, until R3-N1's slice). Witness: `swatMovedTarget.test.js`. **One batch** (the review's
 R2-F2 — CR 603.3b, 101.4): while any stack object waits, `gameEngine.flushTriggers` puts nothing on the stack — the triggers the copying
 resolution queued (`checkCopyTriggers` — magecraft, "whenever you copy") wait with the copy — and learnSession `settleCopyTargets` flushes
 everything once nothing waits, so the resolution's triggers and the new targets' go on in APNAP order with one trigger-order question for
@@ -627,6 +629,32 @@ either KNOWN (an empty list is then colourless) or not known (never read as colo
   total, but commander damage, poison and lifelink follow.
 Witness: `protectionAttachWalkerOffer.test.js` (20); `mazeOfIth.test.js` (the dealer stamp's new name); `druidApprenticeSurge.test.js`
 (Warstorm Surge's trigger is no longer offered Kor Firewalker).
+
+**Protection from everything on a PERMANENT** (2026-11-04, CR 702.16j, 702.16c, 702.16d, 704.5m, 704.5n, 701.3b, 303.4g, 711.2a,
+615.12). Progenitus (native-body) was a false credit: the printed readers took colour qualities and the "creatures" class only, so
+"everything" was targeted, damaged, blocked, equipped and kept its attachments. ONE reader, the sibling of the colour and class unions:
+`layers.permanentProtectedFromEverything(state, id, skipEffect?)` — PRINTED, `protection.parseProtectionEverything(card)` →
+`{ always, levelGates }` (the card's own clause only — `isOwnProtectionClause`, so Vexilus Praetor's "Commanders you control have …"
+is not its own; "gains …" and "as long as …" skipped; a clause inside a LEVEL band becomes a `countersOnSelf` "level" gate read by
+`gateMet`, so Hexdrinker has it at 8+ and not at 7), read off `abilityCardOf` (a layer-1 copy's copiable values — a Clone of
+Progenitus has it; ability loss removes it) — unioned with GRANTED layer-6 `addProtection` ops carrying `everything: true` (gate- and
+`skipEffect`-aware; nothing writes one yet — Vexilus Praetor is body-only and "gains protection from everything" parses to nothing — so
+the half is witnessed with a written effect). Read at: `spellEffects.canBeTargetedBy` (absolute, like shroud — every cast, activated,
+trigger, Equip and Aura offer, a copy's new targets, the CR 608.2b re-check); `spellEffects.protectedFromDealer` (spell and ability
+damage to a creature or planeswalker) and `combatResolution`'s `protectionPrevents` (combat — not under "combat damage can't be
+prevented"); `combatEvasion.canBlockAttacker`; `sba.protectionRemovesAttachment` (any Aura or Equipment, whatever its colours; a grant
+that says it doesn't remove the attachment spares it); `auraEntry.mayBeEnchantedBy` (every Aura lane — cast, bestow, the AURA_ETB re-check,
+an uncast entry; "everything" left `UNREAD_PROTECTION_RE` in the fix round, the blind review's F1: read anywhere in the text it refused
+Vexilus Praetor and a Hexdrinker below LEVEL 8, legal hosts — a refused legal attachment is a false positive, not a safe miss); and the
+attachments made without a target, which don't move
+(CR 701.3b) or don't enter (CR 303.4g): `applyAttachToSelf`, `applyAttachSourceToTriggering` (Shielded by Faith),
+`applyAttachEquipmentToTriggering` (Hero's Blade), `applyGySelfAttachReturn` (Dragon Fangs), `applyReturnAttachedFromGraveyard`
+(Mantle of the Ancients — defensive: in the legal order the state-based action removes Mantle before its trigger resolves, and the
+trigger, reading no last-known host, returns nothing — the outcome its rulings give that board). Non-targeted effects still apply
+(Wrath, -X/-X, an edict). The player's protection from everything stays `gameState.playerProtectedFromEverything`, untouched. Not read:
+the redirect of a player's damage onto a creature (`dealDamageToPlayer` keeps refusing a creature with any protection — unreachable
+with this quality: no redirecting creature can carry it). Witness: `protectionFromEverything.test.js` (28 — 22 red on a03abd1f, 6
+controls; the fix round's two F1 rows red on 2dba4ad9 too).
 
 **Where combat damage is prevented — before it is recorded, never after** (2026-11-03, CR 702.16j, 615.6, 603.2g, 616.1, 615.12).
 Every reader of a combat hit — lifelink (the attacker's `dealt`, the blocker's `bdealt`), commander damage, the monarch's steal,

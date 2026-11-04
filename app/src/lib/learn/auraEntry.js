@@ -35,7 +35,7 @@
  */
 import { findPermanent } from "./gameState.js";
 import { abilityClauses, auraEntryHostSpec, isAttachedNoUntapLine, isNativeManaAura, parseAuraBonus } from "./staticAbilityParser.js";
-import { permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentTypes, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no protection and no "can't be enchanted" of its own)
+import { permanentHasCardType, permanentIsCreature, permanentPower, permanentProtectionColors, permanentProtectedFromEverything, permanentTypes, withAbilityLoss, boardHasAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f — a permanent that lost its abilities has no protection and no "can't be enchanted" of its own)
 import { characteristicColors } from "./faceUp.js"; // the Aura card's colours — a double-faced Aura is its front face's (CR 712.8a, 712.8c)
 import { protectionApplies } from "./protection.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js";
@@ -175,9 +175,13 @@ const carriesRoleOf = (state, perm, controller) => (perm.attachments || []).some
   return a?.controller === controller && isRoleCard(a.permanent?.card);
 });
 
-// A protection quality layers.permanentProtectionColors does not read (protection.js reads colours and the "creatures" class).
-// Any of these could forbid an Aura (CR 702.16c), so a permanent that prints one is never chosen.
-const UNREAD_PROTECTION_RE = /protection from (?:everything|enchantments?|auras?|the chosen colou?r|the colou?r|any colou?r|a colou?r|each colou?r among|the chosen card name)/i;
+// A protection quality the layer engine does not read (protection.js reads colours, the "creatures" class and "everything").
+// Any of these could forbid an Aura (CR 702.16c), so a permanent that prints one is never chosen. "Everything" is not among them
+// (2026-11-04): mayBeEnchantedBy reads it exactly through layers.permanentProtectedFromEverything — the permanent's own clause,
+// level-gated, or granted — so Vexilus Praetor (its clause is its commanders') and Hexdrinker below LEVEL 8 (CR 711.2b) are legal
+// hosts. Read anywhere in the text, as it was, it refused those legal attachments, and a refused legal attachment is the false
+// positive the CREED forbids, not a safe miss.
+const UNREAD_PROTECTION_RE = /protection from (?:enchantments?|auras?|the chosen colou?r|the colou?r|any colou?r|a colou?r|each colou?r among|the chosen card name)/i;
 // The three colour-count qualities are read exactly against the Aura's colours (CR 105.2a, 105.2b, 105.2c, 2026-10-17): protection
 // from multicolored keeps out only a multicolored Aura — Stonecoil Serpent may wear mono-blue Curiosity — monocolored only a
 // monocolored one, colorless only a colorless one.
@@ -230,6 +234,7 @@ function cantBeEnchanted(state, perm, controller) {
  */
 export function mayBeEnchantedBy(state, perm, pid, auraCard) {
   if (protectionApplies(permanentProtectionColors(state, perm.id), characteristicColors(auraCard))) return false; // CR 702.16c
+  if (permanentProtectedFromEverything(state, perm.id)) return false; // CR 702.16j — "can't be enchanted by Auras": printed, in a level band, or granted
   if (printedProtectionKeepsOut(state, perm, auraCard)) return false;
   return !cantBeEnchanted(state, perm, pid);
 }

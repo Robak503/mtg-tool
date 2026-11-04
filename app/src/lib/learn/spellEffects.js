@@ -55,7 +55,7 @@ import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTrigger
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, stackSpellIsUncounterable } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { departedSourceLki, lkiRecordIsCreature } from "./gameState.js"; // a departed ability source's last known information (CR 113.7a, 608.2b) — the re-check's colours and creature-ness, the damage path's one reader
-import { typeLineNow, permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentCantHaveKeyword, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
+import { typeLineNow, permanentHasKeyword, abilityLossStamp, withAbilityLoss, boardHasAbilityLoss, permanentProtectionColors, permanentProtectionClasses, permanentProtectedFromEverything, permanentIsCreature, playerHasHexproof, playerHasShroud, permanentTargetShields, permanentCantHaveKeyword, permanentHasCardType, permanentHasTypeWord, permanentColors } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11c, read at the target-enumeration seam; permanentHasCardType (#511) — a card type a layer-4 effect added
 import { protectionApplies } from "./protection.js";
 import { playerDamageRedirectTarget } from "./damageRedirect.js"; // shelf D42 — damage to a player dealt to a creature instead (CR 614.9)
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -674,6 +674,10 @@ export function legacyTargetingEffect(card, effect = parseSpellEffect(card)) {
 export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false, recheck = false, sourceColorsKnown = false) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
+  // PROTECTION FROM EVERYTHING (CR 702.16j — "can't be targeted by spells or abilities"): absolute, like shroud — no source's quality
+  // matters, its own controller's spells included (Progenitus's ruling: "can't be the target of spells or abilities"). Every offer and
+  // the CR 608.2b re-check ask this one predicate, so a permanent that gains it in response is an illegal target at resolution.
+  if (permanentProtectedFromEverything(state, perm.id)) return false;
   // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16b): can't be targeted by an ability whose SOURCE is a creature.
   // `sourceIsCreature` is derived by enumerateTargets from ctx.sourceId (the ability/trigger flush threads it) read
   // LAYER-AWARE; the cast path threads no source permanent (a creature SPELL that targets is not in this corpus's
@@ -1608,10 +1612,13 @@ export function consultDealt(s, event, dealer, raw, targetKind, targetId) {
 
 /** PROTECTION FROM THE DEALER (CR 702.16e) — damage from a source of a color the creature is protected from (colorless included —
  * a source with no colour, when its colours are known: dealer.colorsKnown, CR 105.2c), or from a creature source to a creature with
- * protection from creatures, is prevented: the qualities the combat funnel prevents by. */
+ * protection from creatures, is prevented: the qualities the combat funnel prevents by. + PROTECTION FROM EVERYTHING (CR 702.16j — "All
+ * damage that would be dealt to such a permanent … is prevented"): every dealer, its colours known or not. (No spell or ability damage
+ * the engine deals is "can't be prevented" — the parsers refuse that rider; combat's form is combatResolution's `unpreventable`.) */
 function protectedFromDealer(s, dealer, permId) {
   return protectionApplies(permanentProtectionColors(s, permId), dealer.colorsKnown ? dealer.colors : null)
-    || (dealer.isCreature && permanentProtectionClasses(s, permId).has("creatures"));
+    || (dealer.isCreature && permanentProtectionClasses(s, permId).has("creatures"))
+    || permanentProtectedFromEverything(s, permId);
 }
 
 /**

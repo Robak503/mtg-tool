@@ -7,7 +7,7 @@ import { applyDamageEffect, parseCreatureTargetRestrictions, resolutionSource } 
 import { graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead, logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe, commanderCastsFromCommandZone, loseLife } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice, setPendingChangeTargetChoice, setPendingCopyTargetsChoice, clearPendingChoice } from "../../pendingChoice.js"; // + the copy-targets pause (CR 707.10c — a person chooses a copy's new targets)
 import { resolveScaledAmount, countForSpec, isCreatureCard, damageSourceFor } from "./shared.js"; // + damageSourceFor: a spell's or a departed source's colours and types for the source-filtered damage replacements
-import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
+import { typeLineNow, permanentIsCreature, permanentTypes, cannotEquipNow, addContinuousEffect, permanentProtectionColors, permanentProtectedFromEverything, permanentColors } from "../../layers.js"; // + addContinuousEffect (shelf D18 — Veil of Summer's end-of-turn target shields) // CR 613 — an animated permanent is a creature RIGHT NOW; + CR 301.5c at the attach-pair (stage ③ · 33); + the host's live types for the Aura's Enchant line (③ · 34)
 import { applyControllerRider, sacrificePoolMatchNow } from "./removal.js"; // + sacrificePoolMatchNow (Chain of Vapor): a land as it is now, the edict pools' read
 import { applyTrickeryRider } from "./library.js"; // TIBALT'S TRICKERY (2026-11-02) — the countered spell's controller's mill and dig (library.js imports no stack atom)
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -297,6 +297,8 @@ function applyAttachToSelf(state, atom, ctx) {
     // is a creature without reconfigure doesn't move. Re-read at resolution, so an Equipment that stopped being one since
     // the target was chosen stays where it is too.
     if (cannotEquipNow(next, t.id)) continue;
+    // CR 702.16j / 701.3b — the source can't be equipped while it has protection from everything: the Equipment doesn't move.
+    if (permanentProtectedFromEverything(next, ctx.sourceId)) continue;
     next = attachPermanent(next, { equipId: t.id, targetId: ctx.sourceId });
     next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: t.id, targetId: ctx.sourceId, controller: ctx.controller });
   }
@@ -339,6 +341,8 @@ function applyAttachSourceToTriggering(state, atom, ctx) {
   if (!src || !tgt || src.permanent.id === tgt.permanent.id) return state;
   if (!permanentIsCreature(state, tgt.permanent.id)) return state;
   if (!auraMayEnchantCreature(state, src.permanent.card, tgt, ctx.controller)) return state;
+  // CR 702.16j / 701.3b — a creature with protection from everything can't be enchanted: the Aura doesn't move (Progenitus entering).
+  if (permanentProtectedFromEverything(state, tgt.permanent.id)) return state;
   const next = attachPermanent(state, { equipId: src.permanent.id, targetId: tgt.permanent.id });
   return logEvent(next, { kind: "spell-effect", effect: "aura-attach-to-triggering", auraId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
 }
@@ -360,6 +364,7 @@ function applyAttachEquipmentToTriggering(state, atom, ctx) {
   if (!src || !tgt || src.permanent.id === tgt.permanent.id) return state;
   if (!permanentIsCreature(state, tgt.permanent.id) || cannotEquipNow(state, src.permanent.id)) return state;
   if (protectionApplies(permanentProtectionColors(state, tgt.permanent.id), permanentColors(state, src.permanent.id))) return state;
+  if (permanentProtectedFromEverything(state, tgt.permanent.id)) return state; // CR 702.16j — can't be equipped (Progenitus entering)
   if (src.permanent.attachedTo === tgt.permanent.id) return state;
   const next = attachPermanent(state, { equipId: src.permanent.id, targetId: tgt.permanent.id });
   return logEvent(next, { kind: "spell-effect", effect: "equipment-attach-to-triggering", equipId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
@@ -2021,8 +2026,9 @@ export function raiseCopyTargetsChoice(state) {
  *   · a copy — the chosen targets are written where the house pick writes them (`targets`, `payload.params.targets`), its wards recorded
  *     (withWardOwed, CR 702.21a — asked by the driver once nothing waits, raiseWardOwed) and its targets become its targets (copyTargetEvents —
  *     the becomes-the-target triggers are queued; the driver flushes them once nothing waits);
- *   · Deflecting Swat's object (`retarget`) — its targets are changed in place, a ward recorded only for the targets that changed (the
- *     unchanged ones were already its targets), as applyRetarget's house pick does.
+ *   · Deflecting Swat's object (`retarget`) — its targets are changed in place, a ward recorded and the becomes-the-target events run only
+ *     for the targets it did not already have, by identity (one moved between instances of "target" was already its target — R3-N1), as
+ *     applyRetarget's house pick decides its events.
  * An answer that is no candidate decides nothing: the question stands. An object no longer on the stack (its controller left the game,
  * CR 800.4a) has nothing to choose. Pure.
  */
@@ -2049,11 +2055,15 @@ export function settleCopyTargetsChoice(state, candidateId) {
   if (ask.retarget) {
     const before = obj.payload?.params?.targets || obj.targets || [];
     const changed = targets.filter((t, i) => !sameTarget(t, before[i]));
-    const placed = changed.length ? withWardOwed(cleared, copyWithTargets(bare, targets), changed) : copyWithTargets(bare, targets);
+    // The targets it did NOT already have, decided by identity, as applyRetarget's house deflection decides them (the round-3 recheck's
+    // R3-N1): a target merely moved from one instance of "target" to another was already its target, so it doesn't become one again — its
+    // ward isn't charged a second time (CR 702.21a — "becomes the target") and its becomes-the-target triggers don't trigger again.
+    const newly = targets.filter((t) => !before.some((b) => sameTarget(b, t)));
+    const placed = newly.length ? withWardOwed(cleared, copyWithTargets(bare, targets), newly) : copyWithTargets(bare, targets);
     let next = { ...cleared, stack: cleared.stack.map((o, i) => (i === at ? placed : o)) };
-    // The changed targets become its targets (the review's R2-F3 — CR 601.2c, 115.7d): their becomes-the-target triggers and Kira's counter,
-    // the same events a copy's targets run; the unchanged ones were already its targets.
-    if (changed.length) next = copyTargetEvents(next, { ...placed, targets: changed });
+    // The new targets become its targets (the review's R2-F3 — CR 601.2c, 115.7d): their becomes-the-target triggers and Kira's counter,
+    // the same events a copy's targets run; the ones it already had were already its targets.
+    if (newly.length) next = copyTargetEvents(next, { ...placed, targets: newly });
     return logEvent(next, changed.length
       ? { kind: "spell-effect", effect: "retarget", targetId: obj.id, cardName: obj.source?.name || null, controller: pc.controller, from: before.map((x) => x.name || x.id), to: targets.map((x) => x.name || x.id) }
       : { kind: "spell-effect", effect: "retarget-decline", targetId: obj.id, reason: "kept", controller: pc.controller });
@@ -2754,7 +2764,11 @@ function applyRetarget(state, atom, ctx) {
       continue;
     }
     const newTargets = deflected.targets;
-    const deflectedObj = withWardOwed(next, { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } }, newTargets);
+    // The targets it did not already have (by identity — R3-N1's class): only they become its targets, so only their ward is charged
+    // (CR 702.21a) and only their becomes-the-target events run (below). A ward permanent the deflection keeps was already a target, and its
+    // ward was asked when the spell first targeted it.
+    const newlyTargeted = newTargets.filter((x) => !originals.some((o) => sameTarget(o, x)));
+    const deflectedObj = withWardOwed(next, { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } }, newlyTargeted);
     next = {
       ...next,
       stack: [
@@ -2768,7 +2782,6 @@ function applyRetarget(state, atom, ctx) {
       from: originals.map((x) => x.name || x.id), to: newTargets.map((x) => x.name || x.id),
     });
     // Its new targets become its targets (the review's R2-F3 — CR 601.2c, 115.7d): every seat, the targets it did not already have.
-    const newlyTargeted = newTargets.filter((x) => !originals.some((o) => sameTarget(o, x)));
     if (newlyTargeted.length) next = copyTargetEvents(next, { ...deflectedObj, targets: newlyTargeted });
   }
   return next;
