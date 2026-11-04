@@ -109,7 +109,9 @@ export function activationCostText(o, seat = "user") {
   if (mana && mana !== "{0}") parts.push(mana);
   if (o.tapSelf) parts.push("{T}");
   const tapN = o.tapCountIds?.length || 0;
-  if (tapN) parts.push(o.tapCountNoun ? `tap ${tapN} untapped ${o.tapCountNoun}` : `tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`); // a filtered cost prints its own noun ("artifacts", "Zombies")
+  // A person's seat is offered one tap set per choice of permanents (legalChoices.countedCostSets — tapPayerKey), so its label names them.
+  if (tapN) parts.push(Array.isArray(o.tapCountNames) && o.tapCountNames.length ? `tap ${o.tapCountNames.join(", ")}`
+    : o.tapCountNoun ? `tap ${tapN} untapped ${o.tapCountNoun}` : `tap ${tapN} untapped creature${tapN === 1 ? "" : "s"}`); // a filtered cost prints its own noun ("artifacts", "Zombies")
   const exileN = o.exileGyIds?.length || 0;
   // A person's seat is offered one exile set per choice of cards (legalChoices.countedCostSets), so its label names them.
   if (exileN) parts.push(Array.isArray(o.exileGyNames) && o.exileGyNames.length ? `exile ${o.exileGyNames.join(", ")} from ${seatPossessive(seat)} graveyard` : `exile ${exileN} card${exileN === 1 ? "" : "s"} from ${seatPossessive(seat)} graveyard`);

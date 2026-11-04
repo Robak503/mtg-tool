@@ -41,11 +41,11 @@ describe("the reader", () => {
     expect(parseEffectClause("create X 2/2 black Zombie creature tokens, where X is half the number of Zombies you control, rounded down", "Enchantment")?.atoms)
       .toEqual([{ op: "create-token", power: 2, toughness: 2, descriptor: "black zombie", countFor: { kind: "permanentsYouControl", subtype: "Zombie" }, halve: "floor", targetType: null }]);
   });
-  it("CONTROL — a half with no rounding stated stays unread; Ghoulcaller's Harvest (decayed) stays parked", () => {
+  it("CONTROL — a half with no rounding stated stays unread; Ghoulcaller's Harvest plays now that decayed reads (graduated, pw28 — jadarDecayed.test.js)", () => {
     expect({
       noRounding: parseEffectClause("create X 2/2 black Zombie creature tokens, where X is half the number of Zombies you control", "Enchantment")?.atoms || [],
       harvest: classifyCard(GHOULCALLERS_HARVEST),
-    }).toEqual({ noRounding: [], harvest: "arbiter-spell" });
+    }).toEqual({ noRounding: [], harvest: "native-spell" });
   });
 });
 

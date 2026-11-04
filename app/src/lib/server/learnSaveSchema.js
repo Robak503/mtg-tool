@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 import { faceManaValue } from "../learn/modalDfc.js"; // a leaf chain (splitCard, spellColors): the face's own mana value, v13 → v14's one rewrite
 
-export const CURRENT_SCHEMA_VERSION = 16;
+export const CURRENT_SCHEMA_VERSION = 17;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -246,6 +246,20 @@ export const MIGRATIONS = {
   // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v16 save
   // (migrate throws on a newer version) instead of widening a Mindcensor-limited search to the whole library. (CONTRACT-MIG.)
   15: (doc) => ({ ...doc, schemaVersion: 16 }),
+
+  // v16 → v17 — the play-weighted slice pw28 (2026-11-03) persists these new shapes, each ABSENT meaning what every earlier game says:
+  //   · `state.pendingCounteredSpells` — the spells a counter removed since the last flush, each with the controller of the spell or
+  //     ability that countered it (Baral, Chief of Compliance; Lullmage Mentor — triggers.checkSpellCounteredTriggers): absent, none;
+  //   · `state.pendingLibraryExiles` — the cards put into exile from a library since the last flush, with their owner and an optional
+  //     `batch` (Laelia, the Blade Reforged — gameState.recordLibraryExiles): absent, none;
+  //   · a pending soft-counter choice's `counterer` and a stack object's `wardOwed.counterer` — the player whose spell or ability counters
+  //     the object on a decline: absent, the counter records no counterer (no "you counter a spell" watcher hears it);
+  //   · an `endOfCombatEffects` entry's `controller` and `sourceId`: absent (a v16 save made mid-combat), the entry's delayed ability takes
+  //     the AFFECTED creature's controller as it drains (delayedTrigger.drainEndOfCombatQueue) — for a basilisk's destroy or Wall of Tears'
+  //     bounce that is the opponent, not the ability's controller: the same outcome, only the trigger's owner and APNAP place differ.
+  // So an earlier save needs no backfill; this migration only stamps the version forward — and an earlier build refuses a v17 save
+  // instead of dropping a counter or an exile Baral or Laelia was waiting to hear. (CONTRACT-MIG.)
+  16: (doc) => ({ ...doc, schemaVersion: 17 }),
 };
 
 /** v13 → v14's rewrite: each battlefield permanent that is a modal DFC's land face carries that face's own mana value. */

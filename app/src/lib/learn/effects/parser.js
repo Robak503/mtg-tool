@@ -62,7 +62,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser, createTokensTogetherClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
-import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, matchSacrificeAnotherForPower, matchEachPlayerSacrificesColored, matchPromiseOfLoyalty } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
+import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser, mintedLeaveClauseParser, endOfCombatEntryClauseParser, matchSacrificeAnotherForPower, matchEachPlayerSacrificesColored, matchPromiseOfLoyalty } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { parseDestroyDiesCopy } from "./atoms/destroyDiesCopy.js"; // DESTROY-DIES-COPY — Saw in Half (destroy creature; if it died this way, its controller makes two half-P/T token copies)
@@ -83,7 +83,7 @@ import { matchChainBounceLandCopy } from "./atoms/stack.js"; // Chain of Vapor (
 import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser, spellOnStackSentenceAtoms } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, graveyardReturnPickClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser, gyBatchToBattlefieldClauseParser, matchGyCastPermission } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser, matchApproachWinOrTuck } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N) + Approach of the Second Sun (#979)
-import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
+import { gainControlClauseParser, matchAttackingPlayerTakesSource, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { grantUntilEotClauseParser, matchChooseLoseLifeGrant } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family; + Malakir Rebirth's choose-lose-grant (P·14)
 import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -3178,9 +3178,28 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // "and" (atoms/combat.matchOpponentsAttackOthers).
   const oao = matchOpponentsAttackOthers(oracle);
   if (oao && KNOWN.has(oao.op)) return makeProgram({ confidence: "high", atoms: [oao], xSpell: false, unparsedTail: null });
+  // THE ATTACKING OPPONENT DRAWS AND TAKES THIS ARTIFACT (the play-weighted program, #1261 — Coveted Jewel): two sentences, one atom
+  // (atoms/control.matchAttackingPlayerTakesSource — "the attacking player" is the sentinel only its trigger's event writes).
+  const apt = matchAttackingPlayerTakesSource(oracle);
+  if (apt && KNOWN.has(apt.op)) return makeProgram({ confidence: "high", atoms: [apt], xSpell: false, unparsedTail: null });
   const pun = matchPunisher(oracle);
   if (pun && KNOWN.has(pun.op)) {
     return makeProgram({ confidence: "high", atoms: [pun], xSpell: false, unparsedTail: null });
+  }
+  // THE PUNISHER AFTER A LEAD-IN (the play-weighted program, #1343 — Palantír of Orthanc: "put an influence counter on Palantír of
+  // Orthanc and scry 2. Then target opponent may have you draw a card. If that player doesn't, …"): the lead-in's atoms, in the
+  // printed order, then the punisher. The lead-in must read whole and HIGH with no target of its own, so the one chosen target is
+  // the punisher's opponent (CR 601.2c — a lead-in with a target of its own would share the slot list and stays unread).
+  {
+    const lead = oracle.trim().replace(/\.$/, "").match(/^(.+?)\.\s+then (target opponent may have you .+)$/is);
+    const tail = lead ? matchPunisher(lead[2]) : null;
+    if (tail && KNOWN.has(tail.op)) {
+      const head = parseEffectClauseImpl(lead[1].trim(), cardType, { hasX });
+      const untargeted = (a) => a.targetType == null || isNonChosenTargetType(a.targetType);
+      if (head && programConfidence(head) === "high" && head.structure !== "modal" && !head.unparsedTail && head.atoms.length && head.atoms.every((a) => KNOWN.has(a.op) && untargeted(a) && !a.optional)) {
+        return makeProgram({ confidence: "high", atoms: [...head.atoms, tail], xSpell: false, unparsedTail: null });
+      }
+    }
   }
   // ===== SELF-COPY WHEN CAST FROM A GRAVEYARD (the play-weighted program, P·23 — Sevinne's Reclamation) ===== "<effect>. If
   // this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy." → <effect>'s
@@ -4464,6 +4483,7 @@ registerClauseParser(diedCardToHandClauseParser); // its "return that card to it
 registerClauseParser(faceDownExileReturnClauseParser); // Necropotence — the [face-down-exile-return] sentinel the face-down exile's delayed half fires
 registerClauseParser(discardedCardExileClauseParser); // Necropotence — the [discarded-card] sentinel (the discard trigger's "exile that card from your graveyard")
 registerClauseParser(mintedLeaveClauseParser);
+registerClauseParser(endOfCombatEntryClauseParser); // pw28 review F1 — the end-of-combat delayed ability (gameEngine stacks it as the end of combat step begins)
 registerClauseParser(gyBatchToBattlefieldClauseParser); // shelf D27 — Colossal Grave-Reaver's "put one of them onto the battlefield" (the batch referent) // shelf D26 — the [minted-leave] sentinel the token copy's end-step sacrifice fires
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
 // parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any

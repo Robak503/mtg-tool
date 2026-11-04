@@ -1069,7 +1069,7 @@ self-made Aura, exert.**
   offer pays with yet; past-cap rows take the least valuable set that pays. Past either cap a person can pay with any one card and reach
   every target, but not every combination — a pick-N-during-activation prompt would close it. NOT yet routed through
   it (the same frozen pick): the cast-side "discard N" and "exile N" additional costs, the graveyard-recursion riders (GR-1, GR-2), the
-  class sacrifice "Sacrifice N <class>", the counted tap and "Sacrifice X" (the first X).
+  class sacrifice "Sacrifice N <class>" and "Sacrifice X" (the first X). The counted tap is routed through it since pw28 (below).
 - **Copy each token, one event** (`tokens.applyCreateTokenCopyEach` — Second Harvest; Ocelot Pride's `enteredThisTurn` filter): the copies
   are minted by the per-copy mint the single copy resolver uses (`mintOneTokenCopy` — an Aura copy chooses its host or isn't created, a
   Mox Diamond copy asks for its land, a Cloud Key copy chooses), each through the entry replacements on the board as the creation began
@@ -1191,6 +1191,93 @@ combat damage by object, the top four of a search.**
   and each bonus search is its own search with its own top four (`bonusTopIds` — its ruling: the effect happens again). Demonic Consultation's name pick, Eladamri's revealed top card and the seek atom are
   no searches.
 
+**The play-weighted pw28 readers (2026-11-03) — a counter heard, a library or graveyard exile heard, decayed, the defender's unblocked
+watch, the attacked leader, the punisher after a lead-in, another Mountain.**
+- **A spell or ability you control counters a spell** (Baral, Chief of Compliance; Lullmage Mentor — CR 701.6a): `triggers.classifyCondition`
+  → event `spellCountered`, scope `you`. Every counter records the countered SPELL (never an ability, CR 701.6a) on
+  `state.pendingCounteredSpells` `{ counterer, spellId, spellController }` inside `effects/atoms/stack.counterSpellById`, given the
+  `counterer` — the controller of the spell or ability that countered it — by each counter site: the hard counter (`applyCounter`), the
+  cast- and target-counter atoms (`applyCounterCastSpell`, `applyCounterTargetingObject`), a declined soft counter (the soft-counter pause's
+  `counterer`, `runProgram.resolveSoftCounterChoice`), a ward or Diffusion Sliver decline (`ward.targetTaxForStackObject`'s `counterer` —
+  the ward triggers go on the stack in APNAP order, CR 603.3b, so the controller latest in it, `gameState.apnapOrder(...).at(-1)`, is the
+  one whose trigger resolves first; through `actionDispatcher.raiseTargetTax`, `gameEngine.markWardOwed`/`raiseWardOwed` and
+  `stack.withWardOwed`'s `wardOwed.counterer`) and Kira's granted trigger (`kiraTargetCounter.applyKiraTargetCounter`, the same APNAP
+  pick; the cast path flushes after it). The moves that are no counter (Venser's and Remand-free bounces, Mindbreak Trap's exile —
+  `counterSpellById` with `via` and no `counterer`) and a spell that fails to resolve record nothing. Drained by
+  `triggers.checkSpellCounteredTriggers` in `gameEngine.flushTriggers`: the counterer's watchers, once per spell countered.
+- **Cards put into exile from your library and/or your graveyard** (Laelia, the Blade Reforged — CR 603.2c): event `libraryGraveyardExiled`,
+  scope `you`. The library half is `state.pendingLibraryExiles` `{ owner, cardId, batch? }` — `gameState.recordLibraryExiles`, recorded by
+  the zone chokepoint itself (`moveCardToZone` from "library" to "exile", with an optional `exileBatch`) and by every direct write (the
+  surveil, dig-rest and mill exile-instead replacements, `library.js`' reveal-top, impulse and until-loops, `runProgram.js`' dig picks,
+  hideaway, plot and free-cast exiles); the graveyard half is the GY-EVENT "leave" rows whose zone is exile (the two direct graveyard writes
+  that recorded none — the optional exile-self cost and the granted dies-exile — now record theirs). `libraryGraveyardExileLint.test.js`
+  pins every direct `exile: [...]` write in the engine to the zone its card comes from and the recorder it calls. `triggers.
+  checkLibraryGraveyardExileTriggers` (run in `flushTriggers` BEFORE `checkGraveyardEventTriggers`, which consumes the graveyard rows)
+  groups the rows into EVENTS: every row with no batch is one event (what was exiled between two flushes — the graveyard-batch reading);
+  a named batch is its own — `recordLibraryExilesOneAtATime` for an "exile cards until …" (cascade, discover, Tibalt's Trickery: one event
+  per card, the ruling), and Demonic Consultation's two events. Each owner of an event's cards hears it once. A watcher whose own card is
+  among the drain's cards (exiled, or a graveyard event) is skipped — `checkGraveyardEventTriggers`' `inGraveyardThisDrain` guard: Living
+  Death exiles Laelia from the graveyard with the rest and returns her, and immediately before that exile she was a card, not a permanent
+  (CR 603.10a — the review's F2).
+- **A spell's own card is never a graveyard-card target of its own** (CR 601.2a, 601.2c — the review's F4: Rotten Reunion's, Coffin
+  Purge's and Mystic Retrieval's flashback offered themselves): `legalChoices.castActionsFromZone` threads `castCardId` to every cast's
+  target enumeration and `spellEffects.enumerateTargets`' graveyard pool leaves it out.
+- **Decayed** (CR 702.147a — Jadar, Ghoulcaller of Nephalia's Zombie and eight token makers): `keywords.GRANTABLE_STATIC_KEYWORDS` holds
+  "decayed" (a token "with decayed" parses — `parseHelpers.TOKEN_KEYWORD_CANON`; "creatures with decayed" is an intervening-if filter
+  keyword). Both halves read the keyword as it is now (`layers.permanentHasKeyword` — printed, granted, a counter; cut by a newer ability
+  loss): `combatEvasion.canBlockAttacker` refuses the block; `triggers.decayedAttackTriggers` (queued in `gameEngine.closeAttackDeclaration`
+  beside myriad) gives each declared attacker that has it a "sacrifice it at end of combat" trigger (`removal.js`' self-at-end-of-combat
+  atom), which sacrifices it whatever it has by then (the ruling). A creature put onto the battlefield attacking never attacked (CR 508.4).
+- **The end-of-combat delayed abilities** (the review's F1/F3 — decayed, the basilisk destroy, the self sacrifice / bounce class, Wall of
+  Tears' blocked-attacker bounce, the Clockwork counter): the atoms queue an entry on `state.endOfCombatEffects` stamped with its turn, its
+  CONTROLLER (the controller of the ability that made it — CR 603.7e) and its source. As the end of combat step begins, before priority,
+  `gameEngine.runStepActions` turns the queue into delayed triggers (`delayedTrigger.drainEndOfCombatQueue`, the `[end-of-combat <op>
+  <id>]` sentinel resolved by `removal.applyEndOfCombatEntry`) that go on the stack with the step's other triggers (CR 511.2, 603.7). The
+  queue empties every time the step begins, so a combat with no regular damage step strands nothing; an earlier turn's entry is dropped. A
+  sacrifice takes only a permanent the ability's controller still controls (CR 701.21a — a stolen decayed attacker survives). Until the
+  review the queue was drained at the end of the regular combat damage step's damage, before any priority: no player could act after
+  damage with the creature still there (CR 510.3 — a decayed Zombie to a sacrifice outlet).
+- **One or more creatures an opponent controls attack you and aren't blocked** (Coveted Jewel): event `opponentUnblockedAtYou`, fired by
+  `triggers.checkBlockTriggers` once blocks are declared — once per attacked PLAYER (never a planeswalker — the ruling; CR 508.3e) per
+  opponent with a declared, unblocked attacker at them (`attackedThisTurn`, CR 508.4), the opponent threaded as `attackingPlayerId`. The
+  descriptor rewrites "that player" to the sentinel "the attacking player" (event-gated, the gy-owner precedent), which only
+  `effects/atoms/control.matchAttackingPlayerTakesSource` reads: that player draws (the trigger-threading draw), takes the permanent for
+  good (`controlMove.gainControlIndefinitely`, CR 611.2a) and untaps it (`combat.applyTapEffect`).
+- **Attacking the player with the most life** (Scourge of the Throne — interveningIf): "it's attacking the player with the most life or
+  tied for most life" is dethrone's every-player comparison asked of the player the source is attacking NOW — the source must still be
+  in combat attacking `context.defenderId` (CR 603.4: checked as it attacks and as it resolves); a planeswalker attack is a definite false.
+  "For the first time each turn" is the flush's once-per-turn latch, set as the attack happens whether or not the condition holds.
+- **The punisher after a lead-in** (Palantír of Orthanc — `effects/parser.js`, after `matchPunisher`): "<lead-in>. Then target opponent
+  may have you …" → the lead-in's atoms (HIGH, no target or "may" of their own), then the punisher; the new outcome `millLoseLifeTotalMv`
+  mills the source's named counters (`countFrom`, a namedCountersOnSource count — the source's last-known counters once it has left, CR
+  608.2h) and the decider LOSES the total (CR 119.3). `triggers.rewriteSelfNameCounterObjects` turns the full self-name in "<a|N|the
+  number of> <kind> counter(s) on <Name>" into "this creature" (a counter's object is never a name — CR 201.5), outside quoted
+  abilities only (inside a quote "this creature" is the quote's own object — Gutter Grime's token). The read reaches every trigger, so
+  Lost Jitte and Simic Slaw play whole by it (selfNameCounterTwins.test.js), and uncredited cards' self-counter triggers now resolve
+  (Umezawa's Jitte, The Moment, Excalibur II, Instrument of the Bards). It also let Famous Museum's trigger read, which exposed its mana
+  line: "Add {C}, plus an additional {C} for each art counter on Famous Museum." read as a flat {C}{C}. `manaModel.manaLineRefused`
+  now refuses a "plus an additional … for each" add (one plus a count no record reads), so the Museum makes no mana and stays uncredited.
+  When the next reader widens what a trigger parses, check the card's mana line too: the native-mana gate trusts `manaProduction`.
+- **"You control at least N other <filter>"** (Valakut, the Molten Pinnacle; Roiling Canopy): "other" is the TRIGGERING permanent (the
+  Mountain that entered — the ruling), else the source. And a subtype an effect ADDED is read by the subtype scopes
+  (`triggers.permMatchesSubtypeFilter` — `layers.permanentHasTypeWord` for a permanent on the battlefield; `typeLineNow` answers the
+  printed line on a board that only adds types): a Forest entering under Prismatic Omen is a Mountain entering.
+- **A person's counted tap** (`legalChoices` — `countedCostSets` with `interchangeablePayerKey`): a seat a person plays is offered one
+  activation per distinct set of N untapped payers (Lullmage Mentor's seven Merfolk; Kirol, Clock of Omens, Cryptbreaker, Lathril), each
+  naming them (`tapCountNames`, from `payerLabels`); another set than the house set is re-checked for its mana as its row is emitted.
+  Every other seat keeps the one house set. **Which payers are one choice** (`interchangeablePayerKey(state, perm)`, exported for every
+  counted-cost payer — pw29's counted sacrifice too): the permanent's own id unless it equals the other apart from its identity (its id,
+  its card's id — every other per-object field counts: chosen type or colour, imprint, exert, monstrous, renowned, an entered clone's
+  `printedCard`) AND nothing else on the state names it (combat, a continuous effect — a copy, a pump —, a stack object, a pending or
+  delayed trigger, a ledger; the log and the transient `_last…` stamps are not read). The id counts as a whole token wherever it
+  stands — inside a string too: a delayed record names its permanents only in its sentinel (`[minted-leave sacrifice tok-2]`, Kiki-Jiki's
+  copy due to be sacrificed; `[cz-return …]` — the round-3 recheck's R3-F1). When in doubt, by id: an extra offer is safe, a merged one a
+  lost choice (pw29's round-2 recheck, R2-F1 — the allow-list key it replaces merged a blocker with an idle creature and a copy with the
+  real card). Each label is the printed name plus what tells it apart: a copy, combat, "token" beside a card, "targeted by Lightning
+  Bolt", "enchanted by Pacifism" / "equipped by …", marked damage, "summoning sick" (a creature without haste only, through the layers),
+  counters, a chosen type or colour, imprint, exert, monstrous, renowned — "Merfolk (blocking Hill Giant)", "Clone (copy of Merfolk of the
+  Pearl Trident, summoning sick)"; two payers that key apart but would still read alike carry their ids (R3-N2).
+
 **"If you do" after a sacrifice, and the reflexive behind one** (`ifSacrificed`; the reflexive half 2026-10-17): an atom
 flagged `ifSacrificed` runs only when the atom before it logged a real sacrifice victim (`realSacrificeIn`), and a run of them
 shares the gate. `parser.matchReflexiveTrigger` tags a "When you do, …" reflexive with it when the primary is a lone
@@ -1211,7 +1298,8 @@ runEffectProgram. The default AI answer is `punisherAutoTake` (via `optionalAuto
 the declined Gearhulk outcome would read the caster's hidden library): damage against cards, at the 10-life floor
 (`PUNISHER_LIFE_FLOOR`, the value of opponentAI's `LIFE_PRUDENCE_FLOOR`); the Gearhulk's unseen total read at 4 a card; a draw
 the caster's library can't cover is always given (CR 121.4); the Conqueror's tap taken only when it costs nothing this turn.
-A new outcome kind needs its parse, its resolver arm, its `punisherTakeable` answer and its AI answer.
+A new outcome kind needs its parse, its resolver arm, its `punisherTakeable` answer and its AI answer. A punisher may follow a lead-in
+("<atoms>. Then target opponent may have you …" — Palantír of Orthanc, pw28): the parser reads the lead-in's atoms first.
 
 **Several token kinds, one event** (`create-tokens-together`, 2026-10-17 — Wurmcoil Engine, Triplicate Titan). "create <kind> and
 <kind>" / "<kind>, <kind>, and <kind>" is cut only where a count word and a P/T begin the next kind; each kind is the single arm's
@@ -2006,7 +2094,9 @@ last two bullets below.
     an under-offer where the copied card has no payoff). Brass Squire can still attach an Equipment copy (its "target Equipment you
     control" reads the copy's types) and it grants nothing. The Gardens' own noun ("target nontoken artifact you control with mana value X" — a `manaValue` restriction
     with `op: "="` and `valueX`, the activated {X} lane walking X from 0, abilities.js's matching `costXTargetsReadX`) was built and
-    removed with the park; the design is in the pw21 RUN-LEDGER entry.
+    removed with the park; the design is in the pw21 RUN-LEDGER entry. Mirage Mirror (#1312 — "{2}: This artifact becomes a copy of
+    target artifact, creature, enchantment, or land until end of turn.") is parked on the same line (pw28): its noun reaches every one of
+    these readers.
   - **CR 704.5p (pw21)** — `sba.js` `sweepAttachmentLegality`: an attached permanent that is a creature or a battle, or is neither an
     Aura, an Equipment nor a Fortification, becomes unattached and stays (a Transreliquat whose copy of a Greaves ended at cleanup, or
     that became a Solemn Simulacrum while attached). Its types are read layer-aware on a board that sets types (`boardSetsTypes`), the

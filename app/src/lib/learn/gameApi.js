@@ -470,7 +470,19 @@ export function observe(state, seat) {
 //   - state: `combatDamageToPlayersThisTurn` `{ turn, bySource }` (the players each object dealt combat damage to this turn — Steel
 //     Hellkite) and `departedLifeLostThisTurn` (the life a seat that left the game lost this turn — Neheb, the Eternal).
 //   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
-export const PLAY_API_VERSION = "1.19.0";
+// 1.20.0 (additive MINOR — new fields on existing kinds, 2026-11-03, the play-weighted slice pw28; after pw27's 1.19.0):
+//   - The "soft-counter" decision may carry `counterer` — the player whose spell or ability counters the object if it isn't paid for (the
+//     soft counter's controller; a ward's or Diffusion Sliver's controller): Baral, Chief of Compliance and Lullmage Mentor hear that
+//     counter ("Whenever a spell or ability you control counters a spell"). The answer is the same.
+//   - An "activate-ability" action with a counted tap cost ("Tap seven untapped Merfolk you control" — Lullmage Mentor; Kirol, Clock of
+//     Omens, Cryptbreaker, Lathril) is offered to a person's seat once per distinct set of permanents that can pay it (CR 601.2h — each
+//     action's `tapCountIds`, naming them in `tapCountNames`); every other seat's one action is unchanged.
+//   - state: `pendingCounteredSpells` (the spells a counter removed since the last flush, each with its `counterer`), `pendingLibraryExiles`
+//     (the cards put into exile from a library since the last flush, with their owner and an optional `batch` — Laelia, the Blade Reforged)
+//     and a stack object's `wardOwed.counterer`.
+//   - Save format v17 (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[16]`).
+//   No kind, decision or answer shape changed; a driver that ignores the fields plays as before.
+export const PLAY_API_VERSION = "1.20.0";
 
 /**
  * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for

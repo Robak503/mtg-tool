@@ -36,6 +36,8 @@ import { findPermanent, logEvent, updatePermanentSafe } from "../../gameState.js
 import { atomTargets } from "./shared.js";
 import { TARGET_SUBTYPES } from "../parseHelpers.js"; // curated creature-subtype allowlist (leaf, cycle-free)
 import { addControlEffect, gainControlIndefinitely, controlEffectsOf, UNTIL_END_OF_TURN } from "../../controlMove.js"; // the ONE control move + the control-effect record (CR 613.7), shared with controlAura.js (imports only a zero-import leaf — no cycle)
+import { applyDrawEffect } from "../../spellEffects.js"; // Coveted Jewel's draw — the trigger-threading draw; call-time binding, cycle-safe (the punisher.js / combat.js precedent)
+import { applyTapEffect } from "./combat.js"; // Coveted Jewel's "Untap it" — the shared untap (its untap watchers drained)
 import { permanentHasCardType } from "../../layers.js"; // GAIN-CONTROL-ALL (Hellkite Tyrant): the card type as it is now — the import removal.js and the other atom modules make (the barrel imports both from the same place, so no new cycle)
 
 /**
@@ -219,8 +221,43 @@ export function applyRegainOwnedCreatures(state, atom, ctx) {
   return next;
 }
 
+/**
+ * ===== THE ATTACKING OPPONENT DRAWS AND TAKES THIS PERMANENT (the play-weighted program, #1261 — Coveted Jewel) ===== "Whenever one
+ * or more creatures an opponent controls attack you and aren't blocked, that player draws three cards and gains control of this
+ * artifact. Untap it." Read whole (the second sentence's "it" is this artifact): one atom. "That player" arrives as the sentinel
+ * "the attacking player" — detectTriggers writes it on the opponentUnblockedAtYou event only, where checkBlockTriggers threads the
+ * player as ctx.attackingPlayerId — so no other event's "that player" can reach it.
+ *   · the draw is that player's (the trigger-threading draw — their "whenever you draw" watchers hear it);
+ *   · the control change is indefinite (CR 611.2a — no duration: gainControlIndefinitely, the one control move; CR 613.1b), and the
+ *     artifact never leaves the battlefield: no enters trigger, its "When this artifact enters" draw doesn't happen again;
+ *   · "Untap it": the artifact, under its new controller — who may tap it for mana at once (an artifact that isn't a creature is not
+ *     affected by summoning sickness, CR 302.6; the bundled ruling: "each of them … has a chance to activate its mana ability").
+ * The artifact gone before it resolves: that player still draws; nothing is taken or untapped (CR 608.2b — no target; the parts that
+ * can be done are done). That player gone from the game: nothing happens.
+ */
+const DRAW_COUNT = { "a card": 1, "two cards": 2, "three cards": 3 };
+export function matchAttackingPlayerTakesSource(oracle) {
+  const s = String(oracle || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = s.match(/^the attacking player draws (a card|two cards|three cards) and gains control of this (?:artifact|permanent)\. untap it$/);
+  return m ? { op: "attacking-player-takes-source", amount: DRAW_COUNT[m[1]], targetType: null } : null;
+}
+export function applyAttackingPlayerTakesSource(state, atom, ctx) {
+  const pid = ctx.attackingPlayerId;
+  if (!pid || !state.players?.[pid]) {
+    return logEvent(state, { kind: "spell-effect", effect: "attacking-player-takes-source", taken: false, reason: "no attacking player", controller: ctx.controller });
+  }
+  let next = applyDrawEffect(state, { controller: pid, amount: atom.amount });
+  const here = ctx.sourceId != null && findPermanent(next, ctx.sourceId);
+  if (here) {
+    next = gainControlIndefinitely(next, ctx.sourceId, pid);
+    next = applyTapEffect(next, { op: "untap", target: "self", selfPermanent: true, targetType: null }, { ...ctx, controller: pid }, false);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "attacking-player-takes-source", taken: !!here, player: pid, drew: atom.amount, controller: ctx.controller, cardName: ctx.cardName || null });
+}
+
 export const controlResolvers = {
   "gain-control": applyGainControl,
+  "attacking-player-takes-source": applyAttackingPlayerTakesSource, // the play-weighted program, #1261 — Coveted Jewel: "that player draws three cards and gains control of this artifact. Untap it."
   "gain-control-all": applyGainControlAll, // play-weighted #745 — Hellkite Tyrant: every artifact the damaged player controls
   "regain-owned-creatures": applyRegainOwnedCreatures,
 };

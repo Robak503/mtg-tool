@@ -114,6 +114,12 @@ export const GRANTABLE_STATIC_KEYWORDS = new Set([
   // MYRIAD (CR 702.116a — 2026-11-03, effects/atoms/myriad.js): read at the attack by its instance count (layers.keywordInstanceCount),
   // printed or granted — an Equipment's (Blade of Selves), an Aura's or a team grant's — so a layer-6 grant of it is the whole keyword.
   "myriad",
+  // DECAYED (CR 702.147a — the play-weighted program, #1334 Jadar, Ghoulcaller of Nephalia: "a 2/2 black Zombie creature token with
+  // decayed"): a static ability and a triggered ability — "This creature can't block" and "When this creature attacks, sacrifice it at
+  // end of combat." Both halves read the keyword as it is now (layers.permanentHasKeyword — printed, granted, a counter; cut by a newer
+  // ability loss): combatEvasion.canBlockAttacker refuses the block, and triggers.decayedAttackTriggers fires the attack trigger as
+  // the attack declaration closes. So a layer-6 grant of it is the whole keyword.
+  "decayed",
 ]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */

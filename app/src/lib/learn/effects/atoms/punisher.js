@@ -2,13 +2,17 @@
  * effects/atoms/punisher.js — the PUNISHER: another player chooses between two outcomes (CR 118.12 — "[A player] may [do
  * something]. If [that player] doesn't, [effect].").
  *
- * The play-weighted program: #1029 Combustible Gearhulk, #1045 Charismatic Conqueror, and Risk Factor.
+ * The play-weighted program: #1029 Combustible Gearhulk, #1045 Charismatic Conqueror, #1343 Palantír of Orthanc, and Risk Factor.
  *
  *   Combustible Gearhulk:  "target opponent may have you draw three cards. If the player doesn't, you mill three cards, then this
  *                           creature deals damage to that player equal to the total mana value of those cards."
  *   Risk Factor:           "Target opponent may have Risk Factor deal 4 damage to them. If that player doesn't, you draw three cards."
  *   Charismatic Conqueror: "they may tap that permanent. If they don't, you create a 1/1 white Vampire creature token with
  *                           lifelink." (on its "an artifact or creature an opponent controls enters untapped" watcher)
+ *   Palantír of Orthanc:   "Then target opponent may have you draw a card. If that player doesn't, you mill X cards, where X is the
+ *                           number of influence counters on Palantír of Orthanc, and that player loses life equal to the total mana
+ *                           value of those cards." (its lead-in — "put an influence counter on Palantír of Orthanc and scry 2" —
+ *                           is read by the parser, matchPunisherAfterLeadIn, as the atoms before this one)
  *
  * ONE atom, `punisher`, carrying both outcomes as small closed descriptors (`taken` — the decider says yes; `declined` — no).
  * It is an optional atom whose decider is not its controller: the targeted opponent (`optionalDeciderIsTarget`, the Partner-with
@@ -24,16 +28,20 @@
  *   declined: { kind: "millDamageTotalMv", count } the controller mills that many, then the source deals the decider damage equal
  *                                            to the milled cards' total mana value (CR 701.17c — read where they went, a public
  *                                            zone; {X} counts 0, the Gearhulk ruling)
+ *             { kind: "millLoseLifeTotalMv", countFrom } the controller mills the source's named counters' worth (countFrom — a
+ *                                            namedCountersOnSource count, read as it resolves: CR 608.2h, the counters it had as
+ *                                            it last existed if it has left), then the decider LOSES life equal to the milled
+ *                                            cards' total mana value (CR 119.3 — a loss, not damage; read where they went)
  *             { kind: "draw", count }
  *             { kind: "createToken", token } a plain fixed-count create-token reading
  *
  * The default AI decision (punisherAutoTake) weighs damage against cards (see its note). Pure parse; the resolver reads state.
  */
 
-import { logEvent, findPermanent } from "../../gameState.js";
+import { logEvent, findPermanent, loseLife } from "../../gameState.js";
 import { applyDamageEffect, applyDrawEffect } from "../../spellEffects.js"; // the shared deal path and the trigger-threading draw — call-time binding, cycle-safe (the combat.js / removal.js precedent)
 import { permanentIsCreature, permanentHasKeyword, withAbilityLoss } from "../../layers.js"; // + the ability view (CR 613.1f)
-import { damageSourceFor } from "./shared.js";
+import { countForSpec, damageSourceFor } from "./shared.js";
 import { millOnePlayer } from "./library.js";
 import { applyTapEffect } from "./combat.js";
 import { applyCreateToken, createTokenClauseParser } from "./tokens.js";
@@ -60,6 +68,14 @@ export function matchPunisher(oracle) {
   if (m && !/\b(?:target|that|another|each|enchanted|equipped)\b/.test(m[1])) {
     return { op: "punisher", targetType: "opponent", optional: true, optionalDeciderIsTarget: true,
       taken: { kind: "damageDecider", amount: parseInt(m[2], 10) }, declined: { kind: "draw", count: COUNT[m[3]] } };
+  }
+  // Palantír of Orthanc: X is the source's own named counters (its lead-in put one there first); the decider loses the total — not
+  // damage. The self-reference arrives as "this creature" (detectTriggers' counter-object rewrite of the name) or a printed self noun.
+  m = s.match(/^target opponent may have you draw (a card|two cards|three cards)\. if that player doesn't, you mill x cards, where x is the number of ([a-z]+) counters on this (?:creature|artifact|permanent), and that player loses life equal to the total mana value of those cards$/);
+  if (m) {
+    return { op: "punisher", targetType: "opponent", optional: true, optionalDeciderIsTarget: true,
+      taken: { kind: "draw", count: m[1] === "a card" ? 1 : COUNT[m[1].split(" ")[0]] },
+      declined: { kind: "millLoseLifeTotalMv", countFrom: { kind: "namedCountersOnSource", counterType: m[2] } } };
   }
   m = s.match(/^the triggering permanent's controller may tap the triggering permanent\. if they don't, (?:you )?(create .+)$/);
   if (m) {
@@ -107,16 +123,20 @@ export function applyPunisher(state, atom, ctx) {
       return applyTapEffect(next, { op: "tap", target: "thatPermanent" }, ctx, true);
     case "createToken":
       return applyCreateToken(next, outcome.token, ctx);
-    case "millDamageTotalMv": {
+    case "millDamageTotalMv":
+    case "millLoseLifeTotalMv": {
       const before = next;
-      next = millOnePlayer(next, ctx.controller, outcome.count);
+      const count = outcome.kind === "millLoseLifeTotalMv" ? Math.max(0, countForSpec(next, ctx, outcome.countFrom) || 0) : outcome.count;
+      next = millOnePlayer(next, ctx.controller, count);
       // The cards this mill moved (its own stamp — absent when nothing was milled), found where they went: a public zone of their
       // owner, the mill's player (CR 701.17c). A card with {X} counts X as 0 (CR 202.3 — the printed mana value).
       const milled = next === before ? [] : (next._lastMilledIds || []);
       const zones = [...(next.players[ctx.controller]?.graveyard || []), ...(next.players[ctx.controller]?.exile || [])];
       const total = milled.reduce((sum, id) => sum + Math.max(0, Number(zones.find((c) => c.id === id)?.cmc) || 0), 0);
       next = logEvent(next, { kind: "spell-effect", effect: "punisher-milled-total", controller: ctx.controller, milled: milled.length, total });
-      return hitDecider(total);
+      if (outcome.kind === "millDamageTotalMv") return hitDecider(total);
+      // "that player loses life equal to the total" (Palantír of Orthanc) — the life sink every loss takes (CR 119.3), not a deal.
+      return decider && total > 0 && next.players?.[decider] ? loseLife(next, { playerId: decider, amount: total }) : next;
     }
     default:
       return next;
@@ -143,6 +163,13 @@ export function punisherAutoTake(state, decider, caster, atom, ctx = {}) {
   if (taken?.kind === "draw" && declined?.kind === "millDamageTotalMv") {
     if (casterLibrary < taken.count) return true;
     return life - PUNISHER_MV_PER_CARD * declined.count < PUNISHER_LIFE_FLOOR;
+  }
+  // Palantír of Orthanc: the same weighing, X read as the declined branch would read it now (the source's named counters), no more
+  // than the caster's library holds.
+  if (taken?.kind === "draw" && declined?.kind === "millLoseLifeTotalMv") {
+    if (casterLibrary < taken.count) return true;
+    const count = Math.max(0, countForSpec(state, ctx, declined.countFrom) || 0);
+    return life - PUNISHER_MV_PER_CARD * Math.min(count, casterLibrary) < PUNISHER_LIFE_FLOOR;
   }
   if (taken?.kind === "damageDecider" && declined?.kind === "draw") {
     if (casterLibrary < declined.count) return false;

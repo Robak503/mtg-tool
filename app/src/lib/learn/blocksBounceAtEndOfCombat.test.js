@@ -21,6 +21,13 @@ const TEARS = { id: "c-wt", name: "Wall of Tears", type: "Creature — Wall", ma
 const MEMBRANE = { id: "c-am", name: "Aether Membrane", type: "Creature — Wall", mana: "{1}{R}{R}", cmc: 3, power: 0, toughness: 5, keywords: ["Defender", "Reach"], oracle: "Defender; reach (This creature can block creatures with flying.)\nWhenever this creature blocks a creature, return that creature to its owner's hand at end of combat." };
 const KAIJIN = { id: "c-kv", name: "Kaijin of the Vanishing Touch", type: "Creature — Spirit", mana: "{1}{U}", cmc: 2, power: 0, toughness: 3, keywords: ["Defender"], oracle: "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, return that creature to its owner's hand at end of combat. (Return it only if it's on the battlefield.)" };
 
+/** The end of combat step begins (CR 511.2): the queued delayed abilities go on the stack (gameEngine.runStepActions), and resolve. */
+function endOfCombat(s0) {
+  let s = nextStep({ ...s0, phase: "combat", step: "combat-damage", stack: [], pendingTriggers: [] });
+  expect(s.step).toBe("end-of-combat");
+  for (let i = 0; i < 20 && s.stack.length; i++) s = resolveTopOfStack(s);
+  return s;
+}
 const bear = (id, controller, power = 2, toughness = 2) => ({ ...createPermanent({ id, card: { id: `card-${id}`, name: `Bear ${id}`, type: "Creature — Bear", mana: "{1}{G}", cmc: 2, power, toughness, keywords: [], oracle: "" }, controller }), summoningSick: false });
 
 describe("the detector, the parse and the classifier", () => {
@@ -37,7 +44,7 @@ describe("the detector, the parse and the classifier", () => {
 });
 
 describe("runtime", () => {
-  it("⭐ the AI's bear attacks into Wall of Tears: after combat damage the BEAR is in the AI's hand and the Wall stays", () => {
+  it("⭐ the AI's bear attacks into Wall of Tears: it deals its damage, then the end of combat step's delayed trigger returns it to the AI's hand; the Wall stays", () => {
     const s0 = createGameState({ userDeck: [], aiDeck: [] });
     let s = { ...s0, turn: 7, phase: "combat", step: "declare-blockers", activePlayer: "ai", priorityHolder: "ai", consecutivePasses: 0, stack: [],
       combat: { attackers: [{ permanentId: "atk", defender: "user" }], blockers: [{ blockerId: "wall", attackerId: "atk" }] },
@@ -50,8 +57,10 @@ describe("runtime", () => {
     expect(s.endOfCombatEffects).toHaveLength(1);
     expect(s.endOfCombatEffects[0]).toMatchObject({ op: "bounce", permanentId: "atk", turn: 7 });
     expect(findPermanent(s, "atk")).toBeTruthy(); // nothing moves at resolution
-    const after = resolveCombatDamage(s);
-    expect(findPermanent(after, "wall").permanent.damageMarked).toBe(2); // the bear hit the Wall first
+    const damaged = resolveCombatDamage(s);
+    expect(findPermanent(damaged, "wall").permanent.damageMarked).toBe(2); // the bear hit the Wall first
+    expect(findPermanent(damaged, "atk")).toBeTruthy(); // the combat damage step: still there (CR 510.3)
+    const after = endOfCombat(damaged);
     expect(findPermanent(after, "atk")).toBeNull();
     expect(after.players.ai.hand.map((c) => c.name)).toContain("Bear atk");
     expect(findPermanent(after, "wall")).toBeTruthy();

@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, shufflesIntoLibraryInsteadOfGraveyard, apnapOrder } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents, recordLibraryExiles, recordLibraryExilesOneAtATime, shufflesIntoLibraryInsteadOfGraveyard, apnapOrder } from "../../gameState.js";
 import { permanentIsCreature, permanentManaValue, librarySearchLimit } from "../../layers.js"; // + librarySearchLimit (Aven Mindcensor — a search sees the top four); CR 613 — an animated permanent is a creature RIGHT NOW; + a permanent's mana value (Kodama's cap)
 import { manaCostValue } from "../../spellOnStack.js"; // a mana cost's symbols summed (CR 202.3) — tutorManaValue's fallback; a leaf
 import { characteristicColors } from "../../faceUp.js"; // a library / hand card's colours — a double-faced card is its front face's (CR 712.8a); a leaf
@@ -516,7 +516,7 @@ export function applyRevealTopCastOrHand(state, atom, ctx) {
   const castable = !isLand && cap !== null && mv < cap;
   const rest = player.library.slice(1);
   if (castable) {
-    const next = { ...state, players: { ...state.players, [controller]: { ...player, library: rest, exile: [...(player.exile || []), top] } }, pendingDiscover: { controller, cardId: top.id, mv } };
+    const next = recordLibraryExiles({ ...state, players: { ...state.players, [controller]: { ...player, library: rest, exile: [...(player.exile || []), top] } }, pendingDiscover: { controller, cardId: top.id, mv } }, controller, [top]);
     return logEvent(next, { kind: "spell-effect", effect: "reveal-top-cast-or-hand", controller, revealed: top.name, castable: true, mv, cap });
   }
   const next = { ...state, players: { ...state.players, [controller]: { ...player, library: rest, hand: [...(player.hand || []), top] } } };
@@ -881,6 +881,8 @@ export function applyDiscoverAtom(state, atom, ctx) {
       },
     },
   };
+  // Each card was exiled ONE AT A TIME until the hit (CR 701.57a) — the misses on the bottom now — each its own exile event (Laelia).
+  next = recordLibraryExilesOneAtATime(next, controller, lib.slice(0, end));
   if (found) next = { ...next, pendingDiscover: { controller, cardId: found.id, mv: tutorManaValue(found) } };
   let result = logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
   // Mark the once-per-turn latch (regardless of whiff) — the effect ran, so the gate is consumed.
@@ -959,6 +961,8 @@ export function applyCascadeAtom(state, atom, ctx) {
       },
     },
   };
+  // Each card was exiled ONE AT A TIME until the hit (CR 702.85a) — the misses on the bottom now — each its own exile event (Laelia's ruling).
+  next = recordLibraryExilesOneAtATime(next, controller, lib.slice(0, end));
   if (found) next = { ...next, pendingCascade: { controller, cardId: found.id, mv: tutorManaValue(found), cap } };
   return logEvent(next, { kind: "spell-effect", effect: "cascade", controller, cap, found: !!found });
 }
@@ -1017,6 +1021,8 @@ export function applyTrickeryRider(state, { playerId, spellNames, sourceName = n
     rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
     players: { ...next.players, [playerId]: { ...player, library: [...lib.slice(end), ...shuffledRest], exile: found ? [...(player.exile || []), found] : (player.exile || []) } },
   };
+  // "exiles cards from the top of their library until …" — one at a time, each its own exile event (Laelia).
+  next = recordLibraryExilesOneAtATime(next, playerId, lib.slice(0, end));
   if (found) next = { ...next, pendingCascade: { controller: playerId, cardId: found.id, mv: tutorManaValue(found), cap: null, sourceName } };
   return logEvent(next, { kind: "spell-effect", effect: "trickery", controller: playerId, milled: n, exiled: rest.length + (found ? 1 : 0), found: found?.name || null });
 }
@@ -1273,13 +1279,13 @@ export function applyImpulseExileAtom(state, atom, ctx) {
     ...(extended ? { _impulseExtended: true, _impulseOwner: controller } : {}),
     ...(atom?.free ? { _impulseFree: true } : {}),
   }));
-  const next = {
+  const next = recordLibraryExiles({
     ...state,
     players: {
       ...state.players,
       [controller]: { ...player, library: lib.slice(taken.length), exile: [...(player.exile || []), ...stamped] },
     },
-  };
+  }, controller, stamped);
   // Exiling from your own library is public-info here (the cards are named in the log — they're the
   // controller's own cards revealed by the play permission), matching the impulse-draw family's face-up exile.
   // BONEHOARD (2026-08-14) — the EXILED-TYPE stamp for the "If you exiled a <land/nonland> card this
@@ -1310,13 +1316,13 @@ function impulseExileFromDamagedPlayer(state, atom, ctx) {
   const top = owner ? (owner.library || [])[0] : null;
   if (!top) return logEvent(state, { kind: "spell-effect", effect: "impulse-exile", controller, from: ownerId ?? null, exiled: null });
   const stamped = { ...top, _impulse: true, _impulseTurn: state.turn, _impulseFor: controller };
-  const next = {
+  const next = recordLibraryExiles({
     ...state,
     players: {
       ...state.players,
       [ownerId]: { ...owner, library: owner.library.slice(1), exile: [...(owner.exile || []), stamped] },
     },
-  };
+  }, ownerId, [stamped]);
   return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, from: ownerId, exiled: top.name || null });
 }
 

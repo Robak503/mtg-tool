@@ -229,6 +229,9 @@ const FILTER_KEYWORDS = new Set([
   "flying", "reach", "trample", "vigilance", "haste", "menace", "defender", "flash",
   "deathtouch", "lifelink", "first", "double", "hexproof", "indestructible", "shroud",
   "fear", "intimidate", "shadow", "horsemanship", "changeling", "infect", "wither", "banding",
+  // DECAYED (Jadar, Ghoulcaller of Nephalia — "if you control no creatures with decayed"): enforced (keywords.GRANTABLE_STATIC_KEYWORDS),
+  // read as it is now through permanentHasKeyword like every word here.
+  "decayed",
 ]);
 const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 // Words admissible on the NEGATED side of a filter ("nonland permanent", "nonartifact creature"). Card types
@@ -1535,6 +1538,24 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return true;
   }
 
+  // ATTACKING THE PLAYER WITH THE MOST LIFE (Scourge of the Throne — the play-weighted program, EDHREC #1281): "Whenever this
+  // creature attacks for the first time each turn, if it's attacking the player with the most life or tied for most life, …".
+  // Dethrone's comparison (above — every player, the attacking player included), asked of the player the source is attacking
+  // NOW: an intervening "if" is checked as the creature attacks and again as the ability resolves (CR 603.4 — the card's bundled
+  // ruling: "both when it's declared as an attacker and as it starts to resolve"). So the source must still be in combat attacking
+  // that player (context.sourcePermanentId, threaded by makePendingTrigger; the declared defender, context.defenderId). A
+  // planeswalker attack is not an attack on a player (CR 508.3e) — a definite false, as is a source removed from combat or gone.
+  if (/^it['’]s attacking the player with the most life or tied for most life$/.test(c)) {
+    if (context?.defenderPlaneswalkerId) return false;
+    const pid = context?.defenderId;
+    const sourceId = context?.sourcePermanentId;
+    if (!pid || !sourceId) return null;               // no attack referent → can't confirm (FN-safe)
+    const rec = (state?.combat?.attackers || []).find((a) => a?.permanentId === sourceId);
+    if (!rec || rec.defender !== pid || rec.defenderPlaneswalkerId || !state.players?.[pid]) return false;
+    const targetLife = state.players[pid].life;
+    return Object.values(state.players).every((pl) => (pl?.life ?? 0) <= targetLife);
+  }
+
   // POWER-DIFFERED-FROM-BASE (Jason Bright, CR 603.6e) — read the dying object's effective-vs-base power
   // comparison off the context flag (stamped by checkDiesTriggers from the death look-back's power +
   // basePower captures). Undefined (an unstamped death path / not a dies trigger) → null (FN-safe).
@@ -1707,6 +1728,22 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     }
     names.delete("");
     return names.size >= n;
+  }
+  // "you control AT LEAST <N> OTHER <filter>" (Valakut, the Molten Pinnacle — the play-weighted program, EDHREC #1320: "Whenever a
+  // Mountain you control enters, if you control at least five other Mountains, …"; Roiling Canopy's Forests). "Other" here is the
+  // object the trigger is about — the Mountain that entered (Valakut's bundled ruling: "five or more Mountains other than that new
+  // one"), the triggering permanent. A trigger whose triggering permanent is its own source (a self trigger) and a static
+  // condition with no triggering permanent exclude the source, as the "<N> or more other" arm below does. Each other Mountain
+  // that entered at the same time counts (the ruling: "takes into consideration the other Mountains that entered at the same
+  // time"). Counted again as the ability resolves (CR 603.4), the triggering Mountain excluded whether or not it is still there.
+  m = c.match(new RegExp(`^you control at least ${NUM_RE} other (.+)$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    const filter = n == null ? null : parseFilter(m[2]);
+    if (!filter) return null;
+    const excludeId = context?.triggeringPermanentId ?? context?.sourcePermanentId ?? null;
+    if (!excludeId) return null;
+    return controllerBoard(state, controllerId).filter((p) => p.id !== excludeId && permMatchesFilter(p, filter, state)).length >= n;
   }
   m = c.match(new RegExp(`^you control ${NUM_RE}(?: or (more|fewer|less))? (other )?(.+)$`));
   if (m) {

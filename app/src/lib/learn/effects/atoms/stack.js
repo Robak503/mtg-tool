@@ -72,7 +72,7 @@ function placeCounteredCard(player, card, dest) {
  * also routes a warded ABILITY here) so the paths can't drift. `exileInstead` is kept as a back-compat alias
  * for counterDest:"exile".
  */
-export function counterSpellById(state, spellId, { via = null, exileInstead = false, counterDest = null } = {}) {
+export function counterSpellById(state, spellId, { via = null, exileInstead = false, counterDest = null, counterer = null } = {}) {
   const idx = (state.stack || []).findIndex((o) => o.id === spellId);
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
@@ -104,7 +104,8 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   // its owner's library, which is shuffled; asked before the exile-instead below, the precedence moveCardToZone applies.
   if (dest === "graveyard" && placesCard && shufflesIntoLibraryInsteadOfGraveyard(card)) {
     const shuffled = shuffleIntoLibraryInstead({ ...state, stack: newStack }, ownerId, [card]);
-    return logEvent(shuffled, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, dest: "library", ...(via && { via }) });
+    const recorded = counterer ? { ...shuffled, pendingCounteredSpells: [...(shuffled.pendingCounteredSpells || []), { counterer, spellId, spellController: controller }] } : shuffled;
+    return logEvent(recorded, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, dest: "library", ...(via && { via }) });
   }
   // P·27 — a countered spell bound for a graveyard the exile-instead replacement covers is exiled instead (CR 614.1a).
   const exileVerdict = dest === "graveyard" && isSpell ? graveyardExileFor(state, card, ownerId) : null;
@@ -122,6 +123,11 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   if (placesCard && dest === "graveyard" && card) {
     next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: ownerId, zone: "stack" }]);
   }
+  // A SPELL COUNTERED (CR 701.6a): `counterer` is the controller of the spell or ability that countered it, passed by every counter
+  // site (a counter, never a bounce or exile of a spell that is no counter — those pass none). Recorded for the "Whenever a spell or
+  // ability you control counters a spell" watchers (Baral, Chief of Compliance — triggers.checkSpellCounteredTriggers, drained at the
+  // next flush). A countered ability is not a spell; a copy of a spell is one.
+  if (isSpell && counterer) next = { ...next, pendingCounteredSpells: [...(next.pendingCounteredSpells || []), { counterer, spellId, spellController: controller }] };
   // Log the destination (`dest`) for any non-graveyard zone; keep the legacy `exiled:true` flag for the exile
   // case so existing log assertions stay green (back-compat with CNT-EXILE-INSTEAD's original log shape).
   return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(dest !== "graveyard" && { dest }), ...(dest === "exile" && { exiled: true }), ...(via && { via }) });
@@ -206,6 +212,7 @@ function applyCounter(state, atom, ctx) {
         // CS-1 (Syncopate / No More Lies): a soft counter with a zone redirect carries the destination
         // ONTO the choice, so the decline path (resolveSoftCounterChoice → counterSpellById) can't drop it.
         counterDest: atom.exileInstead ? "exile" : (atom.counterDest || null),
+        counterer: ctx.controller ?? null, // the soft counter's controller counters it on a decline (Baral's "a spell … you control")
       });
     }
     // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-ZONE-REDIRECT routes it to
@@ -220,7 +227,7 @@ function applyCounter(state, atom, ctx) {
     const counteredMv = stackSpellManaValue(targetObj);
     next = uncounterableNow
       ? logEvent(next, { kind: "spell-effect", effect: "counter-uncounterable", targetId: t.id, cardName: card?.name || null, controller: targetObj.controller })
-      : counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
+      : counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null, counterer: ctx.controller ?? null });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
     }
@@ -1850,7 +1857,7 @@ function newTargetsForCopy(state, controller, copyObj, avoidId) {
  */
 function withWardOwed(state, obj, targets = obj.targets || []) {
   const owed = obj.kind === "spell" && stackSpellIsUncounterable(state, obj) ? null : targetTaxForStackObject(state, { controller: obj.controller, targets });
-  return owed ? { ...obj, wardOwed: { cost: owed.cost, wardName: owed.wardName } } : obj;
+  return owed ? { ...obj, wardOwed: { cost: owed.cost, wardName: owed.wardName, ...(owed.counterer ? { counterer: owed.counterer } : {}) } } : obj;
 }
 
 /**
@@ -2609,7 +2616,7 @@ function applyCounterCastSpell(state, atom, ctx) {
   // (EFFECT_PROGRAM re-evaluates the bound condition); an UNCONFIRMED (null) condition never reaches this
   // atom natively — the flush routes it to a manual resolution, so an unknown payment never counters.
   // A spell that can't be countered stays (CR 701.6a — counterIfCounterable; 2026-09-30).
-  return counterIfCounterable(state, spellId, { via: ctx?.cardName || null });
+  return counterIfCounterable(state, spellId, { via: ctx?.cardName || null, counterer: ctx?.controller ?? null });
 }
 
 /**
@@ -2626,7 +2633,7 @@ function applyCounterTargetingObject(state, atom, ctx) {
   const objId = ctx?.targetingStackObjectId ?? null;
   const obj = objId ? (state.stack || []).find((o) => o.id === objId) : null;
   if (!obj) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: objId, controller: ctx?.controller });
-  return counterIfCounterable(state, objId, { via: ctx?.cardName || null });
+  return counterIfCounterable(state, objId, { via: ctx?.cardName || null, counterer: ctx?.controller ?? null });
 }
 
 /**

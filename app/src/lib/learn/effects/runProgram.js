@@ -29,7 +29,7 @@ import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoic
 import { protectionColorQuestion } from "../protectionChoice.js"; // CR 608.2d — a person announces the colour of "protection from the color of your choice" as it resolves (call-time binding)
 import { withAuraEntryAsk } from "../auraEntry.js"; // CR 303.4f — the ask an atom runs in, so a person chooses what their entering Aura enchants (a leaf; zones.js already imports it)
 import { updatePermanentSafe, graveyardExileFor, shufflesIntoLibraryInsteadOfGraveyard, shuffleIntoLibraryInstead } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent; + the shuffle-instead replacement for a spell leaving the stack (Nexus of Fate)
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, recordLibraryExiles, getCounter, removeCounter, destroyLethalCreaturesAfterEffect, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, continueEachGraveyardPick, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificeCreaturesTogether, sacrificePoolMatchNow, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, advanceCreatureBatchSacrifice, counterIfCounterable, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, lockInEdictPick, EDICT_LIFE_LOSS, applyConniveCounter, conniveDiscardIsNonland, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence, atomTargetIntent } from "./parser.js"; // + atomTargetIntent — the change-target auto-pick reads the redirected slot's side (shelf D14)
@@ -990,7 +990,7 @@ export function resolveImpulseDigChoice(state, cardId) {
     }
     if (picked) {
       const exiled = { ...picked, _impulse: true, _impulseTurn: next.turn };
-      next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== pickId), exile: [...(pl.exile || []), exiled] } } };
+      next = recordLibraryExiles({ ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== pickId), exile: [...(pl.exile || []), exiled] } } }, pc.controller, [exiled]);
       next = logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller: pc.controller, exiled: picked.name });
     }
     next = applyImpulseDig(next, { playerId: pc.controller, n: rest.length, chosenIds: [], restTo: "bottom" });
@@ -1038,7 +1038,7 @@ export function resolveImpulseDigChoice(state, cardId) {
   if (pc.chosenTo === "freeCastExile" && picked.length) {
     const pl = next.players[pc.controller];
     const moving = (pl.library || []).filter((c) => picked.includes(c.id));
-    next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } };
+    next = recordLibraryExiles({ ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } }, pc.controller, moving);
     if (moving[0]) next = { ...next, pendingDiscover: { controller: pc.controller, cardId: moving[0].id, mv: null, declineTo: "exile" } };
     toBottom = Math.max(0, lookedAt - picked.length);
     keptIds = [];
@@ -1051,7 +1051,7 @@ export function resolveImpulseDigChoice(state, cardId) {
     const pl = next.players[pc.controller];
     const hidden = hideId ? (pl.library || []).find((c) => c.id === hideId) : null;
     if (hidden) {
-      next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== hideId), exile: [...(pl.exile || []), { ...hidden, _hideawayOf: pc.sourceId ?? null }] } } };
+      next = recordLibraryExiles({ ...next, players: { ...next.players, [pc.controller]: { ...pl, library: pl.library.filter((c) => c.id !== hideId), exile: [...(pl.exile || []), { ...hidden, _hideawayOf: pc.sourceId ?? null }] } } }, pc.controller, [hidden]);
       if (pc.sourceId != null && findPermanent(next, pc.sourceId)) next = updatePermanentSafe(next, pc.sourceId, (p) => ({ ...p, hideawayCardId: hideId }));
       next = logEvent(next, { kind: "spell-effect", effect: "hideaway-exile", controller: pc.controller, sourceId: pc.sourceId ?? null });
     }
@@ -1061,7 +1061,7 @@ export function resolveImpulseDigChoice(state, cardId) {
   if (pc.chosenTo === "plotExile" && picked.length) {
     const pl = next.players[pc.controller];
     const moving = (pl.library || []).filter((c) => picked.includes(c.id)).map((c) => ({ ...c, _plotted: true, _plottedTurn: next.turn }));
-    next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } };
+    next = recordLibraryExiles({ ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } }, pc.controller, moving);
     next = logEvent(next, { kind: "plot", playerId: pc.controller, cardName: moving[0]?.name || null, cost: null, viaEffect: pc.sourceName || null });
     toBottom = Math.max(0, lookedAt - picked.length);
     keptIds = [];
@@ -1724,7 +1724,8 @@ export function optionalAutoTakeValue(state, pc) {
   if (pc?.effectOp === "punisher") {
     const r = pc.resume || {};
     const atom = programAtoms(r.program || { atoms: [] }, r.chosenMode)[pc.atomIndex];
-    return atom ? punisherAutoTake(state, who, r.controller, atom, r.context || {}) : true;
+    // + the ability's source (Palantír of Orthanc's X is its own influence counters — countForSpec reads ctx.sourceId).
+    return atom ? punisherAutoTake(state, who, r.controller, atom, { ...(r.context || {}), sourceId: r.sourceId ?? null }) : true;
   }
   // MYRIAD (effects/atoms/myriad.js, 2026-11-03): the copies are taken, unless the creature is legendary — the legend rule would leave one
   // of them (CR 704.5j), and the house keeps the creature that attacked, so the copies would only enter and go.
@@ -2012,7 +2013,7 @@ export function resolveSoftCounterChoice(state, pay, option) {
     // pc.counterDest rides the choice from applyCounter so the redirect survives the suspend.
     // CR 701.6a at resolution (2026-09-30): a spell that can't be countered stays, whoever raised the choice (ward,
     // Diffusion Sliver, a soft counterspell) — counterIfCounterable, the entry every counter path takes.
-    next = counterIfCounterable(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null });
+    next = counterIfCounterable(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null, counterer: pc.counterer ?? null });
   }
   return resumeAfterChoice(next, pc);
 }
@@ -2048,7 +2049,9 @@ export function resolveConsultation(next, pc, cardId) {
   let exiled = 0;
   let found = null;
   const topSix = (next.players[controller].library || []).slice(0, 6).map((c) => c.id);
-  for (const id of topSix) { next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: id }); exiled++; }
+  // Two exile events (Laelia): the top six at once, then "exile all other cards revealed this way" at once.
+  for (const id of topSix) { next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: id, exileBatch: `consult-six:${topSix[0]}` }); exiled++; }
+  const revealBatch = `consult-revealed:${topSix[0] ?? "none"}`;
   for (;;) {
     const lib = next.players[controller].library || [];
     if (!lib.length) break;
@@ -2058,7 +2061,7 @@ export function resolveConsultation(next, pc, cardId) {
       found = top.name;
       break;
     }
-    next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: top.id });
+    next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: top.id, exileBatch: revealBatch });
     exiled++;
   }
   next = logEvent(next, { kind: "spell-effect", effect: "demonic-consultation", controller, name, found: !!found, exiled });
@@ -2619,6 +2622,7 @@ export function resolveOptionalExileSelfChoice(state, doExile) {
       if (gi === -1) continue;
       const card = gy[gi];
       next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], graveyard: [...gy.slice(0, gi), ...gy.slice(gi + 1)], exile: [...(next.players[pid].exile || []), card] } } };
+      next = recordGraveyardEvents(next, [{ dir: "leave", card, gyOwner: pid, zone: "exile" }]); // GY-EVENT: it left the graveyard for exile
       paid = true;
       break;
     }

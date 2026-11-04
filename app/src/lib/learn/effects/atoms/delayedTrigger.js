@@ -129,6 +129,31 @@ export function dropSkippedExtraTurnRecords(state, index) {
   return { ...state, delayedTriggers: (state.delayedTriggers || []).filter((rec) => rec.extraTurnIndex !== index) };
 }
 
+/**
+ * THE END-OF-COMBAT QUEUE AS DELAYED TRIGGERS (pw28 review F1 — CR 511.2: "Abilities that trigger 'at end of combat' trigger as the end
+ * of combat step begins"; CR 603.7, 603.3). Called by gameEngine.runStepActions as the end of combat step begins, before anyone gets
+ * priority: every entry the end-of-combat atoms queued this turn (removal.js — a basilisk's destroy, a self sacrifice or bounce, a
+ * Clockwork's counter, decayed's sacrifice, a blocked attacker's bounce) becomes a pending trigger shaped like a fired delayed record,
+ * its effect the `[end-of-combat <op> <permanentId>]` sentinel (removal.applyEndOfCombatEntry), controlled by the player who
+ * controlled the ability that created it (CR 603.7e — the entry's `controller`; a legacy entry without one, from a save made before
+ * pw28's review, takes its permanent's controller, the old reading). The queue empties every time the step begins, so nothing is
+ * stranded into a later combat; an entry from an earlier turn, or one whose controller has left the game (CR 800.4a), is dropped
+ * without firing. Returns `{ state, fired }` (the caller pushes `fired`). Pure.
+ */
+export function drainEndOfCombatQueue(state) {
+  const queue = state.endOfCombatEffects || [];
+  if (!queue.length) return { state, fired: [] };
+  const fired = [];
+  queue.forEach((e, i) => {
+    if (!["destroy", "sacrifice", "bounce", "remove-counter"].includes(e?.op) || e.turn !== state.turn || !e.permanentId) return;
+    const controller = e.controller ?? findPermanent(state, e.permanentId)?.controller ?? null;
+    if (!controller || !state.players?.[controller]) return;
+    const clause = `[end-of-combat ${e.op} ${e.permanentId}${e.op === "remove-counter" ? ` ${e.counterType || "+1/+1"}` : ""}]`;
+    fired.push(firedFromRecord({ id: `eoc-${i + 1}-${state.turn || 0}`, controller, effectClause: clause, sourceName: e.sourceCardName || null, sourceCardId: null, sourcePermanentId: e.sourceId ?? e.permanentId }));
+  });
+  return { state: { ...state, endOfCombatEffects: [] }, fired };
+}
+
 /** A record that fires becomes a pending trigger shaped exactly like a printed one, so the normal flush resolves it. */
 function firedFromRecord(rec) {
   return {

@@ -179,13 +179,13 @@ describe("tier", () => {
       .toMatch(/^native/);
   });
 
-  it("⛔ Scourge of the Throne stays PARKED — the most-life attack condition has no arm", () => {
-    // Still the honest counterweight: "attacking the player with the most life or tied for most life"
-    // is a different condition (a seat-compare at attack time), and the first-time-each-turn qualifier
-    // rides the combat-damage… attack event distinctly. Parked until measured worth building.
+  it("Scourge of the Throne plays (graduated, pw28) — the most-life attack condition has its arm", () => {
+    // "it's attacking the player with the most life or tied for most life" is dethrone's every-player comparison asked of the player
+    // the source is attacking now, at the trigger and on resolution (interveningIf.js); the first time each turn is the flush's
+    // once-per-turn latch. Witnesses live in scourgeOfTheThrone.test.js.
     expect(classifyCard({ name: "Scourge of the Throne", type: "Creature — Dragon", mana: "{4}{R}{R}", power: "5", toughness: "5",
       oracle: "Flying\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nWhenever this creature attacks for the first time each turn, if it's attacking the player with the most life or tied for most life, untap all attacking creatures. After this phase, there is an additional combat phase." }))
-      .not.toMatch(/^native/);
+      .toBe("native-trigger");
   });
 });
 

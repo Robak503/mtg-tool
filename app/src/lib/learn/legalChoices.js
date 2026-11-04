@@ -556,6 +556,106 @@ function countedCostSets(state, playerId, pool, n, keyOf = (c) => c?.name ?? c?.
  * Continue?) — so the key holds them too, and a person may exile the ungranted Lightning Bolt and keep the granted one (CR 601.2h: the
  * player pays with objects). A hand card carries none of these; a discard keeps the name alone.
  */
+/**
+ * WHICH PERMANENTS PAY A COUNTED COST ALIKE (the play-weighted program, #8255 — Lullmage Mentor's "Tap seven untapped Merfolk you
+ * control"; Kirol, Clock of Omens, Cryptbreaker, Whirler Rogue, Lathril, Sunshot Militia — and pw29's counted sacrifice): a person
+ * chooses which permanents pay it (CR 602.2b, 601.2h — the player pays with objects), so two permanents are offered as ONE choice only
+ * when nothing can tell them apart. The key is the permanent's own id — no merging — unless all of these hold:
+ *   1. the permanent equals the other apart from its identity (its id and its card's id): the same card, tapped state, summoning
+ *      sickness, counters, damage, attachments, chosen type or colour, imprint, exert, monstrous, renowned — every per-object field;
+ *   2. nothing else on the state names it: no combat (`state.combat` — a blocker kept back is a real choice: a blocked attacker stays
+ *      blocked whichever blocker goes, CR 509.1h), no continuous effect (a copy — CR 707.2, 613.1a —, a pump, a grant), no stack
+ *      object, pending or delayed trigger, end-of-combat entry or per-turn ledger keyed by it. The log is history and is not read.
+ *      The id counts wherever it stands as a whole token — a field of its own ("tok-2") or inside a string: the delayed records name
+ *      their permanents only in their sentinel clauses (`[minted-leave sacrifice tok-2]` — Kiki-Jiki's copy, due to be sacrificed;
+ *      `[minted-leave exile …]`, `[cz-return …]` — the round-3 recheck's R3-F1, CR 603.7e).
+ * When in doubt it keys by id: an extra offer is safe, a merged one is a lost legal choice. The allow-list key this replaces (name,
+ * summoning sickness, counters, attachments) merged a blocker with an idle creature, a layer-1 copy with the real card, a pumped or
+ * exerted creature with an untouched one (pw29's round-2 recheck, R2-F1). Exported for every counted-cost payer (pw29's sacrifice).
+ * The transient top-level scratch stamps (`_last…` — `_lastMintedTokenIds`, `_lastMilledIds`: what the last effect made, read by the
+ * next atom of the same resolution only) are not read either, so the two Thopters one Whirler Rogue made are one choice (R3-N1).
+ * The state's own serialization is read once per state object (a person's seat only — the house pick never asks).
+ */
+const _payerStateText = new WeakMap();
+function payerStateText(state) {
+  if (!state || typeof state !== "object") return "";
+  let text = _payerStateText.get(state);
+  if (text == null) {
+    const rest = {};
+    for (const [k, v] of Object.entries(state)) if (k !== "log" && !k.startsWith("_last")) rest[k] = v;
+    text = JSON.stringify(rest);
+    _payerStateText.set(state, text);
+  }
+  return text;
+}
+/** How many times `id` stands as a whole token in `text` — quoted, or inside a string ("[minted-leave sacrifice tok-2]"). */
+function idTokenCount(text, id) {
+  const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (text.match(new RegExp(`(?<![\\w-])${esc}(?![\\w-])`, "g")) || []).length;
+}
+export function interchangeablePayerKey(state, perm) {
+  if (!perm || perm.id == null) return `id:${perm?.id}`;
+  const own = `id:${perm.id}`;
+  if (idTokenCount(payerStateText(state), perm.id) > idTokenCount(JSON.stringify(perm), perm.id)) return own; // something else on the state names it
+  const { id: _id, card, ...rest } = perm;
+  const { id: _cardId, ...cardRest } = card || {};
+  return `obj:${JSON.stringify({ ...rest, card: cardRest })}`;
+}
+/**
+ * The label of each payer in `pool` (permanentId → label): its printed name, and what tells it apart — a copy ("Grizzly Bears (copy of
+ * Hill Giant)" for a layer-1 copy, "Clone (copy of Merfolk of the Pearl Trident)" for an entered clone — CR 707.2), its place in
+ * combat ("Zombie (blocking Hill Giant)"), a token beside a card, what a stack object targets it with ("targeted by Lightning Bolt"),
+ * what is attached to it ("enchanted by Pacifism", "equipped by Bonesplitter"), marked damage, summoning sickness (only for a creature
+ * without haste, read through the layers — CR 302.6, 702.10b), counters, a chosen type or colour, an imprint, exert, monstrous,
+ * renowned (the round-3 recheck's R3-N2). Two payers that key apart but would still read the same are told apart by their id.
+ */
+export function payerLabels(state, pool) {
+  const nameOf = (id) => {
+    const lk = findPermanent(state, id);
+    return lk ? (copiableBaseOf(state, lk.permanent)?.card?.name ?? lk.permanent.card?.name ?? id) : id;
+  };
+  const base = new Map();
+  for (const v of pool || []) {
+    const printed = v.printedCard?.name ?? v.card?.name ?? v.id; // an entered clone keeps its own card as printedCard (cloneCopy.js)
+    const parts = [];
+    const copied = copiableBaseOf(state, v)?.card?.name;
+    if (copied && copied !== printed) parts.push(`copy of ${copied}`);
+    const blk = (state.combat?.blockers || []).find((b) => b?.blockerId === v.id);
+    if (blk) parts.push(`blocking ${nameOf(blk.attackerId)}`);
+    else if ((state.combat?.attackers || []).some((a) => a?.permanentId === v.id)) parts.push("attacking");
+    if (v.card?.token && (pool || []).some((o) => !o.card?.token)) parts.push("token");
+    const targetedBy = [...new Set((state.stack || []).filter((o) => (o.targets || []).some((t) => t?.id === v.id)).map((o) => o.source?.name || o.name).filter(Boolean))];
+    for (const name of targetedBy) parts.push(`targeted by ${name}`);
+    for (const aid of v.attachments || []) {
+      const att = findPermanent(state, aid)?.permanent;
+      if (!att) continue;
+      const verb = permanentHasTypeWord(state, aid, "Aura") ? "enchanted by" : permanentHasTypeWord(state, aid, "Equipment") ? "equipped by" : "with";
+      parts.push(`${verb} ${nameOf(aid)}`);
+    }
+    if ((v.damageMarked || 0) > 0) parts.push(`${v.damageMarked} damage`);
+    if (v.summoningSick && permanentIsCreature(state, v.id) && !permanentHasKeyword(state, v.id, "Haste")) parts.push("summoning sick");
+    for (const [kind, n] of Object.entries(v.counters || {})) if (n > 0) parts.push(`${n} ${kind} counter${n > 1 ? "s" : ""}`);
+    if (v.chosenType) parts.push(`${v.chosenType} chosen`);
+    if (v.chosenColor) parts.push(`${v.chosenColor} chosen`);
+    if (v.imprinted) parts.push("imprinted");
+    if (v.exertedTurn === state.turn) parts.push("exerted");
+    if (v.monstrous) parts.push("monstrous");
+    if (v.renowned) parts.push("renowned");
+    base.set(v.id, parts.length ? `${printed} (${parts.join(", ")})` : printed);
+  }
+  const keysByLabel = new Map();
+  for (const v of pool || []) {
+    const label = base.get(v.id);
+    if (!keysByLabel.has(label)) keysByLabel.set(label, new Set());
+    keysByLabel.get(label).add(interchangeablePayerKey(state, v));
+  }
+  const out = new Map();
+  for (const v of pool || []) {
+    const label = base.get(v.id);
+    out.set(v.id, keysByLabel.get(label).size > 1 ? `${label} [${v.id}]` : label);
+  }
+  return out;
+}
 const graveyardCardKey = (state) => (c) => {
   const granted = c?.flashbackGrant && c.flashbackGrant.turn === state.turn ? JSON.stringify(c.flashbackGrant.cost ?? null) : "";
   const milled = state.milledThisTurn?.[c?.id] === state.turn ? "milled" : "";
@@ -1848,7 +1948,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
       // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`
       // below would make every one of these cards uncastable — a dead card in hand instead of a paid cast.
-      const combos = program ? expandCastChoices(state, playerId, program, characteristicColors(card), { sourceColorsKnown: true }) : [{ targets: [] }];
+      const combos = program ? expandCastChoices(state, playerId, program, characteristicColors(card), { castCardId: card.id, sourceColorsKnown: true }) : [{ targets: [] }];
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
       // AC-OR (CR 601.2f) — an OR cost expands into one WAY-TO-PAY per option, which is exactly what this
       // block already does for each victim/hand-card within a single cost kind. So the choice needs no new
@@ -2129,7 +2229,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // by expandAtoms' optionalTarget decline.
       const expandsTargetsPerX = (program.atoms || []).some((a) =>
         a.targetCountX || a.mvCapX || (Array.isArray(a.restrictions) && a.restrictions.some((r) => r.valueX)));
-      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, characteristicColors(card), { sourceColorsKnown: true });
+      const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, characteristicColors(card), { castCardId: card.id, sourceColorsKnown: true });
       if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
         // The chosen X joins the cost before the reductions and counts toward the mana value a floor reads (CR 601.2f, 202.3e).
@@ -2138,7 +2238,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
         // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
         const combos = expandsTargetsPerX
-          ? expandCastChoices(state, playerId, program, characteristicColors(card), { xValue: x, sourceColorsKnown: true })
+          ? expandCastChoices(state, playerId, program, characteristicColors(card), { castCardId: card.id, xValue: x, sourceColorsKnown: true })
           : combosOnce;
         if (combos.length === 0) continue; // this X yields no legal cast (e.g. MV≤X excludes every creature and the copy target is mandatory — never here, "up to one" always has the decline)
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
@@ -2186,9 +2286,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // and a PLAYER kicked; Probe targets nobody unkicked and a player kicked. For an additive payoff with no target of
       // its own the two lists are identical, and the interleave below keeps the order the casts were always offered in
       // (normal, kicked, normal, kicked …).
-      const choices = expandCastChoices(state, playerId, program, characteristicColors(card), { sourceColorsKnown: true });
+      const choices = expandCastChoices(state, playerId, program, characteristicColors(card), { castCardId: card.id, sourceColorsKnown: true });
       const kickedChoices = kickedSpell && kickedSpellAffordable
-        ? expandCastChoices(state, playerId, program, characteristicColors(card), { kicked: true, sourceColorsKnown: true })
+        ? expandCastChoices(state, playerId, program, characteristicColors(card), { castCardId: card.id, kicked: true, sourceColorsKnown: true })
         : [];
       if (choices.length === 0 && kickedChoices.length === 0) continue; // no legal cast (a required target is missing)
       const commonFor = (ch) => ({
@@ -2574,7 +2674,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const targetingEffect = legacyTargetingEffect(card, effect);
       // KW-PROTECTION (CR 702.16b): the spell's colors gate targeting — a creature with protection from
       // a color the spell is can't be targeted by it (removal/burn immunity), even by its own controller.
-      const targets = enumerateTargets(state, playerId, targetingEffect, characteristicColors(card), { sourceColorsKnown: true });
+      const targets = enumerateTargets(state, playerId, targetingEffect, characteristicColors(card), { castCardId: card.id, sourceColorsKnown: true });
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
@@ -3369,12 +3469,19 @@ function actionsActivateAbility(state, playerId) {
       // Sol Ring); the plain creature set keeps its order.
       const tapPayerOk = (v) => (ab.tapCreature.type ? sacTypeMatchesNow(state, v, ab.tapCreature.type, ab.tapCreature.subtype || null) : permanentIsCreature(state, v.id));
       let tapCountIds = null;
+      // THE SETS OF N a counted tap may be paid with (countedCostSets — for a seat no person plays the house pick, the policy's first N,
+      // unchanged; for a person's seat one set per distinct-payer multiset of N, bounded — interchangeablePayerKey). The first is the house set, which
+      // the per-victim affordability reads; another set is re-checked as its row is emitted (emitRow).
+      let tapCountSets = [null];
+      let tapCountLabels = null; // a person's seat: each payer's label (payerLabels — the copy, the combat role, what tells it apart)
       if (ab.tapCreature && ab.tapCreature.count > 1) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
         const pool = player.battlefield.filter((v) => !v.tapped && tapPayerOk(v) && !(selfExcluded && v.id === perm.id)); // the payer type NOW (the type-line audit)
         const ordered = ab.tapCreature.type ? [...pool].sort(tapCostPayerOrder) : [...pool.filter((v) => v.summoningSick), ...pool.filter((v) => !v.summoningSick)];
         if (ordered.length < ab.tapCreature.count) continue;
-        tapCountIds = ordered.slice(0, ab.tapCreature.count).map((v) => v.id);
+        tapCountSets = countedCostSets(state, playerId, ordered, ab.tapCreature.count, (v) => interchangeablePayerKey(state, v)).map((set) => set.map((v) => v.id));
+        if (tapCountSets.length > 1) tapCountLabels = payerLabels(state, ordered);
+        tapCountIds = tapCountSets[0];
       } else if (ab.tapCreature) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
         tapVictims = player.battlefield.filter((v) =>
@@ -3511,13 +3618,13 @@ function actionsActivateAbility(state, playerId) {
           const exileGySets = ab.exileGyCount
             ? countedCostSets(state, playerId, exileGyPool.filter((g) => !targetIds.has(g.id)), ab.exileGyCount.count, graveyardCardKey(state)).map((set) => set.map((g) => g.id))
             : [null];
-          countedByTaken.set(taken, discardCountSets.flatMap((discardCountIds) => exileGySets.map((exileGyIds) => ({ discardCountIds, exileGyIds }))));
+          countedByTaken.set(taken, discardCountSets.flatMap((discardCountIds) => exileGySets.flatMap((exileGyIds) => tapCountSets.map((tapIds) => ({ discardCountIds, exileGyIds, tapIds })))));
         }
         return countedByTaken.get(taken);
       };
       // ONE ROW'S ACTION for a victim set, a variant, a discard and one counted choice — or, for "Sacrifice X", one per X — or none
       // when that choice can't pay for that row (its own target, too few left for a counted cost). Returns whether it emitted.
-      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch, { discardCountIds, exileGyIds }) => {
+      const emitRow = ({ victim, tapVictim, unattachVictim, returnLandVictim }, variant, discardVictim, ch, { discardCountIds, exileGyIds, tapIds = null }) => {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
@@ -3528,7 +3635,11 @@ function actionsActivateAbility(state, playerId) {
           // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
           // waste the tap on your own target" nicety, not a correctness gate.
           if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) return false;
-          if (tapCountSet && ch.targets.some((t) => tapCountSet.has(t.id))) return false; // V6 slice 2 — a frozen tap victim is never also the target
+          // V6 slice 2 — a tap victim is never also the target. A person's other set (not the house set the affordability read) must leave
+          // the mana to pay: its permanents can't tap for mana once tapped for the cost.
+          const rowTapSet = tapIds ? new Set(tapIds) : null;
+          if (rowTapSet && ch.targets.some((t) => rowTapSet.has(t.id))) return false;
+          if (rowTapSet && tapIds !== tapCountIds && !canAfford(player.manaPool, sources.filter((s) => !rowTapSet.has(s.permanentId)), variant.cost, spendCtx)) return false;
           // γ1g — don't offer bouncing the very land the effect targets: the land is returned to hand as a COST
           // (gone before the ability resolves), so an "untap target land" that targeted that same land would
           // fizzle to a no-op (CR 608.2b — the target is no longer on the battlefield). Drop that self-defeating
@@ -3633,8 +3744,9 @@ function actionsActivateAbility(state, playerId) {
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
             tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
             tapCreatureName: tapVictim?.card?.name ?? null,
-            tapCountIds,                                  // V6 slice 2 — the N frozen untapped creatures to tap (cost)
-            ...(tapCountIds && ab.tapCreature.noun ? { tapCountNoun: ab.tapCreature.noun } : {}), // the printed payer noun of a filtered counted cost (the label)
+            tapCountIds: tapIds,                          // V6 slice 2 — the N untapped permanents to tap (cost): the house set, or a person's choice
+            ...(tapIds && ab.tapCreature.noun ? { tapCountNoun: ab.tapCreature.noun } : {}), // the printed payer noun of a filtered counted cost (the label)
+            ...(tapIds && tapCountSets.length > 1 ? { tapCountNames: tapIds.map((id) => tapCountLabels?.get(id) ?? player.battlefield.find((v) => v.id === id)?.card?.name ?? null) } : {}), // a person's seat: which ones (the label)
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
             unattachEquipmentId: unattachVictim?.id ?? null,     // γ1i (CAP14) — the chosen attached Equipment (cost)
@@ -3672,7 +3784,7 @@ function actionsActivateAbility(state, playerId) {
           for (const ch of rows) for (const counted of countedChoicesFor(ch)) emitRow(set, variant, discardVictim, ch, counted);
           return;
         }
-        const paysWith = ({ discardCountIds, exileGyIds }) => [...(discardCountIds || []), ...(exileGyIds || [])];
+        const paysWith = ({ discardCountIds, exileGyIds, tapIds }) => [...(discardCountIds || []), ...(exileGyIds || []), ...(tapIds || [])];
         const reached = new Set();
         let everyChoiceDone = false;
         for (const ch of rows) {

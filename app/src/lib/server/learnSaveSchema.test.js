@@ -630,7 +630,7 @@ describe("migrate", () => {
         decisionLog: [] },
       checksum: "sha256:stale-but-unused-after-verify",
     };
-    expect([typeof MIGRATIONS[15], typeof MIGRATIONS[16]]).toEqual(["function", "undefined"]); // the v15 → v16 step exists and is the last (CONTRACT-MIG)
+    expect([typeof MIGRATIONS[15], typeof MIGRATIONS[16]]).toEqual(["function", "function"]); // the v15 → v16 step exists (CONTRACT-MIG); graduated (pw28): v16 → v17 follows it
     expect(MIGRATIONS[15](JSON.parse(JSON.stringify(v15)))).toEqual({ ...v15, schemaVersion: 16 }); // the version only
     const upgraded = migrate(JSON.parse(JSON.stringify(v15)));
     expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v15.session.state });
@@ -655,6 +655,51 @@ describe("migrate", () => {
       lifeLost: countForSpec(s, { controller: "user" }, { kind: "opponentsLifeLostThisTurn" }),
       secondPick: { cands: (second?.candidates || []).map((c) => c.id), top: second?.searchTopIds },
     }).toEqual({ destroyed: ["stone"], lifeLost: 9, secondPick: { cands: ["l2"], top: ["l1", "l2", "l3", "l4"] } });
+  });
+  // CONTRACT-MIG (the play-weighted slice pw28): a v17 game may carry the spells a counter removed since the last flush
+  // (`pendingCounteredSpells` — Baral, Chief of Compliance), the cards put into exile from a library since then (`pendingLibraryExiles` —
+  // Laelia, the Blade Reforged) and a soft counter's `counterer`. An earlier save has none, and absent means what every earlier game says,
+  // so v16 → v17 stamps the version only. The round trip: each survives save → JSON → migrate and still plays — the next flush fires
+  // Baral's and Laelia's triggers, and a declined soft counter records its counterer.
+  it("carries a v16 save forward to v17 (stamp-only; a v17 game's pw28 queues round-trip and still fire)", async () => {
+    const { checkLibraryGraveyardExileTriggers, checkSpellCounteredTriggers } = await import("../learn/triggers.js");
+    const { resolveSoftCounterChoice } = await import("../learn/effects/runProgram.js");
+    const empty = { life: 40, battlefield: [], hand: [], graveyard: [], exile: [], library: [], manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 } };
+    const v16 = {
+      schemaVersion: 16, kind: "learn-session-save", savedAt: "2026-11-03T00:00:00.000Z", sessionId: "learn-v16", serializable: true,
+      session: { id: "learn-v16", difficulty: "expert", mode: "standard", status: "active",
+        state: { turn: 6, idSeq: 3, stack: [], log: [], rngSeed: 9, continuousEffects: [], timestampCounter: 4, players: { user: { ...empty }, ai: { ...empty } } },
+        decisionLog: [] },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect([typeof MIGRATIONS[16], typeof MIGRATIONS[17]]).toEqual(["function", "undefined"]); // the v16 → v17 step exists and is the last (CONTRACT-MIG)
+    expect(MIGRATIONS[16](JSON.parse(JSON.stringify(v16)))).toEqual({ ...v16, schemaVersion: 17 }); // the version only
+    const upgraded = migrate(JSON.parse(JSON.stringify(v16)));
+    expect({ version: upgraded.schemaVersion, resumable: isResumable(upgraded), state: upgraded.session.state }).toEqual({ version: CURRENT_SCHEMA_VERSION, resumable: true, state: v16.session.state });
+    const perm = (id, card, extra = {}) => ({ id, card: { id: `c-${id}`, ...card }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null, timestamp: 1, enteredOnTurn: 1, ...extra });
+    const baral = perm("baral", { name: "Baral, Chief of Compliance", type: "Legendary Creature — Human Wizard", power: "1", toughness: "3",
+      oracle: "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card." });
+    const laelia = perm("laelia", { name: "Laelia, the Blade Reforged", type: "Legendary Creature — Spirit Warrior", power: "2", toughness: "2", keywords: ["Haste"],
+      oracle: "Haste\nWhenever Laelia attacks, exile the top card of your library. You may play that card this turn.\nWhenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia." });
+    const bolt = { id: "b1", name: "Lightning Bolt", type: "Instant", mana: "{R}", oracle: "Lightning Bolt deals 3 damage to any target." };
+    const state = { ...v16.session.state, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", turnOrder: ["user", "ai"], mode: "standard",
+      players: { user: { ...empty, battlefield: [baral, laelia], exile: [{ id: "x1", name: "Forest", type: "Basic Land — Forest", oracle: "" }] }, ai: { ...empty } },
+      pendingCounteredSpells: [{ counterer: "user", spellId: "stk-9", spellController: "ai" }],
+      pendingLibraryExiles: [{ owner: "user", cardId: "x1" }, { owner: "user", cardId: "x2", batch: "one:x2" }],
+      stack: [{ id: "stk-2", kind: "spell", controller: "ai", source: bolt, targets: [{ type: "player", id: "user" }], payload: { resolver: "effect-program", params: { controller: "ai", targets: [{ type: "player", id: "user" }] } } }],
+      pendingChoice: { kind: "soft-counter", controller: "ai", amount: 3, spellId: "stk-2", spellName: "Lightning Bolt", sourceName: "Mana Leak", counterer: "user" } };
+    const v17 = { ...upgraded, session: { ...upgraded.session, state } };
+    expect(isSerializable(v17.session).ok).toBe(true);
+    const back = migrate(JSON.parse(JSON.stringify(v17)));
+    expect({ version: back.schemaVersion, state: back.session.state }).toEqual({ version: 17, state });
+    const s = back.session.state;
+    const heard = (n) => (n.pendingTriggers || []).map((t) => t.source?.name);
+    const declined = resolveSoftCounterChoice(s, false);
+    expect({
+      baral: heard(checkSpellCounteredTriggers({ ...s, pendingChoice: undefined })),
+      laelia: heard(checkLibraryGraveyardExileTriggers({ ...s, pendingChoice: undefined })), // two events: the unbatched one and the named batch
+      counteredFor: declined.pendingCounteredSpells.map((r) => [r.counterer, r.spellId]),
+    }).toEqual({ baral: ["Baral, Chief of Compliance"], laelia: ["Laelia, the Blade Reforged", "Laelia, the Blade Reforged"], counteredFor: [["user", "stk-9"], ["user", "stk-2"]] });
   });
   // CONTRACT-MIG (the ability-loss readers, S0b): a v8 leave event may carry `lkiAbilityLoss` (the loss the permanent had as it left —
   // layers.abilityLossStamp, CR 603.10a). A v7 save has none; an absent stamp means it left with its printed abilities, so the migration

@@ -41,7 +41,7 @@
  * Pure: regex + board reads for the parse/decision; the flag-set + counter are explicit state transforms.
  */
 
-import { findPermanent } from "./gameState.js";
+import { apnapOrder, findPermanent } from "./gameState.js";
 import { permanentIsCreature, withAbilityLoss, boardHasAbilityLoss, attachedGrantCutByLoss } from "./layers.js"; // + the ability view and the grant cutoff (CR 613.1f, 613.7)
 import { counterIfCounterable } from "./effects/atoms/stack.js";
 
@@ -111,7 +111,11 @@ export function applyKiraTargetCounter(state, stackObj) {
   // Decide the counter from the PRE-EXISTING freshness (before we set the flag below): counter iff some targeted
   // creature is fresh AND a Kira source its controller controls grants it the trigger (kiraGrantReaches — the loss on either side).
   const lossy = boardHasAbilityLoss(state);
-  const shouldCounter = creatures.some((c) => c.wasFresh && kiraGrantReaches(state, c.controller, c.permanent, lossy));
+  const countering = creatures.filter((c) => c.wasFresh && kiraGrantReaches(state, c.controller, c.permanent, lossy));
+  const shouldCounter = countering.length > 0;
+  // THE COUNTERER (Baral, Chief of Compliance): each qualifying creature's granted trigger is its controller's; they go on the stack
+  // in APNAP order (CR 603.3b) and the first to resolve — the controller latest in that order — counters the object.
+  const counterer = shouldCounter ? apnapOrder(state, [...new Set(countering.map((c) => c.controller))]).at(-1) : null;
 
   // Mark every targeted creature as having become a target this turn (CR 603.2 — they all did, regardless of
   // Kira / of whether the object gets countered). One battlefield map per affected controller.
@@ -139,7 +143,7 @@ export function applyKiraTargetCounter(state, stackObj) {
     // CR 701.6a (2026-09-30): a spell that can't be countered (on-card text, a grant's mark, Root Sliver, Chimil) stays
     // — counterIfCounterable, the resolution-time entry every counter path takes. The targeted creatures were still
     // marked above: they did become targets this turn.
-    next = counterIfCounterable(next, stackObj.id, { via: "kira" });
+    next = counterIfCounterable(next, stackObj.id, { via: "kira", counterer });
   }
   return next;
 }

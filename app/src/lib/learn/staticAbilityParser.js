@@ -1019,8 +1019,9 @@ export function entersWithCountersPerKick(card) {
 //     gameState.untapOrConsumeStun + the untap-step filter).
 //   • ENFORCED KEYWORD counters (CR 122.1b: a keyword counter grants its keyword; 613.1f) — ONLY the 122.1b
 //     legal kinds whose runtime enforcement is COMPLETE and layer-aware via permanentHasKeyword's counter read
-//     (layers.js — printed ∪ counter ∪ layer-6 grants). Excluded from 122.1b's list: "decayed" (its can't-block
-//     + attack-sacrifice machinery is unmodeled) and "exalted" (the fire site counts instances via
+//     (layers.js — printed ∪ counter ∪ layer-6 grants). Excluded from 122.1b's list: "decayed" (its can't-block and
+//     attack-sacrifice halves are read through permanentHasKeyword since pw28 — a decayed counter would be honored — but no
+//     placement of the counter kind is admitted yet: Rot-Curse Rakshasa's renew stays unread) and "exalted" (the fire site counts instances via
 //     keywordInstanceCount, which reads printed + grants but NOT counters — an exalted counter would never fire).
 // Everything else — fade/time/loyalty (reserved paths), finality (dies→exile replacement unmodeled), level/
 // lore/defense (leveler/Saga/battle machinery), and any unlisted kind — fails CLOSED → no coverage credit

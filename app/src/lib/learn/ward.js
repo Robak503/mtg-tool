@@ -54,7 +54,7 @@
  * Pure: regex + board reads, no mutation.
  */
 
-import { findPermanent } from "./gameState.js";
+import { apnapOrder, findPermanent } from "./gameState.js";
 import { permanentHasKeyword, permanentGrantedWardCosts, permanentPower, withAbilityLoss } from "./layers.js"; // + the ability view (CR 613.1f, 702.21a — ward is a triggered ability: none after a loss)
 import { faceUpView } from "./faceUp.js";
 import { groupWardInstancesFor } from "./groupWard.js"; // Diffusion Sliver's tax joins the wards' one question (imports gameState + layers: no cycle)
@@ -322,7 +322,8 @@ function wardInstancesFor(state, stackObj) {
   const caster = stackObj?.controller;
   const costs = [];
   const names = [];
-  if (!caster) return { costs, names };
+  const controllers = []; // each ward permanent's controller — the ward trigger's (targetTaxForStackObject's counterer)
+  if (!caster) return { costs, names, controllers };
   const seen = new Set();
   for (const t of stackObj.targets || []) {
     if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") || seen.has(t.id)) continue;
@@ -333,8 +334,9 @@ function wardInstancesFor(state, stackObj) {
     if (!instances.length) continue;
     costs.push(...instances);
     names.push(lk.permanent.card?.name || null);
+    controllers.push(lk.controller);
   }
-  return { costs, names };
+  return { costs, names, controllers };
 }
 
 /**
@@ -353,7 +355,12 @@ export function targetTaxForStackObject(state, stackObj) {
   const costs = [...ward.costs, ...group.costs];
   if (!costs.length) return null;
   const names = [...new Set([...ward.names, ...group.names])];
-  return { cost: combineWardCosts(costs), wardName: joinNames(names) };
+  // THE COUNTERER (Baral, Chief of Compliance — "Whenever a spell or ability you control counters a spell"): on a decline, the trigger
+  // that resolves first counters the object and the rest find nothing (CR 608.2b). The triggers go on the stack in APNAP order (CR
+  // 603.3b), so the first to resolve is that of the controller latest in it — a single controller in every ordinary case.
+  const controllers = [...new Set([...(ward.controllers || []), ...(group.controllers || [])])];
+  const counterer = controllers.length ? apnapOrder(state, controllers).at(-1) : null;
+  return { cost: combineWardCosts(costs), wardName: joinNames(names), counterer };
 }
 
 /**

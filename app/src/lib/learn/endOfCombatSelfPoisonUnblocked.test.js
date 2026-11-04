@@ -3,8 +3,8 @@
  * extended tonight.
  *   1. "When this creature attacks or blocks, sacrifice it / return it to its owner's hand at end of combat" — the OR-1
  *      split hands each half (attacks/self, blocks/self) a `self-at-end-of-combat` atom whose resolver enqueues a
- *      turn-stamped entry on state.endOfCombatEffects (the basilisk-touch queue); combatResolution drains it at the
- *      end-of-combat boundary. Mardu Blazebringer / Runaway Carriage / Fog Elemental (sacrifice); Windscouter / Phantom
+ *      turn-stamped entry on state.endOfCombatEffects (the basilisk-touch queue); as the end of combat step begins it
+ *      goes on the stack as the delayed trigger it is (CR 511.2 — gameEngine.runStepActions, since pw28's review). Mardu Blazebringer / Runaway Carriage / Fog Elemental (sacrifice); Windscouter / Phantom
  *      Whelp (bounce).
  *   2. "Whenever this creature attacks and isn't blocked, defending player gets a poison counter" — the ④-AU
  *      attacksUnblocked event + the poison atom's new who:"defendingPlayer" (ctx.defenderId). Crypt Cobra / Swamp
@@ -33,6 +33,13 @@ const MOSQUITO = { id: "c-sm", name: "Swamp Mosquito", type: "Creature — Insec
 const perm = (id, card, controller) => ({ ...createPermanent({ id, card: { id: `card-${id}`, keywords: [], oracle: "", ...card }, controller }), summoningSick: false });
 const bear = (id, controller, power = 2, toughness = 2) => perm(id, { name: `Bear ${id}`, type: "Creature — Bear", mana: "{1}{G}", cmc: 2, power, toughness }, controller);
 /** A declare-blockers board on the user's turn: `attackers` attack the AI; `blocks` = [blockerId, attackerId]. */
+/** The end of combat step begins (CR 511.2): the queued delayed abilities go on the stack (gameEngine.runStepActions), and resolve. */
+function endOfCombat(s0) {
+  let s = nextStep({ ...s0, phase: "combat", step: "combat-damage", stack: [], pendingTriggers: [] });
+  expect(s.step).toBe("end-of-combat");
+  for (let i = 0; i < 20 && s.stack.length; i++) s = resolveTopOfStack(s);
+  return s;
+}
 function declareBlockers({ userBoard, aiBoard, attackers, blocks = [] }) {
   const s0 = createGameState({ userDeck: [], aiDeck: [] });
   return { ...s0, turn: 6, phase: "combat", step: "declare-blockers", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
@@ -70,15 +77,17 @@ describe("the parse and the classifier", () => {
 });
 
 describe("runtime — the end-of-combat queue", () => {
-  it("⭐ SACRIFICE: the Blazebringer deals its combat damage, then is sacrificed at the end-of-combat boundary", () => {
+  it("⭐ SACRIFICE: the Blazebringer deals its combat damage, then is sacrificed as the end of combat step's delayed trigger resolves", () => {
     let s = declareBlockers({ userBoard: [perm("blaze", BLAZE, "user")], aiBoard: [], attackers: ["blaze"] });
     s = resolveTopOfStack(stackTrigger(s, "blaze", "sacrifice it at end of combat"));
     expect(s.endOfCombatEffects).toHaveLength(1);
     expect(s.endOfCombatEffects[0]).toMatchObject({ op: "sacrifice", permanentId: "blaze", turn: 6 });
     expect(findPermanent(s, "blaze")).toBeTruthy(); // nothing happens at resolution
     const lifeBefore = s.players.ai.life;
-    const after = resolveCombatDamage(s);
-    expect(lifeBefore - after.players.ai.life).toBe(4); // it hit first
+    const damaged = resolveCombatDamage(s);
+    expect(lifeBefore - damaged.players.ai.life).toBe(4); // it hit first
+    expect(findPermanent(damaged, "blaze")).toBeTruthy(); // the combat damage step: still there (CR 510.3)
+    const after = endOfCombat(damaged);
     expect(findPermanent(after, "blaze")).toBeNull();
     expect(after.players.user.graveyard.map((c) => c.name)).toContain("Mardu Blazebringer");
     expect(after.endOfCombatEffects).toEqual([]);
@@ -86,7 +95,7 @@ describe("runtime — the end-of-combat queue", () => {
   it("⭐ BOUNCE: Windscouter returns to its owner's hand after dealing damage", () => {
     let s = declareBlockers({ userBoard: [perm("scout", WINDSCOUTER, "user")], aiBoard: [], attackers: ["scout"] });
     s = resolveTopOfStack(stackTrigger(s, "scout", "return it to its owner's hand at end of combat"));
-    const after = resolveCombatDamage(s);
+    const after = endOfCombat(resolveCombatDamage(s));
     expect(findPermanent(after, "scout")).toBeNull();
     expect(after.players.user.hand.map((c) => c.name)).toContain("Windscouter");
     expect(after.players.user.graveyard.map((c) => c.name)).not.toContain("Windscouter");
@@ -95,13 +104,13 @@ describe("runtime — the end-of-combat queue", () => {
     // dead before the boundary: a 2/2 Whelp blocked by a 4/4
     let s = declareBlockers({ userBoard: [perm("whelp", WHELP, "user")], aiBoard: [bear("wall", "ai", 4, 4)], attackers: ["whelp"], blocks: [["wall", "whelp"]] });
     s = resolveTopOfStack(stackTrigger(s, "whelp", "return it to its owner's hand at end of combat"));
-    const after = resolveCombatDamage(s);
+    const after = endOfCombat(resolveCombatDamage(s));
     expect(after.players.user.graveyard.map((c) => c.name)).toContain("Phantom Whelp");
     expect(after.players.user.hand).toHaveLength(0);
     // stale: an entry stamped for turn 5 on turn 6
     let t = declareBlockers({ userBoard: [perm("blaze", BLAZE, "user")], aiBoard: [], attackers: ["blaze"] });
     t = { ...t, endOfCombatEffects: [{ op: "sacrifice", permanentId: "blaze", turn: 5, sourceCardName: null }] };
-    const kept = resolveCombatDamage(t);
+    const kept = endOfCombat(resolveCombatDamage(t));
     expect(findPermanent(kept, "blaze")).toBeTruthy();
     expect(kept.endOfCombatEffects).toEqual([]);
   });

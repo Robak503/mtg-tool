@@ -3,8 +3,9 @@
  * blocked by a NONBLACK creature, destroy that creature AT END OF COMBAT." The IE-1 contact family plus
  * two twists: the nonblack gate on the contact partner (fire-time, layer-aware permanentColors) and the
  * CR 511 delay — the trigger's resolution ENQUEUES a turn-stamped entry on state.endOfCombatEffects
- * (destroy-at-end-of-combat atom), and combatResolution drains it at the end-of-combat boundary (after
- * the regular damage sub-step's lethal SBA + dies look-backs) through the SHARED applyDestroyEffect.
+ * (destroy-at-end-of-combat atom); as the end of combat step begins it goes on the stack as the delayed
+ * trigger it is (CR 511.2, 603.7 — gameEngine.runStepActions, since pw28's review; before, the regular
+ * damage step drained it before any priority) and destroys through the SHARED applyDestroyEffect.
  * Stale entries (an earlier turn's leftovers) are DROPPED unfired — a delayed destroy firing in a later
  * combat would be a forbidden FP. Real oracle fixtures (bundled Scryfall, verified 2026-07-16).
  */
@@ -13,6 +14,7 @@ import { detectTriggers, checkBlockTriggers } from "./triggers.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { resolveCombatDamage } from "./combatResolution.js";
+import { nextStep, resolveTopOfStack } from "./gameEngine.js";
 import { createGameState, createPermanent, findPermanent, _resetIdsForTests } from "./gameState.js";
 import { classifyCard } from "./coverage.js";
 
@@ -155,6 +157,13 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
   }
   // The real flush parses the descriptor's effectClause and runs it with the pending trigger's context;
   // mirror that here (the IE-1 harness idiom) so the enqueue rides the genuine parse → resolve path.
+  // The end of combat step begins (CR 511.2): the queued delayed destroys go on the stack, and resolve.
+  function endOfCombat(s0) {
+    let s = nextStep({ ...s0, phase: "combat", step: "combat-damage", stack: [], pendingTriggers: [] });
+    expect(s.step).toBe("end-of-combat");
+    for (let i = 0; i < 20 && s.stack.length; i++) s = resolveTopOfStack(s);
+    return s;
+  }
   function resolvePendingBasilisk(s) {
     const fired = checkBlockTriggers(s);
     const t = (fired.pendingTriggers || []).find((x) => x.descriptor?.sourceText === "blocks-or-blocked nonblack delayed destroy");
@@ -173,10 +182,13 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
     // First-strike sub-step: nobody has first strike — and the queue MUST survive it (CR 511 is after ALL of 510).
     s = resolveCombatDamage(s, { firstStrikeStep: true });
     expect(s.endOfCombatEffects).toHaveLength(1);
-    // Regular damage: bear takes 1 (survives, toughness 2), Deathgazer takes 2 (dies). THEN the drain
-    // destroys the bear — the delayed destroy outlives its source (the trigger already resolved).
+    // Regular damage: bear takes 1 (survives, toughness 2), Deathgazer takes 2 (dies). The bear is still there in the combat damage
+    // step (CR 510.3); as the end of combat step begins the delayed destroy goes on the stack and destroys it — it outlives its source.
     s = resolveCombatDamage(s, { firstStrikeStep: false });
     expect(findPermanent(s, "dg")).toBeFalsy();                          // died to combat damage
+    expect(findPermanent(s, "br")).toBeTruthy();                         // the combat damage step: still there
+    expect(s.endOfCombatEffects).toHaveLength(1);
+    s = endOfCombat(s);
     expect(findPermanent(s, "br")).toBeFalsy();                          // survived damage, destroyed at end of combat
     expect(s.players.ai1.graveyard.some((c) => c.name === "Grizzly Bears")).toBe(true);
     expect(s.endOfCombatEffects).toHaveLength(0);                        // drained
@@ -189,7 +201,7 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
     s = { ...s, players: { ...s.players, ai1: { ...s.players.ai1, battlefield: bf } } };
     s = resolvePendingBasilisk(s);
     expect(s.endOfCombatEffects).toHaveLength(1);
-    s = resolveCombatDamage(s, { firstStrikeStep: false });
+    s = endOfCombat(resolveCombatDamage(s, { firstStrikeStep: false }));
     expect(findPermanent(s, "br")).toBeTruthy();                         // indestructible → destroy prevented
     expect(s.endOfCombatEffects).toHaveLength(0);                        // still drained (consumed, not refired)
   });
@@ -198,7 +210,7 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
     let s = combatBoard();
     s = resolvePendingBasilisk(s);
     s = { ...s, preventCombatDamageTurn: s.turn };
-    s = resolveCombatDamage(s, { firstStrikeStep: false });
+    s = endOfCombat(resolveCombatDamage(s, { firstStrikeStep: false }));
     expect(findPermanent(s, "dg")).toBeTruthy();                         // no combat damage anywhere
     expect(findPermanent(s, "br")).toBeFalsy();                          // the delayed destroy still fired
     expect(s.endOfCombatEffects).toHaveLength(0);
@@ -207,7 +219,7 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
   it("STALE-QUEUE guard: an earlier turn's entry is DROPPED unfired (never a next-combat kill)", () => {
     let s = combatBoard();
     s = { ...s, endOfCombatEffects: [{ op: "destroy", permanentId: "br", turn: s.turn - 1, sourceCardName: "Deathgazer" }] };
-    s = resolveCombatDamage(s, { firstStrikeStep: false });
+    s = endOfCombat(resolveCombatDamage(s, { firstStrikeStep: false }));
     // Combat damage ran (bear takes 1, survives; Deathgazer dies) but the stale destroy never fired.
     expect(findPermanent(s, "br")).toBeTruthy();
     expect(s.endOfCombatEffects).toHaveLength(0);                        // dropped, queue emptied
@@ -218,7 +230,7 @@ describe("DG-1 — the delayed destroy fires AFTER combat damage, never before",
     let s = combatBoard();
     s = resolvePendingBasilisk(s);
     s = { ...s, players: { ...s.players, ai1: { ...s.players.ai1, battlefield: [] } } }; // bear vanished pre-drain
-    s = resolveCombatDamage(s, { firstStrikeStep: false });
+    s = endOfCombat(resolveCombatDamage(s, { firstStrikeStep: false }));
     expect(s.endOfCombatEffects).toHaveLength(0);
   });
 });

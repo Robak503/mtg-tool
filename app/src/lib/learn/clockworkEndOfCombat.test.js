@@ -13,7 +13,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { _resetIdsForTests, createGameState, createPermanent, findPermanent } from "./gameState.js";
 import { checkAttackTriggers, checkBlockTriggers } from "./triggers.js";
-import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
+import { flushTriggers, nextStep, resolveTopOfStack } from "./gameEngine.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { classifyCard } from "./coverage.js";
 
@@ -30,6 +30,13 @@ const DRAGON = { name: "Clockwork Dragon", type: "Artifact Creature — Dragon",
   oracle: `Flying\nThis creature enters with six +1/+1 counters on it.\n${LINE}\n{3}: Put a +1/+1 counter on this creature.` };
 const OGRE = { name: "Gray Ogre", type: "Creature — Ogre", mana: "{2}{R}", power: 2, toughness: 2, oracle: "" };
 
+/** The end of combat step begins (CR 511.2): the queued delayed abilities go on the stack (gameEngine.runStepActions), and resolve. */
+function endOfCombat(s0) {
+  let s = nextStep({ ...s0, phase: "combat", step: "combat-damage", stack: [], pendingTriggers: [] });
+  expect(s.step).toBe("end-of-combat");
+  for (let i = 0; i < 20 && s.stack.length; i++) s = resolveTopOfStack(s);
+  return s;
+}
 const withCounters = (card, id, controller, n) => ({ ...createPermanent({ id, card, controller, summoningSick: false }), counters: { "+1/+1": n } });
 const counters = (s, id) => findPermanent(s, id)?.permanent?.counters?.["+1/+1"] || 0;
 const resolveAll = (s) => { let st = flushTriggers(s); for (let i = 0; i < 10 && st.stack?.length; i++) st = resolveTopOfStack(st); return st; };
@@ -41,7 +48,7 @@ function attack(board, attackerId) {
     combat: { attackers: [{ permanentId: attackerId, attackingPlayer: "user", defender: "ai" }], blockers: [] },
     players: { ...s0.players, user: { ...s0.players.user, battlefield: board } } };
   const declared = resolveAll(checkAttackTriggers(s));
-  return [declared, resolveCombatDamage({ ...declared, step: "combat-damage" })];
+  return [declared, endOfCombat(resolveCombatDamage({ ...declared, step: "combat-damage" }))];
 }
 
 describe("classification", () => {
@@ -58,7 +65,7 @@ describe("RUNTIME — the counter comes off at end of combat, after the damage",
     console.log(`WITNESS beetleAttack damage ${declared.players.ai.life - after.players.ai.life} · counters 2 → ${counters(after, "cb")}`);
   });
 
-  it("⭐ the LAST counter: a Beetle on one counter hits for 1, then dies at 0/0 before anyone gets priority (CR 704.5f)", () => {
+  it("⭐ the LAST counter: a Beetle on one counter hits for 1, then dies at 0/0 as its delayed trigger resolves at end of combat (CR 704.5f)", () => {
     const [declared, after] = attack([withCounters(BEETLE, "cb", "user", 1)], "cb");
     expect(declared.players.ai.life - after.players.ai.life).toBe(1);
     expect(findPermanent(after, "cb")).toBeNull();
@@ -77,7 +84,7 @@ describe("RUNTIME — the counter comes off at end of combat, after the damage",
       players: { ...s0.players, user: { ...s0.players.user, battlefield: [withCounters(CONDOR, "cc", "user", 3)] },
         ai: { ...s0.players.ai, battlefield: [createPermanent({ id: "att", card: attackerCard, controller: "ai", summoningSick: false })] } } };
     const declared = resolveAll(checkBlockTriggers(s));
-    return [declared, resolveCombatDamage({ ...declared, step: "combat-damage" })];
+    return [declared, endOfCombat(resolveCombatDamage({ ...declared, step: "combat-damage" }))];
   }
 
   it("⭐ BLOCK: the Condor blocks Llanowar Elves (1 damage) and ends combat with one fewer counter", () => {

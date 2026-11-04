@@ -48,7 +48,6 @@ const COMBUSTIBLE = {"name":"Combustible Gearhulk","type":"Artifact Creature —
 const CONQUEROR = {"name":"Charismatic Conqueror","type":"Creature — Vampire Soldier","mana":"{1}{W}","cmc":2,"power":"2","toughness":"2","keywords":["Vigilance"],"colors":["W"],"oracle":"Vigilance\nWhenever an artifact or creature an opponent controls enters untapped, they may tap that permanent. If they don't, you create a 1/1 white Vampire creature token with lifelink."}; // body-only #1045
 const RISK = {"name":"Risk Factor","type":"Instant","mana":"{2}{R}","cmc":3,"keywords":["Jump","Jump-start"],"colors":["R"],"oracle":"Target opponent may have Risk Factor deal 4 damage to them. If that player doesn't, you draw three cards.\nJump-start (You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card.)"}; // arbiter-spell #8455
 const TERRA = {"name":"Terrapact Intimidator","type":"Creature — Kavu Scout","mana":"{1}{R}","cmc":2,"power":"2","toughness":"1","keywords":[],"colors":["R"],"oracle":"When this creature enters, target opponent may have you create two Lander tokens. If they don't, put two +1/+1 counters on this creature. (A Lander token is an artifact with \"{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\")"}; // body-only #16446
-const PALANTIR = {"name":"Palantír of Orthanc","type":"Legendary Artifact","mana":"{3}","cmc":3,"keywords":["Mill","Scry"],"colors":[],"oracle":"At the beginning of your end step, put an influence counter on Palantír of Orthanc and scry 2. Then target opponent may have you draw a card. If that player doesn't, you mill X cards, where X is the number of influence counters on Palantír of Orthanc, and that player loses life equal to the total mana value of those cards."}; // body-only #1343
 const VEXING = {"name":"Vexing Devil","type":"Creature — Devil","mana":"{R}","cmc":1,"power":"4","toughness":"3","keywords":[],"colors":["R"],"oracle":"When this creature enters, any opponent may have it deal 4 damage to them. If a player does, sacrifice this creature."}; // body-only #11667
 const BOLT = {"name":"Lightning Bolt","type":"Instant","mana":"{R}","cmc":1,"keywords":[],"colors":["R"],"oracle":"Lightning Bolt deals 3 damage to any target."}; // native-spell
 const FIREBALL = {"name":"Fireball","type":"Sorcery","mana":"{X}{R}","cmc":1,"keywords":[],"colors":["R"],"oracle":"This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets."}; // arbiter-spell
@@ -141,8 +140,8 @@ describe("PARSE + CLASSIFICATION", () => {
     expect([COMBUSTIBLE, CONQUEROR, RISK].map((c) => [c.name, isNativeTier(classifyCard(c))])).toEqual([[COMBUSTIBLE.name, true], [CONQUEROR.name, true], [RISK.name, true]]);
   });
 
-  it("CREED — punishers whose branches the atom doesn't read stay parked: Terrapact Intimidator (Landers or counters), Palantír's X mill, Vexing Devil's any-opponent damage", () => {
-    for (const c of [TERRA, PALANTIR, VEXING]) expect([c.name, isNativeTier(classifyCard(c))]).toEqual([c.name, false]);
+  it("CREED — punishers whose branches the atom doesn't read stay parked: Terrapact Intimidator (Landers or counters), Vexing Devil's any-opponent damage (Palantír of Orthanc graduated — palantirOfOrthanc.test.js)", () => {
+    for (const c of [TERRA, VEXING]) expect([c.name, isNativeTier(classifyCard(c))]).toEqual([c.name, false]);
   });
 
   it("CREED — without \"untapped\", or watching your own permanents, the Conqueror's sentence detects nothing native", () => {

@@ -27,10 +27,11 @@ import {
   graveyardExiledFor, // P·27 — a planeswalker exiled instead (Rest in Peace and kin) never died
   lastKnownIsCreature, // CR 603.10a — a look-back's creature-ness as it last existed (its layer-aware types), the one reader
   groupLeaveEvents, // CR 603.10a — a death batch is one leave event (checkLeavesTriggers' departed look-back)
+  recordGraveyardEvents, // GY-EVENT — the granted dies-exile's graveyard leave (Laelia, the Blade Reforged reads it too)
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { characteristicTypeLine, faceUpView, characteristicColors } from "./faceUp.js"; // THE FACE THAT IS UP (CR 712.8a / 712.8d) — every type scope reads the front face of a multi-face card; a cast spell's colours are the face being cast's (CR 712.8c)
-import { typeLineNow, grantedTriggeredQuotedFor, withAbilityLoss, attachedGrantCutByLoss, boardHasAbilityLoss, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
+import { typeLineNow, permanentHasTypeWord, grantedTriggeredQuotedFor, withAbilityLoss, attachedGrantCutByLoss, boardHasAbilityLoss, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, isModifiedPermanent, permIsEveryCreatureType, permanentIsCreature } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition; permanentIsCreature — the flipped permanent's creature-ness at the flip (checkTurnedFaceUpTriggers)
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -169,6 +170,11 @@ function permMatchesSubtypeFilter(state, perm, filter) {
   if (!filter || !perm?.card) return false;
   if (lineHasSubtype(scopeTypeStr(state, perm), filter)) return true; // the type line as it is now on a board that sets types (S2)
   const wanted = Array.isArray(filter) ? filter : [filter];
+  // A SUBTYPE AN EFFECT ADDED (CR 205.1b, 613.1d — Prismatic Omen's and Dryad of the Ilysian Grove's every basic land type, Urborg's
+  // Swamp, Yavimaya's Forest): typeLineNow answers the printed line on a board that only adds types, so a permanent on the battlefield
+  // is asked as it is now (layers.permanentHasTypeWord — the exact word, after layer 4). Valakut, the Molten Pinnacle's "Whenever a
+  // Mountain you control enters" hears a Forest that enters under Prismatic Omen. A departed permanent (a look-back) is read as before.
+  if (state && perm.id != null && findPermanent(state, perm.id) && wanted.some((w) => permanentHasTypeWord(state, perm.id, w))) return true;
   if (!wanted.some((s) => CR_CREATURE_TYPES.has(String(s).toLowerCase()))) return false;
   return permIsEveryTypeNow(state, perm);
 }
@@ -1600,6 +1606,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   //     controller AS A PLAYER: a creature attacking a planeswalker or battle does not attack its controller (CR 508.3e).
   // Neither counts a creature put onto the battlefield attacking (CR 508.4 — it never "attacked"). Placed above the blanket
   // "with" reject below for the Military Intelligence reason. Exact sentences only; any other count or subject stays undetected.
+  // A SPELL OR ABILITY YOU CONTROL COUNTERS A SPELL (the play-weighted program, #1340 — Baral, Chief of Compliance; Lullmage Mentor):
+  // the event is the counter itself (CR 701.6a — the bundled ruling: "A spell or ability counters a spell only if it specifically
+  // contains the word 'counter' in its text"; a spell that fails to resolve because its targets became illegal is not countered).
+  // effects/atoms/stack.counterSpellById records it, with the countering object's controller, at every counter site; the drain
+  // (checkSpellCounteredTriggers) fires that player's watchers once per spell countered. A countered ABILITY is not a spell.
+  if (/^a spell or ability you control counters a spell$/.test(c)) return { event: "spellCountered", scope: "you", whose: "any" };
+  // ONE OR MORE CARDS PUT INTO EXILE FROM YOUR LIBRARY AND/OR YOUR GRAVEYARD (the play-weighted program, #1338 — Laelia, the Blade
+  // Reforged): one trigger per exile EVENT that put one or more cards the watcher's controller owns into exile from their library or
+  // graveyard, whoever exiled them and for whatever reason — a cost (delve, escape), an effect, an exile-instead replacement (the
+  // bundled rulings: "doesn't care which player is exiling cards … for any reason, such as the delve ability"; "triggers only once
+  // for each time cards are put into exile …, no matter how many cards were exiled at the same time"; one at a time — cascade,
+  // discover — is that many times). Fired by checkLibraryGraveyardExileTriggers from gameState.recordLibraryExiles and the graveyard
+  // events' "leave … to exile" rows.
+  if (/^one or more cards are put into exile from your library and\/or your graveyard$/.test(c)) return { event: "libraryGraveyardExiled", scope: "you", whose: "any" };
+  // ONE OR MORE CREATURES AN OPPONENT CONTROLS ATTACK YOU AND AREN'T BLOCKED (the play-weighted program, #1261 — Coveted Jewel): the
+  // defending player's watcher, fired by checkBlockTriggers once blocks are declared (CR 509.2a — the bundled ruling: "triggers after
+  // you declare blockers (or declare no blockers at all) if any attacking creatures are unblocked"), ONCE per opponent with an
+  // unblocked creature attacking the watcher's controller AS A PLAYER (a creature attacking a planeswalker they control doesn't count
+  // — the ruling; CR 508.3e). That opponent rides the context as attackingPlayerId ("that player").
+  if (/^one or more creatures an opponent controls attack you and aren't blocked$/.test(c)) return { event: "opponentUnblockedAtYou", scope: "you", whose: "any" };
   if (/^an opponent attacks with creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any" };
   if (/^an opponent attacks you with two or more creatures$/.test(c)) return { event: "opponentAttacks", scope: "you", whose: "any", minAttackingYou: 2 };
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c)
@@ -4385,6 +4411,29 @@ const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights
 // ("that many" joined the put-counter number slot 2026-08-14 — Abomination, Irradiated Brute "put THAT
 // MANY +1/+1 counters on Abomination" off a combat-damage batch; the amount sentinel re-gates downstream.)
 const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from |(?:[^.]+ and )?put (?:a|an|one|two|three|four|five|\d+|that many) \+1\/\+1 counters? on )$/i;
+/**
+ * THE SELF-NAME AS A COUNTER'S OBJECT (the play-weighted program, #1343 — Palantír of Orthanc: "put an influence counter on Palantír of
+ * Orthanc and scry 2. … where X is the number of influence counters on Palantír of Orthanc, …"). A counter is put on, or counted on, an
+ * object — never a name — so the source's FULL name in "<a|an|N|the number of> <kind> counter(s) on <Name>" is the source itself (CR
+ * 201.5), wherever it stands in the clause: rewritten to "this creature", the self noun the counter readers bind to the source
+ * (add-named-counter-self, the namedCountersOnSource count) and the one staticAbilityParser.selfNormalizeOracle writes for the name, so
+ * the residue walk (coverage.stripTriggerEffectTails) still finds each later sentence of the effect in the normalized printed text. The
+ * kind is one lowercase word (a named counter — the ±1/±1 spellings keep rewriteSelfNameToThisCreature's arms). Every other occurrence
+ * of the name — "a card named …", a token's name — is left as printed. So is a quoted ability (CR 113.10 — Gutter Grime's Ooze token
+ * "with \"This token's power and toughness are each equal to the number of slime counters on Gutter Grime.\""): inside the quote,
+ * "this creature" would be the token, so the name stays.
+ */
+function rewriteSelfNameCounterObjects(effectClause, cardName) {
+  const fullName = String(cardName || "").trim();
+  if (fullName.length < 3) return effectClause;
+  const esc = fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`((?:\\b(?:an?|one|two|three|four|five|\\d+)|\\bthe number of) [a-z]+ counters? on )${esc}(?![\\p{L}\\p{N}])`, "giu");
+  // Split on the quoted spans (an unclosed quote runs to the end); the odd pieces are quoted and stay as printed.
+  return String(effectClause || "")
+    .split(/("[^"]*(?:"|$)|“[^”]*(?:”|$))/)
+    .map((seg, i) => (i % 2 ? seg : seg.replace(re, (_, head) => `${head}this creature`)))
+    .join("");
+}
 function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const eff = String(effectClause || "");
   const fullName = String(cardName || "").trim();
@@ -5298,6 +5347,7 @@ export function detectTriggers(cardIn) {
       // leads with the source's name + a modeled self-effect verb). Run BEFORE the "it" chain — a name and "it"
       // are different leading tokens, so they never conflict. The parser re-gates the effect (LOW → Arbiter).
       effectClause = rewriteSelfNameToThisCreature(effectClause, card.name);
+      effectClause = rewriteSelfNameCounterObjects(effectClause, card.name);
       // THE SOURCE'S OWN POWER AS A TOKEN COUNT (Elenda, Elenda's Hierophant, Threefold Thunderhulk) — see rewriteSelfPowerTokenCount.
       if (cls.scope === "self" && SELF_POWER_TOKEN_EVENTS.has(cls.event)) effectClause = rewriteSelfPowerTokenCount(effectClause, card.name);
       // GY-OWNER REFERENT (Bloodchief Ascension — SHELF S7, CR 603.2): on a gyEnter trigger, "that player"
@@ -5308,6 +5358,13 @@ export function detectTriggers(cardIn) {
       // The triggering-power sentinel precedent, event-gated exactly.
       if (cls.event === "gyEnter") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the graveyard's owner");
+      }
+      // THE ATTACKING OPPONENT (Coveted Jewel — "Whenever one or more creatures an opponent controls attack you and aren't blocked,
+      // that player draws three cards and gains control of this artifact."): "that player" is the player whose creatures attacked
+      // and weren't blocked (ctx.attackingPlayerId, threaded by checkBlockTriggers). The SENTINEL "the attacking player" — the gy-owner
+      // precedent above, event-gated exactly — is the only form the parser's attacking-player atom reads.
+      if (cls.event === "opponentUnblockedAtYou") {
+        effectClause = effectClause.replace(/^that player\b/i, "the attacking player");
       }
       // SELF GRAVEYARD ARRIVAL (③ · 16 — the Eldrazi titans): the trigger is controlled by the card's OWNER (CR 113.8 — it
       // triggers from the owner's graveyard), so "its owner shuffles their graveyard into their library" is the controller's
@@ -7579,6 +7636,28 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   }
 }
 
+/**
+ * DECAYED'S ATTACK TRIGGER (CR 702.147a — "When this creature attacks, sacrifice it at end of combat."; the play-weighted program, #1334
+ * Jadar, Ghoulcaller of Nephalia's Zombie tokens): as the attack declaration closes (gameEngine.closeAttackDeclaration, beside
+ * checkAttackTriggers), every DECLARED attacker that has decayed right now — the keyword read as it is (layers.permanentHasKeyword:
+ * printed, granted, a counter; none after a newer ability loss, CR 613.1f) — triggers once. Its effect is the attacks-or-blocks
+ * self class's "sacrifice it at end of combat" (removal.js self-at-end-of-combat, CR 511.2): the delayed sacrifice is set up as it
+ * resolves and happens at end of combat whatever the creature has by then (the bundled ruling: "Once a creature with decayed attacks,
+ * it will be sacrificed at end of combat, even if it no longer has decayed at that time"). A creature put onto the battlefield
+ * attacking never attacked (CR 508.4) — combat.attackers holds the declared ones as the declaration closes. The static half ("can't
+ * block") is combatEvasion.canBlockAttacker's. Pure; returns the state with the triggers queued.
+ */
+export function decayedAttackTriggers(state) {
+  const fired = [];
+  for (const rec of state.combat?.attackers || []) {
+    const lk = rec?.permanentId ? findPermanent(state, rec.permanentId) : null;
+    if (!lk || !permanentHasKeyword(state, lk.permanent.id, "Decayed")) continue;
+    const descriptor = { event: "attacks", scope: "self", whose: "any", effect: null, effectClause: "sacrifice it at end of combat", interveningIf: null, optional: false, sourceText: "Decayed" };
+    fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, { defenderId: rec.defender ?? null, ...(rec.defenderPlaneswalkerId ? { defenderPlaneswalkerId: rec.defenderPlaneswalkerId } : {}) }));
+  }
+  return fired.length ? { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] } : state;
+}
+
 function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, triggeringContext, beneficiary = null) {
   // BENEFICIARY OVERRIDE (subtypeGlobal — Synapse/Brood Sliver "its controller may …"): the effect resolves
   // for the DEALING creature's controller, NOT the watcher's controller. The `controller` field is what
@@ -8225,6 +8304,7 @@ export function checkDiesTriggers(state, dead) {
         if (gi === -1) continue;
         const card = gy[gi];
         out = { ...out, players: { ...out.players, [pid]: { ...out.players[pid], graveyard: [...gy.slice(0, gi), ...gy.slice(gi + 1)], exile: [...(out.players[pid].exile || []), card] } } };
+        out = recordGraveyardEvents(out, [{ dir: "leave", card, gyOwner: pid, zone: "exile" }]); // GY-EVENT: it left the graveyard for exile
         out = logEvent(out, { kind: "spell-effect", effect: "granted-dies-exile", cardName: card.name, controller: d.controller });
         break;
       }
@@ -8854,6 +8934,23 @@ export function checkBlockTriggers(state) {
     // planeswalker it's attacking" reaches the planeswalker here too.
     const context = att.defender ? { defenderId: att.defender, ...(att.defenderPlaneswalkerId ? { defenderPlaneswalkerId: att.defenderPlaneswalkerId } : {}) } : {};
     fired = fired.concat(triggersForEvent(state, { event: "attacksUnblocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
+  }
+  // ONE OR MORE CREATURES AN OPPONENT CONTROLS ATTACK YOU AND AREN'T BLOCKED (Coveted Jewel): per attacked PLAYER (never a planeswalker —
+  // the card's ruling) and per opponent of that player whose creatures attack them unblocked, ONE trigger of each of the attacked
+  // player's watchers (CR 603.2c — one event for the batch), the opponent threaded as attackingPlayerId. A creature put onto the
+  // battlefield attacking never attacked (CR 508.4): only a creature declared as an attacker this turn (actionDispatcher's
+  // `attackedThisTurn` stamp) counts. Runs before the no-blockers return, like the per-creature arm above.
+  const unblockedAtPlayer = [];
+  for (const att of state.combat?.attackers || []) {
+    if (!att?.permanentId || blockedAttackers.has(att.permanentId) || !att.defender || att.defenderPlaneswalkerId) continue;
+    const lk = findPermanent(state, att.permanentId);
+    if (!lk?.permanent?.attackedThisTurn || !state.players?.[att.defender] || !opponentsOf(state, att.defender).includes(lk.controller)) continue;
+    if (!unblockedAtPlayer.some((u) => u.defender === att.defender && u.attacker === lk.controller)) unblockedAtPlayer.push({ defender: att.defender, attacker: lk.controller });
+  }
+  for (const { defender, attacker } of unblockedAtPlayer) {
+    for (const watcher of triggerSourcesOf(state, defender)) {
+      fired = fired.concat(triggersForEvent(state, { event: "opponentUnblockedAtYou", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { attackingPlayerId: attacker, defenderId: defender } }));
+    }
   }
   if (!blockers.length) return fired.length ? { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] } : state;
   const seenBlocker = new Set();
@@ -10104,6 +10201,64 @@ export function checkUntapTriggers(state) {
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * SPELLS COUNTERED (the play-weighted program, #1340 — Baral, Chief of Compliance: "Whenever a spell or ability you control counters a
+ * spell, …"): drain `pendingCounteredSpells` — one row per spell a counter removed from the stack (effects/atoms/stack.counterSpellById,
+ * `counterer` the controller of the spell or ability that countered it, CR 701.6a) — into the counterer's "spellCountered" watchers,
+ * one trigger per spell countered. Rows are recorded only by a counter (Counterspell, a declined soft counter, a ward or Diffusion
+ * Sliver decline, Kira's granted trigger, the cast- and target-counter atoms), never by a bounce or exile of a spell that is no counter
+ * (Venser, Mindbreak Trap) nor by a spell that fails to resolve. A counterer who has left the game hears nothing. Pure.
+ */
+export function checkSpellCounteredTriggers(state) {
+  const events = state.pendingCounteredSpells || [];
+  if (!events.length) return state;
+  const { pendingCounteredSpells: _drop, ...cleared } = state;
+  let fired = [];
+  for (const ev of events) {
+    if (!ev?.counterer || !cleared.players?.[ev.counterer]) continue;
+    for (const watcher of triggerSourcesOf(cleared, ev.counterer)) {
+      fired = fired.concat(triggersForEvent(cleared, { event: "spellCountered", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { counteredSpellId: ev.spellId, counteredSpellController: ev.spellController ?? null } }));
+    }
+  }
+  return fired.length ? { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] } : cleared;
+}
+
+/**
+ * CARDS PUT INTO EXILE FROM A LIBRARY OR A GRAVEYARD (the play-weighted program, #1338 — Laelia, the Blade Reforged): drain
+ * `pendingLibraryExiles` (gameState.recordLibraryExiles — every library-to-exile move) and read, without consuming, the graveyard events'
+ * "leave" rows whose zone is exile (checkGraveyardEventTriggers drains those right after, in the same flush). The rows are grouped into
+ * exile EVENTS: every row with no `batch` is one event — what was exiled between two flushes (the graveyard-batch reading, CR 603.2c) — and
+ * each named batch is its own (one card at a time — cascade, discover — or a second event in one resolution). For each event, each
+ * player who owns one of its cards: their "libraryGraveyardExiled" watchers trigger once (CR 603.2c). Tokens never reach the rows. Pure.
+ */
+export function checkLibraryGraveyardExileTriggers(state) {
+  const lib = state.pendingLibraryExiles || [];
+  const gy = (state.pendingGraveyardEvents || []).filter((ev) => ev?.dir === "leave" && ev.zone === "exile" && ev.card && !ev.card.token);
+  if (!lib.length && !gy.length) return state;
+  const { pendingLibraryExiles: _drop, ...cleared } = state;
+  const events = new Map(); // batch key → the owners whose cards it exiled
+  const add = (key, owner) => { if (!events.has(key)) events.set(key, new Set()); events.get(key).add(owner); };
+  for (const r of lib) add(r.batch ? `b:${r.batch}` : "drain", r.owner);
+  for (const ev of gy) add("drain", ev.gyOwner);
+  // A WATCHER THAT WAS ONE OF THE CARDS (Living Death exiles Laelia from the graveyard with the rest, then returns them): the exile is a
+  // leave event, looked back on (CR 603.10a), and immediately before it the watcher was a card in a library or graveyard whose
+  // battlefield ability did not exist. Read off the board at the flush, after the whole resolution, it would hear it — so a watcher
+  // whose card is among this drain's cards, exiled or put into a graveyard, is skipped: checkGraveyardEventTriggers'
+  // inGraveyardThisDrain guard, with the library rows added. An under-fire at worst (a same-drain event after it arrived), never an FP.
+  const cardsThisDrain = new Set([...lib.map((r) => r.cardId), ...(state.pendingGraveyardEvents || []).map((ev) => ev?.card?.id)].filter((id) => id != null));
+  let fired = [];
+  for (const [, owners] of events) {
+    for (const pid of Object.keys(cleared.players || {})) {
+      if (!owners.has(pid)) continue;
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        if (cardsThisDrain.has(watcher.card?.id)) continue;
+        fired = fired.concat(triggersForEvent(cleared, { event: "libraryGraveyardExiled", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {} }));
+      }
+    }
+  }
+  return fired.length ? { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] } : cleared;
 }
 
 /**

@@ -382,7 +382,7 @@ function raiseTargetTax(state, stackObject, { playerId, name, uncounterable = fa
   const tax = targetTaxForStackObject(state, stackObject);
   if (!tax) return state;
   if (uncounterable) return logEvent(state, { kind: "spell-effect", effect: "counter-uncounterable", targetId: stackObject.id, cardName: name, controller: playerId, via: tax.wardName });
-  return setPendingSoftCounterChoice(state, { controller: playerId, cost: tax.cost, spellId: stackObject.id, spellName: name, sourceName: tax.wardName });
+  return setPendingSoftCounterChoice(state, { controller: playerId, cost: tax.cost, spellId: stackObject.id, spellName: name, sourceName: tax.wardName, counterer: tax.counterer ?? null });
 }
 
 function applyCastSpell(state, action) {
@@ -1240,6 +1240,10 @@ function applyCastSpell(state, action) {
   // fizzles harmlessly on the missing stack id (counterSpellById logs counter-fizzle). No-op when no Kira is in
   // play / the spell targets no eligible-and-fresh creature.
   next = applyKiraTargetCounter(next, stackObject);
+  // A SPELL KIRA COUNTERED (Baral, Chief of Compliance — "Whenever a spell or ability you control counters a spell"): the counter is
+  // recorded for the Kira creature's controller (counterSpellById); its watchers' triggers go on the stack before anyone receives
+  // priority (CR 603.3), so the queue is flushed here — the cast's own flushes above ran before the counter.
+  if (next.pendingCounteredSpells?.length && !next.pendingChoice) next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // CR 117.3c (CR-remediation B4): after casting, the CASTER retains priority — a non-active player
   // casting an instant in response keeps the window to act again (a second spell, another response)
   // instead of priority snapping back to the turn player. (The old code cited 117.1c, which governs

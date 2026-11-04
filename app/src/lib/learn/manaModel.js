@@ -1247,6 +1247,9 @@ const VIVID_ADD_SENTENCE_RE = /^for each color among permanents you control, add
  *     a coin flip) or "For each …" (Selvala, Explorer Returned's "For each nonland card revealed this way, add {G}"), so
  *     the amount is the condition's or the count's — the parse read the bare symbols as a flat amount. The vivid bundle,
  *     read for real, is the one exception.
+ *   · A COUNT AFTER THE ADD (pw28). Famous Museum's "Add {C}, plus an additional {C} for each art counter on Famous Museum." is
+ *     one mana plus one for each counter. No record reads that count, and the generic clause read its two symbols as a flat
+ *     {C}{C} whatever the counters were.
  *   · AN "UNLESS" ON THE ADD (2026-10-17). Rhystic Cave's "Add one mana of that color unless any player pays {1}." makes its mana
  *     only if no player pays (CR 118.12a) — another player's choice no record holds. It took the land's {C} fallback.
  *   · A COST ITEM NO RECORD PAYS (PAID_MANA_COST_ITEMS). The phantom-mana gate below names consumables one by one, so
@@ -1272,6 +1275,7 @@ function manaLineRefused(line) {
   if (/\btarget\b/i.test(effect)) return true;
   const sentence = (effect.split(/(?<=\.)\s+/).find((s) => /\badd\b/i.test(s)) || "").trim();
   if (/^(?:if|for each)\b/i.test(sentence) && !VIVID_ADD_SENTENCE_RE.test(sentence)) return true;
+  if (/\bplus an additional\b[^.]*\bfor each\b/i.test(sentence)) return true;
   // "… UNLESS <a player does something>" on the add (2026-10-17 — Rhystic Cave: "Add one mana of that color unless any player pays
   // {1}."): the mana is made only if no player takes the option as the ability resolves (CR 118.12a), a choice of other players
   // no record holds. The line used to parse to nothing and take the land's colourless fallback — {C}, a type it never makes.

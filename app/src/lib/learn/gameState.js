@@ -880,7 +880,31 @@ function placeInList(list, card, toTop, libraryIndex) {
   return toTop ? [card, ...list] : [...list, card];
 }
 
-export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false, libraryIndex = null }) {
+/**
+ * CARDS PUT INTO EXILE FROM A LIBRARY (the play-weighted program, #1338 — Laelia, the Blade Reforged: "Whenever one or more cards are
+ * put into exile from your library and/or your graveyard, …"). Recorded on `state.pendingLibraryExiles` — the
+ * pendingGraveyardEvents pattern; the graveyard half rides those (a "leave" event whose zone is "exile") — and drained into the
+ * watchers at the next flush (triggers.checkLibraryGraveyardExileTriggers). `ownerId` is the library's owner. `batch`
+ * names one exile event: every card recorded between two flushes with no batch is ONE event (the cards an instruction exiles at once —
+ * the graveyard-batch reading, CR 603.2c); a site that exiles cards ONE AT A TIME ("exile cards from the top until …" — cascade,
+ * discover, Tibalt's Trickery; Laelia's bundled ruling: "that player exiles those cards one at a time. Laelia's last ability will
+ * trigger that many times") or makes two events in one resolution names each its own. Every library-to-exile move records: the
+ * zone chokepoint (moveCardToZone) does so itself, the direct writes call this (libraryGraveyardExileLint.test.js pins the sites).
+ * Tokens are not cards (CR 111.7). Pure.
+ */
+export function recordLibraryExiles(state, ownerId, cards, batch = null) {
+  const evs = (cards || []).filter((c) => c && !c.token).map((c) => ({ owner: ownerId, cardId: c.id, ...(batch ? { batch } : {}) }));
+  if (!evs.length || !state?.players?.[ownerId]) return state;
+  return { ...state, pendingLibraryExiles: [...(state.pendingLibraryExiles || []), ...evs] };
+}
+/** The cards a site exiles ONE AT A TIME from `ownerId`'s library — each its own exile event (recordLibraryExiles' `batch`). */
+export function recordLibraryExilesOneAtATime(state, ownerId, cards) {
+  let next = state;
+  for (const c of cards || []) if (c) next = recordLibraryExiles(next, ownerId, [c], `one:${c.id}`);
+  return next;
+}
+
+export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false, libraryIndex = null, exileBatch = null }) {
   assertPlayer(playerId);
   assertZone(fromZone);
   assertZone(toZone);
@@ -1086,7 +1110,10 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     [fromZone]: nextSource,
     [toZone]: nextDest,
   }));
-  return gyEvent ? recordGraveyardEvents(moved, gyEvent) : moved;
+  // LIBRARY → EXILE (Laelia, the Blade Reforged — recordLibraryExiles): the chokepoint records it; `exileBatch` names the event for a caller
+  // that exiles one card at a time or makes more than one event (Demonic Consultation's top six, then the revealed rest).
+  const exiled = fromZone === "library" && toZone === "exile" ? recordLibraryExiles(moved, playerId, [card], exileBatch) : moved;
+  return gyEvent ? recordGraveyardEvents(exiled, gyEvent) : exiled;
 }
 
 /**
@@ -1237,6 +1264,7 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
   let surveilled = []; // the cards a surveil puts into the graveyard — GY-EVENT (SHELF S7)
   let shuffledBack = []; // the binned cards whose own replacement shuffles them into the library instead (CR 614.1a)
+  let exiledInstead = []; // the binned cards the exile-instead replacement exiles from the library (Laelia — recordLibraryExiles)
   let keptCount = 0;
   const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
@@ -1252,11 +1280,12 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
     const { toGraveyard, toExile, toLibrary } = splitGraveyardBound(state, playerId, moved); // P·27 — exile instead (CR 614.1a)
     surveilled = toGraveyard;
     shuffledBack = toLibrary;
+    exiledInstead = toExile;
     keptCount = kept.length;
     return { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...toGraveyard], exile: [...(player.exile || []), ...toExile] };
   });
   // A binned Blightsteel Colossus is shuffled into the library under the kept cards, which stay on top (CR 701.24g).
-  const recorded = recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  const recorded = recordLibraryExiles(recordGraveyardEvents(next, surveilled.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" }))), playerId, exiledInstead);
   return shuffleIntoLibraryInstead(recorded, playerId, shuffledBack, { keepTop: keptCount });
 }
 
@@ -1277,6 +1306,7 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
   const keepSet = new Set((chosenIds && chosenIds.length ? chosenIds : [chosenId]).filter((x) => x != null));
   let discarded = []; // the non-chosen cards a graveyard-disposing dig puts into the GY — GY-EVENT (SHELF S7)
   let shuffledBack = []; // those whose own replacement shuffles them into the library instead (CR 614.1a)
+  let exiledInstead = []; // those the exile-instead replacement exiles from the library (Laelia — recordLibraryExiles)
   const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
@@ -1293,14 +1323,14 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
     }
     const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
     const split = restTo === "graveyard" ? splitGraveyardBound(state, playerId, others) : null; // P·27 — exile instead (CR 614.1a)
-    if (split) { discarded = split.toGraveyard; shuffledBack = split.toLibrary; }
+    if (split) { discarded = split.toGraveyard; shuffledBack = split.toLibrary; exiledInstead = split.toExile; }
     // K7 (Make Your Own Luck "Put the rest into your hand"): a HAND rest — the non-chosen looked-at cards join the hand.
     if (restTo === "hand") return { ...player, hand: [...hand, ...others], library: [...rest] };
     return split
       ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...split.toGraveyard], exile: [...(player.exile || []), ...split.toExile] }
       : { ...player, hand, library: [...rest, ...others] };
   });
-  const recorded = recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  const recorded = recordLibraryExiles(recordGraveyardEvents(next, discarded.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" }))), playerId, exiledInstead);
   return shuffleIntoLibraryInstead(recorded, playerId, shuffledBack);
 }
 
@@ -1328,6 +1358,7 @@ export function millCards(state, { playerId, count }) {
   }));
   // GY-EVENT (SHELF S7): every milled card that reached it enters its owner's graveyard from the library.
   next = recordGraveyardEvents(next, toGraveyard.map((card) => ({ dir: "enter", card, gyOwner: playerId, zone: "library" })));
+  next = recordLibraryExiles(next, playerId, toExile); // a milled card exiled instead is put into exile from the library (Laelia)
   next = shuffleIntoLibraryInstead(next, playerId, toLibrary);
   // MILLED-THIS-TURN ledger (Tato Farmer "…that was milled this turn"; the Raul cast-permission class):
   // every milled card id (in a public zone) → the turn it was milled, stamped HERE at the single mill primitive (the

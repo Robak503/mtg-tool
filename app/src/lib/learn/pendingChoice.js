@@ -557,7 +557,7 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
  * (and can afford it), the spell SURVIVES; otherwise it's countered. The caster's continuation rides on
  * `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
  */
-export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null, counterDest = null }) {
+export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null, counterDest = null, counterer = null }) {
   if (state.pendingChoice) return state;
   // `amount` is the legacy FIXED-GENERIC cost (Force Spike / Mana Leak / generic-mana ward). `cost` is the
   // KW-WARD-PR2 STRUCTURED cost descriptor ({kind:"mana",mana} | {kind:"life",life} | … — ward.js) — when present it
@@ -574,6 +574,10 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
       amount,
       ...(cost ? { cost } : {}),
       ...(counterDest ? { counterDest } : {}),
+      // The player whose spell or ability counters the object on a decline (the soft counter's controller; a ward's or Diffusion
+      // Sliver's controller) — counterSpellById records the counter for them (Baral, Chief of Compliance). Absent on a save from
+      // before the field: the counter then records no counterer, and no "you counter a spell" watcher hears it.
+      ...(counterer ? { counterer } : {}),
       spellId,
       spellName,
       sourceName,

@@ -978,6 +978,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // caught in the flip audit: it credited Corpse Hauler while making its ability unable to
         // ever have a legal target — the runtime-invisible FP class.)
         if (effect.excludeTriggeringCard && ctx?.triggeringCardId && card.id === ctx.triggeringCardId) continue;
+        // THE SPELL'S OWN CARD (Rotten Reunion's, Coffin Purge's and Mystic Retrieval's flashback): a spell cast from a graveyard is
+        // moved to the stack before its targets are announced (CR 601.2a, 601.2c), so its card is no longer a card in a graveyard and
+        // never a target of its own. The cast offers thread the card being cast (`castCardId`, legalChoices.castActionsFromZone); a
+        // spell cast from any other zone has no card in a graveyard to drop.
+        if (ctx?.castCardId != null && card.id === ctx.castCardId) continue;
         if (!cardMatchesGraveyardFilter(card, effect.cardFilter, state, pid)) continue;
         // LESSER THAN THE TRIGGERING OBJECT (Scrap Trawler): strictly below the mana value the triggering permanent had as it last
         // existed — its copy stamp when a copy effect named it (`triggeringCopyMv`, CR 707.2), else its card's (X counts 0, CR 107.3).

@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
-import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder, addCounter, updatePermanentSafe } from "../../gameState.js"; // + addCounter, updatePermanentSafe (Promise of Loyalty's vow) // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
+import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, removeCounter, creaturePower, creatureToughness, diesExiledInstead, shufflesIntoLibraryInsteadOfGraveyard, addMana, deathLookback, deathEventKind, destructionReplacementFor, apnapOrder, addCounter, updatePermanentSafe } from "../../gameState.js"; // + addCounter, updatePermanentSafe (Promise of Loyalty's vow) // + shufflesIntoLibraryInsteadOfGraveyard (#582): Saw in Half's "dies this way" verdict // + deathLookback: the death look-back every death site shares (the sacrifice sites included) // + deathEventKind: the event a death site logs, named by where the card goes // + destructionReplacementFor (#587): the destroy's own replacement ladder (its one copy, in gameState), read for "destroyed this way"
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers } from "../../triggers.js"; // + checkPlaneswalkerDiesTriggers (#639): a planeswalker sacrificed in a batch — or alone (2026-10-17) — dies too (CR 700.4)
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -1779,19 +1779,65 @@ function applyPumpNotChosenType(state, atom, ctx) {
 }
 
 /**
- * BASILISK TOUCH enqueue (BLITZ DG-1, CR 511) — the destroy-at-end-of-combat resolver does NOT destroy:
- * it pushes a TURN-STAMPED entry onto state.endOfCombatEffects for the triggering creature (the contact
- * partner — ctx.triggeringPermanentId, the thatCreature referent). combatResolution.drainEndOfCombatEffects
- * performs the actual destroy at the end-of-combat boundary through the SHARED applyDestroyEffect (so
- * indestructible / shield counter / regeneration / totem armor / dies-triggers behave exactly like any
- * destroy), and DROPS any entry stamped with an earlier turn (a stale delayed destroy firing in a LATER
- * combat would be a forbidden FP; a dropped one is FN-safe). A vanished / absent referent enqueues nothing
- * (a clean no-op — the creature already left, CR 603.10a look-backs don't resurrect it for a destroy).
+ * THE END-OF-COMBAT DELAYED ABILITIES (CR 603.7, 511.2) — "destroy that creature / sacrifice it / return it to its owner's hand /
+ * remove a +1/+1 counter from it at end of combat". The three atoms below don't act: each pushes a TURN-STAMPED entry onto
+ * state.endOfCombatEffects, the delayed triggered ability its resolving trigger created. As the end of combat step begins, before
+ * anyone gets priority, gameEngine.runStepActions turns every entry of this turn into a delayed trigger (delayedTrigger.
+ * drainEndOfCombatQueue — the `[end-of-combat <op> <permanentId>]` sentinel) that goes on the stack with the step's other "at end of
+ * combat" triggers; an entry from an earlier turn is dropped there (a stale delayed destroy in a later combat would be an FP). So a
+ * player has priority in the combat damage step after damage with the creature still on the battlefield (CR 510.3 — a decayed
+ * Zombie sacrificed to an outlet), and again with the trigger on the stack. Until pw28's review the queue was drained at the end of
+ * the regular combat damage step's damage, before any priority, and an entry was stranded when no regular damage step happened.
+ * Each entry carries its CONTROLLER — the player who controlled the ability that created it (CR 603.7e) — and its source.
  */
+function endOfCombatEntryOwner(ctx) {
+  return { controller: ctx.controller ?? null, sourceId: ctx.sourceId ?? null, sourceCardName: ctx.cardName || null };
+}
+
+/** The sentinel's parser: `[end-of-combat <destroy|sacrifice|bounce|remove-counter> <permanentId> [<counter type>]]`, case-preserving on the id. */
+export function endOfCombatEntryClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[end-of-combat (destroy|sacrifice|bounce|remove-counter) (\S+)(?: (\S+))?\]$/i);
+  if (!m) return null;
+  const action = m[1].toLowerCase();
+  return { op: "end-of-combat-entry", action, permanentId: m[2], ...(action === "remove-counter" ? { counterType: m[3] || "+1/+1" } : {}), targetType: null };
+}
+
+/**
+ * The delayed ability resolves (CR 608.2): its permanent, if it is still on the battlefield as the same object, is destroyed through
+ * the shared applyDestroyEffect (indestructible, shield counters, regeneration, totem armor, dies triggers), sacrificed through the
+ * shared sacrifice primitive, returned to its owner's hand, or loses one counter of the kind (the 0-toughness death is the
+ * state-based actions' after it resolves, CR 704.5f). One already gone is left alone (CR 603.7c). A SACRIFICE takes only a permanent
+ * the ability's controller still controls (CR 701.21a — a decayed creature an opponent stole after it attacked survives it).
+ */
+export function applyEndOfCombatEntry(state, atom, ctx) {
+  const id = atom.permanentId;
+  const lk = id ? findPermanent(state, id) : null;
+  if (!lk) return state;
+  const cardName = lk.permanent.card?.name;
+  const source = ctx.cardName || null;
+  if (atom.action === "sacrifice") {
+    if (lk.controller !== ctx.controller) return logEvent(state, { kind: "end-of-combat-sacrifice-skipped", turn: state.turn, target: id, cardName, controller: lk.controller, abilityController: ctx.controller });
+    const next = logEvent(state, { kind: "end-of-combat-sacrifice", turn: state.turn, target: id, cardName, source });
+    return sacrificeCreatureEffect(next, ctx.controller, id);
+  }
+  if (atom.action === "bounce") {
+    const next = logEvent(state, { kind: "end-of-combat-bounce", turn: state.turn, target: id, cardName, source });
+    return moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "hand", cardId: id });
+  }
+  if (atom.action === "remove-counter") {
+    const type = atom.counterType || "+1/+1";
+    const next = logEvent(state, { kind: "end-of-combat-remove-counter", turn: state.turn, target: id, counterType: type, cardName, source });
+    return removeCounter(next, { permanentId: id, type, amount: 1 });
+  }
+  const next = logEvent(state, { kind: "end-of-combat-destroy", turn: state.turn, target: id, cardName, source });
+  return applyDestroyEffect(next, { controller: lk.controller, targets: [{ type: "creature", id }] });
+}
+
+/** BASILISK TOUCH enqueue (BLITZ DG-1) — the triggering creature (the contact partner, ctx.triggeringPermanentId); one already gone enqueues nothing. */
 function applyDestroyAtEndOfCombat(state, atom, ctx) {
   const id = ctx.triggeringPermanentId;
   if (!id || !findPermanent(state, id)) return state;
-  const entry = { op: "destroy", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const entry = { op: "destroy", permanentId: id, turn: state.turn, ...endOfCombatEntryOwner(ctx) };
   const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
   return logEvent(next, { kind: "spell-effect", effect: "destroy-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
 }
@@ -1802,8 +1848,8 @@ function applySelfAtEndOfCombat(state, atom, ctx) {
   const id = ctx.sourceId;
   if (!id || !findPermanent(state, id)) return state;
   const entry = atom.action === "remove-counter"
-    ? { op: "remove-counter", counterType: atom.counterType, permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null }
-    : { op: atom.action === "bounce" ? "bounce" : "sacrifice", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+    ? { op: "remove-counter", counterType: atom.counterType, permanentId: id, turn: state.turn, ...endOfCombatEntryOwner(ctx) }
+    : { op: atom.action === "bounce" ? "bounce" : "sacrifice", permanentId: id, turn: state.turn, ...endOfCombatEntryOwner(ctx) };
   const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
   return logEvent(next, { kind: "spell-effect", effect: `${entry.op}-at-end-of-combat-enqueued`, target: id, source: ctx.cardName || null });
 }
@@ -1812,7 +1858,7 @@ function applySelfAtEndOfCombat(state, atom, ctx) {
 function applyBounceAtEndOfCombat(state, atom, ctx) {
   const id = ctx.triggeringPermanentId;
   if (!id || !findPermanent(state, id)) return state;
-  const entry = { op: "bounce", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const entry = { op: "bounce", permanentId: id, turn: state.turn, ...endOfCombatEntryOwner(ctx) };
   const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
   return logEvent(next, { kind: "spell-effect", effect: "bounce-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
 }
@@ -1891,7 +1937,8 @@ export const removalResolvers = {
   "bounce-not-chosen-type": applyBounceNotChosenType, // RAISE THE PALISADE (#888) — the same choice and set, returned to their owners' hands
   "pump-not-chosen-type": applyPumpNotChosenType, // CRIPPLING FEAR (#2047) — the same choice and set, -N/-N until end of turn
   "mass-destroy-add-mana-per-destroyed": applyMassDestroyAddManaPerDestroyed, // CULLING RITUAL (#587) — destroy each nonland permanent with mana value N or less + one {X}-or-{Y} mana per permanent destroyed
-  "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
+  "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; the end of combat step's entry stacks it
+  "end-of-combat-entry": applyEndOfCombatEntry, // pw28 review F1 — the end-of-combat delayed ability, resolving off the stack (the [end-of-combat] sentinel)
   "destroy": (state, atom, ctx) =>
     atom.diesCopyRider
       ? applyDestroyDiesCopy(state, atom, ctx) // DESTROY-DIES-COPY — Saw in Half (the copies only if it died this way)

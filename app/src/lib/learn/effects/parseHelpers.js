@@ -761,7 +761,7 @@ export function parseTokenManaAbility(quotedWithQuotes) {
 // Canonical case for the non-combat keywords a token may carry (combat ones come from canonicalCombatKeyword).
 // The SP-1 four are included so a minted token's keywords[]/oracle read in Oracle casing; the minted oracle
 // line (tokens.js keywords.join) is what the structural instance counters + hasKeyword scan match on.
-const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible", defender: "Defender", shadow: "Shadow", flanking: "Flanking", exalted: "Exalted" };
+const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible", defender: "Defender", shadow: "Shadow", flanking: "Flanking", exalted: "Exalted", decayed: "Decayed" };
 /**
  * Parse a keyword-token's "with …" phrase ("flying", "flying and vigilance", "first strike, deathtouch, and
  * lifelink") into canonical keyword names, or null if ANY word is outside the enforced+layer-aware GRANTABLE

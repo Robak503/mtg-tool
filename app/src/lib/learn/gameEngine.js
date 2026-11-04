@@ -78,7 +78,7 @@ import {
   checkBecomesTargetTriggers,
   checkCrimeTriggers, // CRIME (CR 700.13, shelf D9) — a triggered ability that targets an opponent's side reaching the stack
   checkUntapTriggers,
-  checkTapTriggers, checkCounterTriggers,
+  checkTapTriggers, checkCounterTriggers, checkSpellCounteredTriggers, checkLibraryGraveyardExileTriggers, decayedAttackTriggers,
   checkGraveyardEventTriggers,
   checkSagaChapterTriggers,
   checkDiscardTriggers, // CR 514.1 — the cleanup hand-size discard is a discard (CR 701.9a)
@@ -114,7 +114,7 @@ import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { shuffleControllerLibrary, tutorManaValue } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle); + the mana-value reader the forced trigger target ranks by
 import { stackSpellManaValue } from "./spellOnStack.js"; // a spell target's mana value ON THE STACK (CR 202.3 — the announced X, the half cast) for the forced trigger-target pick; a zero-import leaf
-import { drainDelayedTriggers, dropSkippedExtraTurnRecords } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle); + the skipped-extra-turn drop (CR 614.10a)
+import { drainDelayedTriggers, dropSkippedExtraTurnRecords, drainEndOfCombatQueue } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle); + the skipped-extra-turn drop (CR 614.10a)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE, lostManaBecomesColorless } from "./staticAbilityParser.js";
@@ -891,6 +891,14 @@ export function runStepActions(state) {
       next = drained.state;
     }
   }
+  // THE END-OF-COMBAT QUEUE (pw28 review F1 — CR 511.2, 603.7): the delayed "at end of combat" abilities the combat's triggers created
+  // (a basilisk's destroy, decayed's and the self class's sacrifice or bounce, a Clockwork's counter) trigger as this step begins and go
+  // on the stack with the step's other triggers — not inside the combat damage step, where the creature must still be there when the
+  // active player gets priority after damage (CR 510.3). The queue empties here every end of combat step, so nothing is stranded.
+  if (next.step === "end-of-combat") {
+    const eoc = drainEndOfCombatQueue(next);
+    next = eoc.fired.length ? { ...eoc.state, pendingTriggers: [...(eoc.state.pendingTriggers || []), ...eoc.fired] } : eoc.state;
+  }
   if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
   // KW-SUSPEND (CR 702.62a) — tick the active player's suspended exile cards beside the other
   // time-counter upkeep; a card reaching zero becomes castable FREE via legalChoices (the real path).
@@ -1150,7 +1158,8 @@ export function closeAttackDeclaration(state) {
   // KW-MYRIAD (CR 702.116a — effects/atoms/myriad.js): each myriad instance on a declared attacker triggers too, beside the printed
   // attack triggers (one pending trigger each, on the stack at the flush below).
   // EXERT (CR 701.43d — exertAttack.js): each attacker exerted as it was declared triggers its linked "When you do" ability with them.
-  const triggered = exertAttackTriggers(myriadAttackTriggers(checkAttackTriggers(recorded)));
+  // DECAYED (CR 702.147a — triggers.decayedAttackTriggers): each declared attacker with decayed now triggers its "sacrifice it at end of combat".
+  const triggered = exertAttackTriggers(myriadAttackTriggers(decayedAttackTriggers(checkAttackTriggers(recorded))));
   // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach): resolves
   // draw-that-many + may-put-a-permanent synchronously, enqueuing its cardDrawn / ETB sub-triggers for the flush below.
   // Fired AFTER checkAttackTriggers so its draw lands after the printed attack triggers' enqueue.
@@ -2447,6 +2456,9 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // GY-EVENT drain (SHELF S7): convert queued graveyard enter/leave events into pending triggers FIRST —
   // every settlement path funnels through this flush, so a recorded event always fires here (BEFORE the
   // empty-pending early return, which would otherwise strand a queue with no other pending triggers).
+  // LIBRARY/GRAVEYARD → EXILE drain (Laelia, the Blade Reforged): reads the graveyard events' leave-to-exile rows, so it runs FIRST —
+  // checkGraveyardEventTriggers consumes them next.
+  state = checkLibraryGraveyardExileTriggers(state);
   state = checkGraveyardEventTriggers(state);
   // BECOMES-TAPPED drain (BLITZ TR-1): same funnel discipline — a tap recorded during action dispatch (mana /
   // crew / cost / attack) or a resolution converts its self "becomes tapped" watcher here, at the next
@@ -2458,6 +2470,10 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   // priority-grant checkpoint. BEFORE the empty-pending early return so a lone counter trigger isn't
   // stranded. Idempotent (empty queue → no-op), so re-entrant flushes can't double-fire.
   state = checkCounterTriggers(state);
+  // SPELLS-COUNTERED drain (Baral, Chief of Compliance — "Whenever a spell or ability you control counters a spell"): the same funnel
+  // discipline — a counter recorded during resolution, a soft-counter decline or Kira's synchronous counter converts to its watchers'
+  // triggers here. BEFORE the empty-pending early return; idempotent (an empty queue is a no-op).
+  state = checkSpellCounteredTriggers(state);
   let pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
   // A PLAYER WHO HAS LEFT THE GAME (CR 800.4d): "If a triggered ability that would be controlled by a player who has left the
@@ -2854,7 +2870,7 @@ function markWardOwed(state, so) {
   if (!tax) return state;
   const at = (state.stack || []).findIndex((o) => o.id === so.id);
   if (at < 0) return state;
-  return { ...state, stack: state.stack.map((o, i) => (i === at ? { ...o, wardOwed: { cost: tax.cost, wardName: tax.wardName } } : o)) };
+  return { ...state, stack: state.stack.map((o, i) => (i === at ? { ...o, wardOwed: { cost: tax.cost, wardName: tax.wardName, ...(tax.counterer ? { counterer: tax.counterer } : {}) } } : o)) };
 }
 
 /**
@@ -2874,7 +2890,7 @@ export function raiseWardOwed(state) {
   const obj = stack[at];
   const { wardOwed, ...rest } = obj;
   const asked = { ...state, stack: stack.map((o, i) => (i === at ? rest : o)) };
-  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName });
+  return setPendingSoftCounterChoice(asked, { controller: obj.controller, cost: wardOwed.cost, spellId: obj.id, spellName: obj.source?.name ?? null, sourceName: wardOwed.wardName, counterer: wardOwed.counterer ?? null });
 }
 
 /** Once no ability of the batch waits for its controller, put what triggered meanwhile on the stack (the flush the batch's own would have run). */

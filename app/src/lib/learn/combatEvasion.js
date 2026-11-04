@@ -1324,6 +1324,9 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // trigger → a layer-6 endOfTurn "cantBlock" keyword). Layer-aware via permanentHasKeyword, so it tracks
   // the temporary grant exactly like the printed restriction above and wears off at cleanup (CR 514.2).
   if (permanentHasKeyword(state, blockerId, "cantBlock")) return false;
+  // DECAYED (CR 702.147a — "This creature can't block"): the keyword as it is now — printed, granted or a counter, and gone after a
+  // newer ability loss (permanentHasKeyword) — so a decayed Zombie token never blocks and a Turn to Frog'd one may.
+  if (permanentHasKeyword(state, blockerId, "Decayed")) return false;
   // PAIRWISE CANT-BLOCK (④-BA — "target creature can't block THIS creature this turn"): the grant names the attacker's
   // id, so only THIS pair is refused; the blocker keeps every other block (CR 509.1b — a restriction on one attacker).
   if (permanentHasKeyword(state, blockerId, `cantBlockSource:${attackerId}`)) return false;

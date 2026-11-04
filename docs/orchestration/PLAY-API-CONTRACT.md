@@ -10,7 +10,26 @@
 
 ---
 
-## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.19.0"`
+## 1. The play-API (`app/src/lib/learn/gameApi.js`) — `PLAY_API_VERSION = "1.20.0"`
+
+> **v1.20.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw28, after pw27's
+> 1.19.0):** each rides a kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").
+> - `"soft-counter"` may carry `counterer` — the player whose spell or ability counters the object if it isn't paid for (the soft counter's
+>   controller; a ward's or Diffusion Sliver's controller), so "Whenever a spell or ability you control counters a spell" (Baral, Chief of
+>   Compliance; Lullmage Mentor) hears the counter. The answer is the same.
+> - `"activate-ability"` with a counted tap cost ("Tap seven untapped Merfolk you control" — Lullmage Mentor; Kirol, Clock of Omens,
+>   Cryptbreaker, Lathril) is offered to a person's seat once per distinct set of permanents that can pay it (CR 601.2h — each action's
+>   `tapCountIds`, named in `tapCountNames` — each payer's printed name plus what tells it apart, "Merfolk (blocking Hill Giant)"); two
+>   permanents are one offer only when nothing tells them apart (`legalChoices.interchangeablePayerKey`); every other seat's one action is
+>   unchanged.
+> - state: `pendingCounteredSpells` (the spells a counter removed since the last flush, each with its `counterer`), `pendingLibraryExiles` (the
+>   cards put into exile from a library since the last flush, with their owner and an optional `batch` — Laelia, the Blade Reforged) and a
+>   stack object's `wardOwed.counterer`.
+> - An `endOfCombatEffects` entry carries `controller` and `sourceId`; the entries go on the stack as delayed triggered abilities as the end
+>   of combat step begins (CR 511.2 — a decayed or basilisk creature is still on the battlefield when the active player gets priority after
+>   combat damage). A stack object of the existing triggered-ability kind; nothing new for a driver to answer.
+> - Save format **v17** (stamp-only, CONTRACT-MIG — `learnSaveSchema.MIGRATIONS[16]`; a v16 entry without a `controller` takes its
+>   permanent's controller as it drains).
 
 > **v1.19.0 (additive MINOR, 2026-11-03 — new fields on existing kinds; the play-weighted slice pw27, after pw26's 1.18.0):** each rides a
 > kind a driver already handles (§5: "new additive fields on decisions/actions/answers/state").

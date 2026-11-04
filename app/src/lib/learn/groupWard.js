@@ -77,7 +77,8 @@ export function groupWardInstancesFor(state, stackObj) {
   const caster = stackObj?.controller;
   const costs = [];
   const names = [];
-  if (!caster) return { costs, names };
+  const controllers = []; // each Diffusion-style trigger's controller (ward.targetTaxForStackObject's counterer)
+  if (!caster) return { costs, names, controllers };
   const seen = new Set();
   const lossy = boardHasAbilityLoss(state);
   for (const t of stackObj.targets || []) {
@@ -89,11 +90,12 @@ export function groupWardInstancesFor(state, stackObj) {
       const gw = parseGroupWard(perm ? (lossy ? withAbilityLoss(state, perm) : perm.card) : null);
       if (!gw || !permIsSubtypeCreature(state, t.id, gw.subtype)) continue;
       costs.push(genericCost(gw.generic));
+      controllers.push(lk.controller);
       const name = perm.card?.name || null;
       if (!names.includes(name)) names.push(name);
     }
   }
-  return { costs, names };
+  return { costs, names, controllers };
 }
 
 /**
